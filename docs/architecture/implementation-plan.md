@@ -114,35 +114,40 @@ so any module can be extracted later without a rewrite.
 | ADR-07 | **LLM provider abstraction** with Claude (official `@anthropic-ai/sdk`, structured outputs) and a deterministic **heuristic provider** | Tests are deterministic; an LLM outage degrades to lane C instead of stopping intake | Hard dependency on one provider |
 | ADR-08 | **Policy-as-code** for the permission matrix, risk cells and approval chains; rules (bucketing, priority) as data | Security-critical invariants are reviewed as code; tunable heuristics are editable by admins | Everything configurable (lets an admin disable maker–checker) |
 | ADR-09 | **Opaque server sessions** (hashed token in DB, HttpOnly cookie) + CSRF header; OIDC SSO in production | "Sign out of other devices" and instant revocation are product features | Stateless JWT (cannot revoke) |
-| ADR-10 | **React 18 + Vite + TanStack Query + React Router**, CSS variables design tokens, no UI kit | The design language is bespoke and dense; a kit would fight it | MUI/Chakra |
+| ADR-10 | **React 19 + Vite + TanStack Query + React Router**, CSS variables design tokens, no UI kit | The design language is bespoke and dense; a kit would fight it | MUI/Chakra |
 
 ### 2.3 Repository layout
 
 ```
 apps/
-  server/                 api + worker (one package, two entrypoints)
+  server/                 api + worker (one package, two entrypoints; tsup bundles each)
     src/
-      config/             env parsing (zod), feature flags
-      platform/           db, tenancy, auth, rbac, audit, outbox, jobs, idempotency, sse, metrics, errors
+      config/             env parsing (zod) with production guards
+      platform/           errors, logger, crypto, clock, request context, audit chain, outbox, jobs,
+                          rbac, device/session, http helpers (tenant txn, idempotency), sse, metrics
+      domain/             pure rules: risk matrix, lanes, priority, SLA, transitions, PII, NL filter
       modules/
-        tickets/          ticket CRUD, state machine, board queries, NL filters, search
-        triage/           pipeline, agents runtime, PII masking, LLM providers, trace spans
-        gateway/          approvals (maker–checker), execution, undo/recall windows, duplicate check
-        drafts/ calls/    draft edits → eval data; telephony adapter, transcripts, summaries
-        people/           staff, availability, clearance, auto-assign, router
-        agents/           agent catalog, versions, evals, feedback, calibration
-        policies/         action library, risk matrix, autonomy dial, rules, permission matrix
-        knowledge/        sources, documents, readiness, gap tickets
-        insights/         performance, results, KPIs, alerts, copilot answers
-        learning/         notifications, courses, quiz completions
-        org/              orgs, memberships, settings, sessions, mailboxes, connectors
-      db/                 schema.ts, migrations/, seed/
-      worker.ts main.ts
+        auth/             sign-in, sessions, org and demo-role switch, nav counts
+        tickets/          queries, board facets, detail assembly, commands (status, assign, split…)
+        gateway/          gate state, approvals (maker–checker), execution, undo/recall, duplicate check
+        triage/           pipeline, trace spans, LLM providers (Claude, heuristic, circuit breaker)
+        intake/           signed webhook, mail simulator, Microsoft/Google OAuth
+        people/ calls/    staff, clearance, auto-assign; call sessions, transcripts, wrap-up
+        setup/            agents & boards; actions, dial, policies, knowledge, ownership, mailboxes
+        insights/ learning/ search/
+      db/                 schema.ts, migrations/ (generated + security.sql), seed/, reset
+      routes/             auth, tickets, workspace
+      main.ts worker.ts
+    test/integration/     Fastify + real Postgres: RLS, audit chain, gateway, idempotency, RBAC
   web/                    React SPA
+    src/app ui lib features/<area>   shell & routes; primitives; api/query/SSE; one folder per screen
+    e2e/                  Playwright against the running stack
 packages/
-  contracts/              Zod schemas + inferred types shared by server and web
-docs/                     architecture, ux, runbooks, design source
-infra/                    Dockerfiles, docker-compose, env templates
+  contracts/              Zod schemas + inferred types shared by server and web (side-effect free)
+docs/                     architecture, ux, dev conventions, design source
+infra/docker/             server & web Dockerfiles, nginx.conf, Postgres init
+docker-compose.yml        local production-shaped stack
+.github/workflows/ci.yml  lint, format, typecheck, unit, integration, e2e, image builds
 ```
 
 ---
@@ -356,7 +361,7 @@ Key endpoints (full list in `apps/server/src/modules/*/routes.ts`):
 
 ## 8. Frontend architecture
 
-- React 18 + TypeScript + Vite; React Router with **deep links** (`/inbox/QRY-48211`, `/tickets?status=approval`)
+- React 19 + TypeScript + Vite; React Router with **deep links** (`/inbox/QRY-48211`, `/tickets?status=approval`)
   — the prototype had no URLs, so nothing could be shared or bookmarked.
 - TanStack Query for server state (per-resource keys, SSE-driven invalidation, optimistic updates on
   subtasks/watch/clearance); local UI state in components.
@@ -425,3 +430,30 @@ cost), 1 × infra/SRE, embedded Risk & Compliance partner. Each phase ends with 
 | Core banking / cards / payments connectors | Sandbox connector with idempotency semantics; real connectors are per-bank integration work |
 | Telephony | Simulated adapter (transcript playback); a CPaaS adapter (e.g. Twilio/Exotel) is the production path |
 | Historical metrics | Seeded 12-week history so dashboards render on day one; live metrics are computed from tickets |
+
+---
+
+## 12. Verification
+
+| Suite | What it proves | Where |
+|---|---|---|
+| Unit (25) | Risk matrix and chains (irreversible is always dual; a template can raise the bar, never lower it; only 0-0 auto-executes), lane order (safety → ownership → confidence), hard priority rules can't be disabled, SLA grading/pausing, transitions, PII masking, NL filter | `apps/server/src/domain/domain.test.ts` |
+| Integration (17) | 401/CSRF/validation problem documents; RLS returns nothing without a tenant and one tenant with it; cross-workspace reads are 404; the app role cannot update or delete audit rows and the hash chain verifies; idempotent maker approval; maker ≠ checker; checker approval executes via the worker with no undo; recall inside the window, send after it; staff can't widen autonomy; the locked cell can't be dialled up; clearance writes are org-scoped; batch approvals count as approve-without-open | `apps/server/test/integration` (own `*_test` database) |
+| Web unit (4) | Edit diff and flagged-phrase highlighting | `apps/web/src/features/inbox/diff.test.ts` |
+| End-to-end (12) | Demo sign-in, queue order and deep links, J/K, full maker–checker execution, edit → send → recall, send-back with reason, take-over, fields/trace/composer, every lead and admin screen, staff denied setup, NL filter, command palette | `apps/web/e2e` — passes against the dev stack and against the Docker images behind nginx |
+
+Bugs these found and fixed during the build: the session cache was orphaned on sign-in (new session
+never rendered); card numbers were masked as Aadhaar numbers, leaking the last four digits to the model;
+the Inbox auto-advanced past an open recall window; nav and queue counts disagreed.
+
+### 12.1 Known gaps (tracked, not blocking the pilot)
+
+| Gap | Why it matters | Next step |
+|---|---|---|
+| Calibration is keyed by agent name | A renamed agent would lose its history | Store `agent_id` on `prediction_outcomes` |
+| A broken knowledge source can only request re-consent | Nothing completes the re-consent in this build | Wire the source OAuth callback, as for mailboxes |
+| No endpoint lists who may own a query type | Ownership UI can only pick "next eligible" | `GET /v1/taxonomy/departments/:id/eligible` |
+| Action template wizard's guardrails are display-only | `ActionTemplateBody` has no guardrails field | Add guardrail rows to templates and enforce them at the gate |
+| Session list labels every device generically | Harder for a user to spot a stray session | Parse the user agent at sign-in |
+| Seeded "light" tickets in Auto/Draft lanes carry no prepared work | The gate says "Nothing prepared yet" for them | Seed an action/draft for each, or run them through triage at seed time |
+

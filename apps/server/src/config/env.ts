@@ -42,6 +42,16 @@ const Env = z.object({
 
 export type Env = z.infer<typeof Env>;
 
+/** Local development convenience: read `.env` from the working directory (never overrides real env). */
+function loadDotEnv(): void {
+  if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') return;
+  try {
+    process.loadEnvFile();
+  } catch {
+    /* no .env file: defaults apply */
+  }
+}
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = Env.safeParse(source);
   if (!parsed.success) {
@@ -58,4 +68,5 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   return env;
 }
 
+loadDotEnv();
 export const env = loadEnv();
