@@ -5,8 +5,9 @@
 const PATTERNS: { kind: string; re: RegExp }[] = [
   { kind: 'EMAIL', re: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi },
   { kind: 'PAN', re: /\b[A-Z]{5}\d{4}[A-Z]\b/g },
-  { kind: 'AADHAAR', re: /\b\d{4}\s\d{4}\s\d{4}\b/g },
+  // Cards before Aadhaar: a 16-digit card number starts with an Aadhaar-shaped 12 digits.
   { kind: 'CARD', re: /\b(?:\d{4}[ -]){3}\d{4}\b/g },
+  { kind: 'AADHAAR', re: /\b\d{4}\s\d{4}\s\d{4}\b(?![ -]\d)/g },
   { kind: 'PHONE', re: /(?:\+91[\s-]?)?\b[6-9]\d{9}\b/g },
   { kind: 'ACCOUNT', re: /\b\d{11,18}\b/g },
 ];
