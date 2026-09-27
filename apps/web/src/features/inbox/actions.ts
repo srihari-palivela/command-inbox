@@ -37,7 +37,10 @@ export function useTicketActions(t: TicketDetailDTO) {
         ? 'Sent back. A hard stop rule was proposed so this pattern always comes to a person.'
         : 'Sent back to the AI. The correction is stored against this query type; the ticket is yours now.',
   });
-  const undo = useAction(() => api.post(`/v1/tickets/${id}/gate/undo`), { ...inv, success: 'Undone. Nothing reached core systems.' });
+  const undo = useAction(() => api.post(`/v1/tickets/${id}/gate/undo`), {
+    ...inv,
+    success: t.gate.mode === 'draft' ? 'Recalled. Nothing was sent to the customer.' : 'Undone. Nothing reached core systems.',
+  });
   const amend = useAction((fields: { label: string; value: string }[]) => api.patch(`/v1/tickets/${id}/action/fields`, { fields }), {
     ...inv,
     success: 'Fields updated. Your edit is saved as a correction for the extractor.',

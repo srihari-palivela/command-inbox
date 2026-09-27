@@ -55,6 +55,12 @@ export default function InboxScreen() {
     [navigate, search],
   );
 
+  // Reflect the default selection in the URL so what's on screen is always shareable.
+  const firstNumber = items[0]?.number;
+  useEffect(() => {
+    if (!param && firstNumber) go(firstNumber, true);
+  }, [param, firstNumber, go]);
+
   const move = useCallback(
     (delta: 1 | -1) => {
       if (!items.length) return;
@@ -66,8 +72,9 @@ export default function InboxScreen() {
   );
 
   const onApproved = (r: ApproveResult) => {
-    // Stay put while an undo window is open so the person can use it; otherwise move on if they want to.
-    if (r.outcome !== 'scheduled' && pref(me, 'autoAdvance')) setTimeout(() => move(1), 500);
+    // Stay put while an undo or recall window is open ('scheduled', 'sending') so the person can use it;
+    // once the work has left their hands, move on if they want to.
+    if ((r.outcome === 'awaiting_checker' || r.outcome === 'taken') && pref(me, 'autoAdvance')) setTimeout(() => move(1), 500);
   };
 
   // Keyboard: J/K move, A approve, R reply, E edit, ? help. Only when the person has shortcuts on.

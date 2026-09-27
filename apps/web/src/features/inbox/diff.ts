@@ -8,7 +8,9 @@ export interface DiffPart {
   op: 'same' | 'add' | 'del';
 }
 
-const tokenize = (s: string) => s.split(/(\s+)/).filter((t) => t.length > 0);
+// Words keep their trailing whitespace, so an edited phrase reads as one change rather than
+// alternating word/space fragments.
+const tokenize = (s: string) => s.match(/\S+\s*|\s+/g) ?? [];
 
 export function wordDiff(before: string, after: string): DiffPart[] {
   const a = tokenize(before);

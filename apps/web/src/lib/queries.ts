@@ -109,7 +109,7 @@ export function useLogin() {
     mutationFn: (email: string) => api.post<MeDTO>('/v1/auth/login', { email }),
     onSuccess: (me) => {
       setCsrfToken(me.csrfToken);
-      qc.clear();
+      dropAllButMe(qc);
       qc.setQueryData(keys.me, me);
     },
   });
@@ -120,10 +120,18 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => api.post('/v1/auth/logout'),
     onSettled: () => {
-      qc.clear();
+      dropAllButMe(qc);
       qc.setQueryData(keys.me, null);
     },
   });
+}
+
+/**
+ * A new identity invalidates every cached answer. `me` itself is kept (and overwritten) rather than
+ * removed: the App is observing it, and a removed query would leave that observer on stale data.
+ */
+function dropAllButMe(qc: QueryClient) {
+  qc.removeQueries({ predicate: (q) => q.queryKey[0] !== keys.me[0] });
 }
 
 /** Switching workspace or demo role changes everything: drop the whole cache. */
@@ -133,8 +141,10 @@ export function useSessionSwitch() {
     mutationFn: (v: { orgId?: string; role?: 'staff' | 'lead' | 'admin' }) =>
       v.orgId ? api.post('/v1/session/org', { orgId: v.orgId }) : api.post('/v1/session/demo-role', { role: v.role }),
     onSuccess: async () => {
-      qc.clear();
-      await qc.fetchQuery({ queryKey: keys.me, queryFn: () => api.get<MeDTO>('/v1/me').then((me) => (setCsrfToken(me.csrfToken), me)) });
+      dropAllButMe(qc);
+      const me = await api.get<MeDTO>('/v1/me');
+      setCsrfToken(me.csrfToken);
+      qc.setQueryData(keys.me, me);
     },
   });
 }
