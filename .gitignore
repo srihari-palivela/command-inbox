@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+!.env.example
+*.log
+playwright-report
+test-results
+.DS_Store
+apps/web/e2e/screenshots

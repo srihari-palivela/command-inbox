@@ -1,0 +1,208 @@
+/**
+ * Request schemas. Every mutating endpoint validates its body with one of these, and the web client
+ * uses the inferred types, so the two cannot drift.
+ */
+import { z } from 'zod';
+import {
+  AgentTemplate,
+  ClearanceLevel,
+  CommentKind,
+  DialLevel,
+  KnowledgeKind,
+  KpiMetric,
+  Lane,
+  MailProvider,
+  NotificationKind,
+  Priority,
+  RejectReason,
+  RiskCell,
+  TicketStatus,
+} from './enums.js';
+
+const trimmed = (max: number) => z.string().trim().min(1).max(max);
+
+// ── Auth & session ────────────────────────────────────────────────────────────
+export const LoginBody = z.object({ email: z.string().trim().toLowerCase().email() });
+export type LoginBody = z.infer<typeof LoginBody>;
+
+export const SwitchOrgBody = z.object({ orgId: z.string().uuid() });
+export type SwitchOrgBody = z.infer<typeof SwitchOrgBody>;
+
+export const DemoRoleBody = z.object({ role: z.enum(['staff', 'lead', 'admin']) });
+export type DemoRoleBody = z.infer<typeof DemoRoleBody>;
+
+export const SettingsBody = z.object({
+  prefs: z.record(z.string(), z.boolean()).optional(),
+  signature: z.string().max(2000).optional(),
+});
+export type SettingsBody = z.infer<typeof SettingsBody>;
+
+// ── Tickets ───────────────────────────────────────────────────────────────────
+export const TicketFilters = z.object({
+  board: z.string().optional(),
+  status: z.enum(['triage', 'approval', 'executing', 'human', 'customer', 'resolved']).optional(),
+  lane: Lane.optional(),
+  team: z.string().optional(),
+  owner: z.string().optional(), // 'mine' | 'ai' | 'unassigned' | <userId>
+  due: z.enum(['risk', 'open', 'closed']).optional(),
+  conf: z.enum(['low', 'high']).optional(),
+  pri: Priority.optional(),
+  bucket: z.string().optional(),
+  q: z.string().max(200).optional(),
+});
+export type TicketFilters = z.infer<typeof TicketFilters>;
+export type FilterKey = keyof TicketFilters;
+
+export const InboxQuery = z.object({
+  filter: z.enum(['all', 'auto', 'draft', 'manual', 'late']).default('all'),
+});
+export type InboxQuery = z.infer<typeof InboxQuery>;
+
+export const NlFilterBody = z.object({ query: trimmed(300) });
+export type NlFilterBody = z.infer<typeof NlFilterBody>;
+
+export const TransitionBody = z.object({ to: TicketStatus });
+export type TransitionBody = z.infer<typeof TransitionBody>;
+
+export const AssignBody = z.object({ userId: z.string().uuid().nullable().optional() });
+export type AssignBody = z.infer<typeof AssignBody>;
+
+export const OverrideLaneBody = z.object({ lane: Lane });
+export type OverrideLaneBody = z.infer<typeof OverrideLaneBody>;
+
+export const CommentBody = z.object({ kind: CommentKind.exclude(['system', 'call']), body: trimmed(5000) });
+export type CommentBody = z.infer<typeof CommentBody>;
+
+export const SubtaskBody = z.object({ done: z.boolean() });
+export type SubtaskBody = z.infer<typeof SubtaskBody>;
+
+export const WatchBody = z.object({ watching: z.boolean() });
+export type WatchBody = z.infer<typeof WatchBody>;
+
+export const MergeBody = z.object({ intoNumber: z.string().regex(/^QRY-\d+$/) });
+export type MergeBody = z.infer<typeof MergeBody>;
+
+// ── Approval gateway ──────────────────────────────────────────────────────────
+export const ApproveBody = z.object({
+  /** Whether the approver opened the evidence (reasoning, fields or draft) before approving. */
+  openedEvidence: z.boolean().default(false),
+});
+export type ApproveBody = z.infer<typeof ApproveBody>;
+
+export const RejectBody = z.object({ reason: RejectReason });
+export type RejectBody = z.infer<typeof RejectBody>;
+
+export const BatchApproveBody = z.object({ ticketIds: z.array(z.string().uuid()).min(1).max(50) });
+export type BatchApproveBody = z.infer<typeof BatchApproveBody>;
+
+export const DraftBody = z.object({ body: z.string().max(20000) });
+export type DraftBody = z.infer<typeof DraftBody>;
+
+export const ReplyBody = z.object({ body: trimmed(20000) });
+export type ReplyBody = z.infer<typeof ReplyBody>;
+
+export const ActionFieldsBody = z.object({
+  fields: z.array(z.object({ label: z.string(), value: z.string().max(500) })).min(1),
+});
+export type ActionFieldsBody = z.infer<typeof ActionFieldsBody>;
+
+// ── Calls ─────────────────────────────────────────────────────────────────────
+export const SaveCallBody = z.object({ discard: z.boolean().default(false) });
+export type SaveCallBody = z.infer<typeof SaveCallBody>;
+
+// ── People ────────────────────────────────────────────────────────────────────
+export const ClearanceBody = z.object({
+  userId: z.string().uuid(),
+  departmentId: z.string().uuid(),
+  level: ClearanceLevel,
+});
+export type ClearanceBody = z.infer<typeof ClearanceBody>;
+
+// ── Insights ──────────────────────────────────────────────────────────────────
+export const KpiBody = z.object({
+  name: trimmed(80),
+  metric: KpiMetric,
+  viz: z.enum(['bars', 'number']),
+  scope: z.enum(['team', 'me']),
+  target: z.number().finite(),
+});
+export type KpiBody = z.infer<typeof KpiBody>;
+
+export const AskBody = z.object({ question: trimmed(500) });
+export type AskBody = z.infer<typeof AskBody>;
+
+export const SearchQuery = z.object({ q: z.string().trim().max(200).default('') });
+export type SearchQuery = z.infer<typeof SearchQuery>;
+
+// ── Learning ──────────────────────────────────────────────────────────────────
+export const NotificationBody = z.object({
+  title: trimmed(160),
+  kind: NotificationKind,
+  body: z.string().max(2000).optional(),
+  courseId: z.string().uuid().optional(),
+});
+export type NotificationBody = z.infer<typeof NotificationBody>;
+
+export const MarkReadBody = z.object({ ids: z.array(z.string().uuid()).optional(), all: z.boolean().optional() });
+export type MarkReadBody = z.infer<typeof MarkReadBody>;
+
+export const CourseCompleteBody = z.object({ answers: z.array(z.number().int().min(0)).max(50) });
+export type CourseCompleteBody = z.infer<typeof CourseCompleteBody>;
+
+// ── Setup: boards, agents, actions, rules, knowledge ─────────────────────────
+export const BoardBody = z.object({
+  name: trimmed(80),
+  provider: MailProvider,
+  mailbox: z.string().trim().toLowerCase().email(),
+  departmentId: z.string().uuid().optional(),
+});
+export type BoardBody = z.infer<typeof BoardBody>;
+
+export const AgentBody = z.object({
+  name: trimmed(60),
+  template: AgentTemplate,
+  model: z.string().min(3).max(80),
+  prompt: trimmed(8000),
+  boardIds: z.array(z.string().uuid()).min(1),
+});
+export type AgentBody = z.infer<typeof AgentBody>;
+
+export const AgentVersionBody = z.object({ prompt: trimmed(8000), model: z.string().min(3).max(80).optional() });
+export type AgentVersionBody = z.infer<typeof AgentVersionBody>;
+
+export const AgentBoardsBody = z.object({ boardIds: z.array(z.string().uuid()) });
+export type AgentBoardsBody = z.infer<typeof AgentBoardsBody>;
+
+export const DialBody = z.object({ cell: RiskCell, level: DialLevel });
+export type DialBody = z.infer<typeof DialBody>;
+
+export const ActionTemplateBody = z.object({
+  name: trimmed(120),
+  system: trimmed(60),
+  cell: RiskCell,
+});
+export type ActionTemplateBody = z.infer<typeof ActionTemplateBody>;
+
+export const RuleToggleBody = z.object({ enabled: z.boolean() });
+export type RuleToggleBody = z.infer<typeof RuleToggleBody>;
+
+export const DecideBody = z.object({ approve: z.boolean() });
+export type DecideBody = z.infer<typeof DecideBody>;
+
+export const KnowledgeSourceBody = z.object({ kind: KnowledgeKind, name: trimmed(80).optional() });
+export type KnowledgeSourceBody = z.infer<typeof KnowledgeSourceBody>;
+
+export const OwnerBody = z.object({ userId: z.string().uuid() });
+export type OwnerBody = z.infer<typeof OwnerBody>;
+
+// ── Intake (dev / webhook) ────────────────────────────────────────────────────
+export const IntakeMessageBody = z.object({
+  mailbox: z.string().trim().toLowerCase().email(),
+  fromName: trimmed(120),
+  fromEmail: z.string().trim().toLowerCase().email(),
+  subject: trimmed(300),
+  body: trimmed(50000),
+  messageId: z.string().max(300).optional(),
+  inReplyTo: z.string().max(300).optional(),
+});
+export type IntakeMessageBody = z.infer<typeof IntakeMessageBody>;
