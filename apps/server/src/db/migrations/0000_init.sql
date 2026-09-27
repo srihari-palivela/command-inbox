@@ -664,6 +664,7 @@ CREATE TABLE "tickets" (
 	"parent_id" uuid,
 	"merged_into_id" uuid,
 	"split_proposed" boolean DEFAULT false NOT NULL,
+	"accepted_at" timestamp with time zone,
 	"logged_minutes" integer DEFAULT 0 NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,

@@ -433,6 +433,9 @@ async function seedApex(
   SERIES.execActual.forEach((value, i) =>
     metricRows.push({ orgId, metric: 'exec.actual', day: dayStr(new Date(now.getTime() - (13 - i) * DAY)), value }),
   );
+  metricRows.push({ orgId, metric: 'spend.imported_minor', day: dayStr(now), value: 214_000_00 });
+  metricRows.push({ orgId, metric: 'shift.closed_imported', day: dayStr(now), value: 25 });
+  metricRows.push({ orgId, metric: 'shift.saved_imported', day: dayStr(now), value: 124 });
   await tx.insert(s.dailyMetrics).values(metricRows);
 
   // ── Customers & tickets ─────────────────────────────────────────────────

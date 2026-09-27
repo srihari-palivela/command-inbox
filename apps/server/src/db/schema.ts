@@ -260,6 +260,8 @@ export const tickets = pgTable(
     parentId: uuid('parent_id'),
     mergedIntoId: uuid('merged_into_id'),
     splitProposed: boolean('split_proposed').notNull().default(false),
+    /** When a person took ownership of a manual-lane ticket ("Take it on"). */
+    acceptedAt: ts('accepted_at'),
     loggedMinutes: integer('logged_minutes').notNull().default(0),
     version: integer('version').notNull().default(1),
     createdAt: createdAt(),

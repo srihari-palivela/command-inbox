@@ -70,3 +70,15 @@ BEGIN
   END LOOP;
 END
 $$;
+--> statement-breakpoint
+
+-- Intake webhooks arrive before any tenant is known. This narrowly scoped lookup (address → org) is the
+-- only cross-tenant read the application role can make.
+CREATE OR REPLACE FUNCTION ci_mailbox_org(addr text) RETURNS uuid
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT org_id FROM mailboxes WHERE address = lower(addr) LIMIT 1
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION ci_mailbox_org(text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION ci_mailbox_org(text) TO ci_app;

@@ -1,6 +1,6 @@
 {
-  "id": "adfda43a-e3aa-4ad1-b596-5e029a559d30",
-  "prevId": "1941149f-a0c3-4497-a4c3-7e6179a06dcd",
+  "id": "0548ca20-791d-44b8-9ad7-6b50019c1a3d",
+  "prevId": "4e9dd400-0b19-417f-89f1-8bbb9276bb67",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4360,6 +4360,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "accepted_at": {
+          "name": "accepted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "logged_minutes": {
           "name": "logged_minutes",
