@@ -66,6 +66,8 @@ export interface NavCounts {
   learning: number;
   agents: number;
   gaps: number;
+  /** Risk cells where the AI may act on its own (of 4). */
+  autonomousCells: number;
 }
 
 export interface SettingsDTO {

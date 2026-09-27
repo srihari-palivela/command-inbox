@@ -232,6 +232,7 @@ export async function buildMe(ctx: Ctx, csrfToken: string): Promise<MeDTO> {
                                and not exists (select 1 from notification_reads r where r.notification_id = n.id and r.user_id = ${ctx.user.id})`),
       agents: await one(sql`select count(*)::int n from agents`),
       gaps: await one(sql`select count(*)::int n from gap_tickets where closed_at is null`),
+      autonomousCells: await one(sql`select count(*)::int n from autonomy_dial where level >= 2`),
     };
   });
 
