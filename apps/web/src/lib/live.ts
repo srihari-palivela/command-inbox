@@ -22,7 +22,16 @@ export function useLiveUpdates(enabled: boolean): boolean {
       }
       if (topics.has('activity.created')) invalidate(qc, [keys.activity]);
       if (topics.has('notification.created')) invalidate(qc, [keys.learning, keys.me]);
-      if (topics.has('setup.updated')) invalidate(qc, [keys.boards, keys.agents, keys.actions, keys.policies, keys.knowledge, keys.taxonomy, keys.admin]);
+      if (topics.has('setup.updated'))
+        invalidate(qc, [
+          keys.boards,
+          keys.agents,
+          keys.actions,
+          keys.policies,
+          keys.knowledge,
+          keys.taxonomy,
+          keys.admin,
+        ]);
       if (topics.has('people.updated')) invalidate(qc, [keys.people, keys.performance]);
       if (topics.has('insights.updated')) invalidate(qc, [keys.performance, keys.results]);
       if (topics.has('learning.updated')) invalidate(qc, [keys.learning]);
@@ -32,7 +41,17 @@ export function useLiveUpdates(enabled: boolean): boolean {
       clearTimeout(flushTimer);
       flushTimer = setTimeout(flush, 150); // coalesce bursts (one approval emits several events)
     };
-    const topics = ['ticket.updated', 'ticket.created', 'gate.updated', 'activity.created', 'notification.created', 'setup.updated', 'people.updated', 'insights.updated', 'learning.updated'];
+    const topics = [
+      'ticket.updated',
+      'ticket.created',
+      'gate.updated',
+      'activity.created',
+      'notification.created',
+      'setup.updated',
+      'people.updated',
+      'insights.updated',
+      'learning.updated',
+    ];
     for (const t of topics) es.addEventListener(t, on(t));
     es.addEventListener('ready', () => setConnected(true));
     es.onerror = () => setConnected(false);

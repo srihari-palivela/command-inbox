@@ -98,7 +98,9 @@
   overflow: hidden;
   color: var(--muted);
   font-size: 12px;
-  transition: border-color 0.16s ease, background 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
 }
 .searchBtn:hover {
   border-color: var(--accent-line-2);
@@ -214,7 +216,9 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-2);
-  transition: background 0.18s ease, color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
 }
 .navItem:hover {
   background: var(--surface-2);

@@ -9,7 +9,12 @@ import s from './Inbox.module.css';
 
 // ── Filled action ─────────────────────────────────────────────────────────────
 export const FilledAction = forwardRef<HTMLElement, { a: ActionDTO }>(function FilledAction({ a }, ref) {
-  const approvers = a.chain === 'dual' ? 'needs you and a second approver' : a.chain === 'auto' ? 'runs on its own inside the rules' : 'needs your approval';
+  const approvers =
+    a.chain === 'dual'
+      ? 'needs you and a second approver'
+      : a.chain === 'auto'
+        ? 'runs on its own inside the rules'
+        : 'needs your approval';
   return (
     <section ref={ref} aria-label="Filled action">
       <Card
@@ -17,7 +22,11 @@ export const FilledAction = forwardRef<HTMLElement, { a: ActionDTO }>(function F
         meta={<span className="mono">{a.templateCode}</span>}
         actions={
           <>
-            <Pill fg={a.reversible ? 'var(--ok)' : 'var(--bad-text)'} bg={a.reversible ? 'var(--ok-bg)' : 'var(--bad-bg)'} line={a.reversible ? 'var(--ok-line)' : 'var(--bad-line)'}>
+            <Pill
+              fg={a.reversible ? 'var(--ok)' : 'var(--bad-text)'}
+              bg={a.reversible ? 'var(--ok-bg)' : 'var(--bad-bg)'}
+              line={a.reversible ? 'var(--ok-line)' : 'var(--bad-line)'}
+            >
               {a.reversible ? 'Can be undone' : 'Cannot be undone'}
             </Pill>
             {a.moneyMoves && (
@@ -37,7 +46,9 @@ export const FilledAction = forwardRef<HTMLElement, { a: ActionDTO }>(function F
             <div key={f.label} className={s.fieldCell}>
               <div className={s.fieldTop}>
                 <span>{f.label}</span>
-                <span style={{ color: f.inferred ? 'var(--warn)' : 'var(--ok)' }}>{f.inferred ? 'inferred' : 'verified'}</span>
+                <span style={{ color: f.inferred ? 'var(--warn)' : 'var(--ok)' }}>
+                  {f.inferred ? 'inferred' : 'verified'}
+                </span>
               </div>
               <div className={s.fieldVal}>{f.value}</div>
               <div className={s.small} style={{ marginTop: 0 }}>
@@ -79,13 +90,22 @@ function Cited({ text }: { text: string }) {
 
 export const DraftCard = forwardRef<
   HTMLElement,
-  { d: DraftDTO; t: TicketDetailDTO; actions: TicketActions; editing: boolean; onEditing: (v: boolean) => void }
+  {
+    d: DraftDTO;
+    t: TicketDetailDTO;
+    actions: TicketActions;
+    editing: boolean;
+    onEditing: (v: boolean) => void;
+  }
 >(function DraftCard({ d, t, actions, editing, onEditing }, ref) {
   const edited = d.currentBody.trim() !== d.originalBody.trim();
   const [showDiff, setShowDiff] = useState(true);
   const [text, setText] = useState(d.currentBody);
   const locked = d.state !== 'draft';
-  const diff = useMemo(() => (edited && showDiff ? wordDiff(d.originalBody, d.currentBody) : null), [edited, showDiff, d.originalBody, d.currentBody]);
+  const diff = useMemo(
+    () => (edited && showDiff ? wordDiff(d.originalBody, d.currentBody) : null),
+    [edited, showDiff, d.originalBody, d.currentBody],
+  );
   const paras = useMemo(() => highlight(d.currentBody, d.flagged), [d.currentBody, d.flagged]);
 
   const startEdit = () => {
@@ -109,7 +129,12 @@ export const DraftCard = forwardRef<
           editing ? null : (
             <>
               {edited && (
-                <Button size="sm" variant="soft" aria-pressed={showDiff} onClick={() => setShowDiff((v) => !v)}>
+                <Button
+                  size="sm"
+                  variant="soft"
+                  aria-pressed={showDiff}
+                  onClick={() => setShowDiff((v) => !v)}
+                >
                   {showDiff ? 'Showing your edit' : 'Show your edit'}
                 </Button>
               )}
@@ -135,7 +160,13 @@ export const DraftCard = forwardRef<
             <label className="sr-only" htmlFor="draft-edit">
               Edit the reply
             </label>
-            <textarea id="draft-edit" className={s.editArea} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+            <textarea
+              id="draft-edit"
+              className={s.editArea}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              autoFocus
+            />
             <div className={s.composerFoot}>
               <span className={s.small} style={{ marginTop: 0 }}>
                 Your edit is kept next to the AI's version and used to teach the drafter.
@@ -144,7 +175,13 @@ export const DraftCard = forwardRef<
               <Button size="sm" onClick={() => onEditing(false)}>
                 Cancel
               </Button>
-              <Button size="sm" variant="primary" loading={actions.saveDraft.isPending} disabled={!text.trim() || text === d.currentBody} onClick={save}>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={actions.saveDraft.isPending}
+                disabled={!text.trim() || text === d.currentBody}
+                onClick={save}
+              >
                 Save draft
               </Button>
             </div>
@@ -155,7 +192,13 @@ export const DraftCard = forwardRef<
               <p>
                 {diff.map((p, i) => (
                   <span key={i} className={cx(p.op === 'add' && s.add, p.op === 'del' && s.del)}>
-                    {p.op === 'del' ? <del>{p.text}</del> : p.op === 'add' ? <ins style={{ textDecoration: 'none' }}>{p.text}</ins> : p.text}
+                    {p.op === 'del' ? (
+                      <del>{p.text}</del>
+                    ) : p.op === 'add' ? (
+                      <ins style={{ textDecoration: 'none' }}>{p.text}</ins>
+                    ) : (
+                      p.text
+                    )}
                   </span>
                 ))}
               </p>
@@ -202,55 +245,57 @@ export const DraftCard = forwardRef<
 });
 
 // ── Brief ─────────────────────────────────────────────────────────────────────
-export const BriefCard = forwardRef<HTMLElement, { b: BriefDTO; t: TicketDetailDTO; actions: TicketActions }>(function BriefCard({ b, t, actions }, ref) {
-  const [started, setStarted] = useState<number | null>(null);
-  return (
-    <section ref={ref} aria-label="Brief for you">
-      <Card
-        title="Handed to you, pre-worked"
-        actions={
-          <Pill fg="var(--warn)" bg="var(--warn-bg)" line="var(--warn-line)">
-            {b.why}
-          </Pill>
-        }
-      >
-        <div className={s.label}>Agent summary</div>
-        <p style={{ fontSize: 13.5, lineHeight: 1.62 }}>{b.summary}</p>
-        <div className={s.briefGrid}>
-          <div className={s.briefBox}>
-            <Eyebrow style={{ marginBottom: 8 }}>Context pulled for you</Eyebrow>
-            {b.context.map((c) => (
-              <div key={c.label} className={s.ctxRow}>
-                <span>{c.label}</span>
-                <span>{c.value}</span>
-              </div>
-            ))}
+export const BriefCard = forwardRef<HTMLElement, { b: BriefDTO; t: TicketDetailDTO; actions: TicketActions }>(
+  function BriefCard({ b, t, actions }, ref) {
+    const [started, setStarted] = useState<number | null>(null);
+    return (
+      <section ref={ref} aria-label="Brief for you">
+        <Card
+          title="Handed to you, pre-worked"
+          actions={
+            <Pill fg="var(--warn)" bg="var(--warn-bg)" line="var(--warn-line)">
+              {b.why}
+            </Pill>
+          }
+        >
+          <div className={s.label}>Agent summary</div>
+          <p style={{ fontSize: 13.5, lineHeight: 1.62 }}>{b.summary}</p>
+          <div className={s.briefGrid}>
+            <div className={s.briefBox}>
+              <Eyebrow style={{ marginBottom: 8 }}>Context pulled for you</Eyebrow>
+              {b.context.map((c) => (
+                <div key={c.label} className={s.ctxRow}>
+                  <span>{c.label}</span>
+                  <span>{c.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className={s.briefBox}>
+              <Eyebrow>Suggested next moves</Eyebrow>
+              {b.suggestions.map((sg, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={s.sug}
+                  disabled={!t.permissions.canWork || actions.startSuggestion.isPending}
+                  onClick={() => {
+                    setStarted(i);
+                    actions.startSuggestion.mutate(i);
+                  }}
+                  title="Start this as a sub-task you own"
+                >
+                  <Dot color={started === i ? 'var(--ok-dot)' : 'var(--accent)'} size={6} />
+                  <span>{sg.label}</span>
+                  <span className={s.sugMeta}>{sg.meta}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className={s.briefBox}>
-            <Eyebrow>Suggested next moves</Eyebrow>
-            {b.suggestions.map((sg, i) => (
-              <button
-                key={i}
-                type="button"
-                className={s.sug}
-                disabled={!t.permissions.canWork || actions.startSuggestion.isPending}
-                onClick={() => {
-                  setStarted(i);
-                  actions.startSuggestion.mutate(i);
-                }}
-                title="Start this as a sub-task you own"
-              >
-                <Dot color={started === i ? 'var(--ok-dot)' : 'var(--accent)'} size={6} />
-                <span>{sg.label}</span>
-                <span className={s.sugMeta}>{sg.meta}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
-    </section>
-  );
-});
+        </Card>
+      </section>
+    );
+  },
+);
 
 // ── Progress after approval ───────────────────────────────────────────────────
 type StepState = 'done' | 'active' | 'todo';
@@ -261,7 +306,11 @@ function stepsFor(g: GateDTO): { label: string; state: StepState; note?: string 
     return [
       { label: 'Check the draft', state: 'done' },
       { label: 'Your approval', state: 'done' },
-      { label: 'Send to the customer', state: after(['done']) ? 'done' : 'active', note: g.state === 'scheduled' ? 'recallable' : undefined },
+      {
+        label: 'Send to the customer',
+        state: after(['done']) ? 'done' : 'active',
+        note: g.state === 'scheduled' ? 'recallable' : undefined,
+      },
       { label: 'Write audit record', state: after(['done']) ? 'done' : 'todo' },
     ];
   }
@@ -271,7 +320,10 @@ function stepsFor(g: GateDTO): { label: string; state: StepState; note?: string 
     {
       label: dual ? 'Second approver' : 'Your approval',
       state: g.state === 'awaiting_checker' ? 'active' : 'done',
-      note: g.state === 'awaiting_checker' ? (g.proposedChecker?.name ?? g.checker?.name ?? 'waiting') : undefined,
+      note:
+        g.state === 'awaiting_checker'
+          ? (g.proposedChecker?.name ?? g.checker?.name ?? 'waiting')
+          : undefined,
     },
     {
       label: 'Execute in core banking',
@@ -284,10 +336,17 @@ function stepsFor(g: GateDTO): { label: string; state: StepState; note?: string 
 
 export function Progress({ t }: { t: TicketDetailDTO }) {
   const g = t.gate;
-  if (g.mode === 'manual' || !['awaiting_checker', 'scheduled', 'executing', 'done'].includes(g.state)) return null;
+  if (g.mode === 'manual' || !['awaiting_checker', 'scheduled', 'executing', 'done'].includes(g.state))
+    return null;
   const steps = stepsFor(g);
   const done = g.state === 'done';
-  const title = done ? (g.mode === 'draft' ? 'Reply sent' : 'Action carried out in core banking') : g.mode === 'draft' ? 'Sending the reply' : 'Carrying out the action';
+  const title = done
+    ? g.mode === 'draft'
+      ? 'Reply sent'
+      : 'Action carried out in core banking'
+    : g.mode === 'draft'
+      ? 'Sending the reply'
+      : 'Carrying out the action';
   return (
     <Card
       title={
@@ -295,11 +354,21 @@ export function Progress({ t }: { t: TicketDetailDTO }) {
           <Dot color={done ? 'var(--ok-dot)' : 'var(--accent)'} pulse={!done} /> {title}
         </span>
       }
-      meta={t.action?.externalRef ? <span className="mono">ref {t.action.externalRef}</span> : <span className="mono">{t.number}</span>}
+      meta={
+        t.action?.externalRef ? (
+          <span className="mono">ref {t.action.externalRef}</span>
+        ) : (
+          <span className="mono">{t.number}</span>
+        )
+      }
     >
       <ol className={s.steps} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {steps.map((st, i) => (
-          <li key={st.label} className={cx(s.step, st.state === 'active' && s.stepOn)} aria-current={st.state === 'active' ? 'step' : undefined}>
+          <li
+            key={st.label}
+            className={cx(s.step, st.state === 'active' && s.stepOn)}
+            aria-current={st.state === 'active' ? 'step' : undefined}
+          >
             <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span
                 aria-hidden
@@ -313,15 +382,24 @@ export function Progress({ t }: { t: TicketDetailDTO }) {
                   fontSize: 9,
                   color: '#fff',
                   background: st.state === 'done' ? 'var(--ok-dot)' : 'transparent',
-                  border: st.state === 'done' ? 0 : `1.5px solid ${st.state === 'active' ? 'var(--accent)' : 'var(--line-strong)'}`,
+                  border:
+                    st.state === 'done'
+                      ? 0
+                      : `1.5px solid ${st.state === 'active' ? 'var(--accent)' : 'var(--line-strong)'}`,
                 }}
               >
                 {st.state === 'done' ? '✓' : ''}
               </span>
               <span style={{ fontWeight: st.state === 'active' ? 600 : 500 }}>{st.label}</span>
-              <span className="sr-only">{st.state === 'done' ? '(done)' : st.state === 'active' ? '(in progress)' : '(not started)'}</span>
+              <span className="sr-only">
+                {st.state === 'done' ? '(done)' : st.state === 'active' ? '(in progress)' : '(not started)'}
+              </span>
             </span>
-            {st.note && <span className={s.small} style={{ marginTop: 0 }}>{st.note}</span>}
+            {st.note && (
+              <span className={s.small} style={{ marginTop: 0 }}>
+                {st.note}
+              </span>
+            )}
             <span className={s.stepBar}>
               <span
                 style={{

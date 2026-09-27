@@ -12,9 +12,13 @@ import { isForbidden, NoAccess } from './agents/NoAccess';
 import s from './policies/policies.module.css';
 
 const TITLE = 'Rules & policies';
-const SUB = 'The policy engine: how tickets get bucketed and prioritised, who may do what, and how approvals flow.';
+const SUB =
+  'The policy engine: how tickets get bucketed and prioritised, who may do what, and how approvals flow.';
 
-const VALUE: Record<PoliciesDTO['matrix']['rows'][number]['values'][number], { word: string; fg: string; bg: string }> = {
+const VALUE: Record<
+  PoliciesDTO['matrix']['rows'][number]['values'][number],
+  { word: string; fg: string; bg: string }
+> = {
   yes: { word: 'Allowed', fg: 'var(--ok)', bg: 'var(--ok-bg)' },
   no: { word: 'Never', fg: 'var(--bad-text)', bg: 'var(--bad-bg)' },
   appr: { word: 'With approval', fg: 'var(--warn)', bg: 'var(--warn-bg)' },
@@ -56,14 +60,25 @@ export default function PoliciesScreen() {
 
 function Policies({ data }: { data: PoliciesDTO }) {
   const canEdit = (useMe().data?.capabilities ?? []).includes('rules.edit');
-  const toggle = useAction((v: { id: string; enabled: boolean; description: string }) => api.patch(`/v1/policies/priority-rules/${v.id}`, { enabled: v.enabled }), {
-    invalidate: [keys.policies],
-    success: (_r, v) => `Priority rule “${v.description}” ${v.enabled ? 'switched on' : 'switched off'}.`,
-  });
-  const decide = useAction((v: { id: string; approve: boolean }) => api.post(`/v1/policies/proposed/${v.id}/decide`, { approve: v.approve }), {
-    invalidate: [keys.policies],
-    success: (_r, v) => (v.approve ? 'Approved — added to the bucketing rules as a hard stop.' : 'Proposal rejected — the rules stay as they are.'),
-  });
+  const toggle = useAction(
+    (v: { id: string; enabled: boolean; description: string }) =>
+      api.patch(`/v1/policies/priority-rules/${v.id}`, { enabled: v.enabled }),
+    {
+      invalidate: [keys.policies],
+      success: (_r, v) => `Priority rule “${v.description}” ${v.enabled ? 'switched on' : 'switched off'}.`,
+    },
+  );
+  const decide = useAction(
+    (v: { id: string; approve: boolean }) =>
+      api.post(`/v1/policies/proposed/${v.id}/decide`, { approve: v.approve }),
+    {
+      invalidate: [keys.policies],
+      success: (_r, v) =>
+        v.approve
+          ? 'Approved — added to the bucketing rules as a hard stop.'
+          : 'Proposal rejected — the rules stay as they are.',
+    },
+  );
   const pending = data.proposedRules.filter((p) => p.status === 'pending').length;
 
   return (
@@ -117,9 +132,17 @@ function Policies({ data }: { data: PoliciesDTO }) {
               {data.priorityRules.map((r, i) => {
                 const on = r.enabled || r.hard;
                 const busy = toggle.isPending && toggle.variables?.id === r.id;
-                const why = r.hard ? HARD_TITLE : canEdit ? `Switch ${on ? 'off' : 'on'}: ${r.description}` : 'Only an Admin can change priority rules.';
+                const why = r.hard
+                  ? HARD_TITLE
+                  : canEdit
+                    ? `Switch ${on ? 'off' : 'on'}: ${r.description}`
+                    : 'Only an Admin can change priority rules.';
                 return (
-                  <li key={r.id} className={cx(s.rule, !on && s.ruleOff)} style={{ animationDelay: `${i * 0.03}s`, padding: '10px 15px' }}>
+                  <li
+                    key={r.id}
+                    className={cx(s.rule, !on && s.ruleOff)}
+                    style={{ animationDelay: `${i * 0.03}s`, padding: '10px 15px' }}
+                  >
                     <span className={s.n} aria-hidden>
                       {i + 1}
                     </span>
@@ -127,7 +150,14 @@ function Policies({ data }: { data: PoliciesDTO }) {
                       <div className={s.ruleText}>{r.description}</div>
                       <div className={s.ruleMeta}>
                         <span className={s.target}>→ {r.target}</span>
-                        <span className={s.hard} style={r.hard ? { color: 'var(--bad-text)', background: 'var(--bad-bg)' } : { color: 'var(--text-2)', background: 'var(--surface-3)' }}>
+                        <span
+                          className={s.hard}
+                          style={
+                            r.hard
+                              ? { color: 'var(--bad-text)', background: 'var(--bad-bg)' }
+                              : { color: 'var(--text-2)', background: 'var(--surface-3)' }
+                          }
+                        >
                           {r.hard ? 'Hard rule' : 'Weighted'}
                         </span>
                         <span className={cx(s.hits, s.push)}>{r.hits}</span>
@@ -139,7 +169,9 @@ function Policies({ data }: { data: PoliciesDTO }) {
                           className={s.switch}
                           disabled={r.hard || !canEdit || busy}
                           title={why}
-                          onClick={() => toggle.mutate({ id: r.id, enabled: !on, description: r.description })}
+                          onClick={() =>
+                            toggle.mutate({ id: r.id, enabled: !on, description: r.description })
+                          }
                         >
                           {r.hard && <LockIcon />}
                           {on ? 'On' : 'Off'}
@@ -164,10 +196,15 @@ function Policies({ data }: { data: PoliciesDTO }) {
               {pending} awaiting decision
             </Pill>
           )}
-          <span className={s.meta}>from staff rejections · a rule applies only once an Admin approves it</span>
+          <span className={s.meta}>
+            from staff rejections · a rule applies only once an Admin approves it
+          </span>
         </header>
         {data.proposedRules.length === 0 ? (
-          <EmptyState title="No proposals" text="When staff reject an AI action as “this should never be automated”, the proposed hard stop waits here for an Admin." />
+          <EmptyState
+            title="No proposals"
+            text="When staff reject an AI action as “this should never be automated”, the proposed hard stop waits here for an Admin."
+          />
         ) : (
           <ul className={s.list}>
             {data.proposedRules.map((p, i) => (
@@ -192,10 +229,25 @@ function Policies({ data }: { data: PoliciesDTO }) {
                   <ProposalStatus status={p.status} />
                   {p.status === 'pending' && canEdit && (
                     <>
-                      <Button size="sm" loading={decide.isPending && decide.variables?.id === p.id && !decide.variables.approve} disabled={decide.isPending} onClick={() => decide.mutate({ id: p.id, approve: false })}>
+                      <Button
+                        size="sm"
+                        loading={
+                          decide.isPending && decide.variables?.id === p.id && !decide.variables.approve
+                        }
+                        disabled={decide.isPending}
+                        onClick={() => decide.mutate({ id: p.id, approve: false })}
+                      >
                         Reject
                       </Button>
-                      <Button size="sm" variant="primary" loading={decide.isPending && decide.variables?.id === p.id && decide.variables.approve} disabled={decide.isPending} onClick={() => decide.mutate({ id: p.id, approve: true })}>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        loading={
+                          decide.isPending && decide.variables?.id === p.id && decide.variables.approve
+                        }
+                        disabled={decide.isPending}
+                        onClick={() => decide.mutate({ id: p.id, approve: true })}
+                      >
                         Approve
                       </Button>
                     </>
@@ -212,7 +264,9 @@ function Policies({ data }: { data: PoliciesDTO }) {
           <h3 className={s.title} id="who-h">
             Who may do what
           </h3>
-          <span className={s.meta}>enforced at execution time, not in the UI — an API call without the permission fails the same way</span>
+          <span className={s.meta}>
+            enforced at execution time, not in the UI — an API call without the permission fails the same way
+          </span>
         </header>
         <table className={s.table}>
           <thead>
@@ -228,7 +282,18 @@ function Policies({ data }: { data: PoliciesDTO }) {
           <tbody>
             {data.matrix.rows.map((r, i) => (
               <tr key={r.capability} style={{ animationDelay: `${i * 0.03}s` }}>
-                <th scope="row" style={{ background: 'none', fontFamily: 'inherit', letterSpacing: 0, fontSize: 12.5, fontWeight: 500, color: 'var(--ink)', borderBottom: i === data.matrix.rows.length - 1 ? 0 : undefined }}>
+                <th
+                  scope="row"
+                  style={{
+                    background: 'none',
+                    fontFamily: 'inherit',
+                    letterSpacing: 0,
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    color: 'var(--ink)',
+                    borderBottom: i === data.matrix.rows.length - 1 ? 0 : undefined,
+                  }}
+                >
                   {r.capability}
                 </th>
                 {r.values.map((v, j) => {

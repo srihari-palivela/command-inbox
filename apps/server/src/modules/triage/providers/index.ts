@@ -32,7 +32,10 @@ export function recordSuccess(): void {
 
 export function recordFailure(err: unknown): void {
   breaker.failures++;
-  logger.warn({ err: err instanceof Error ? err.message : String(err), failures: breaker.failures }, 'llm provider failure');
+  logger.warn(
+    { err: err instanceof Error ? err.message : String(err), failures: breaker.failures },
+    'llm provider failure',
+  );
   if (breaker.failures >= 3) {
     breaker.openUntil = Date.now() + 60_000;
     breaker.failures = 0;
@@ -41,7 +44,9 @@ export function recordFailure(err: unknown): void {
 }
 
 /** Run a model call; on failure record it and use the heuristic fallback instead. */
-export async function withFallback<T>(fn: (p: LlmProvider) => Promise<T>): Promise<{ value: T; degraded: boolean }> {
+export async function withFallback<T>(
+  fn: (p: LlmProvider) => Promise<T>,
+): Promise<{ value: T; degraded: boolean }> {
   const p = provider();
   if (p.name === 'heuristic') return { value: await fn(p), degraded: configured().name === 'claude' };
   try {

@@ -46,10 +46,16 @@ function view(c: CallRow, t: typeof s.tickets.$inferSelect, phone: string): Call
 }
 
 async function load(tx: Tx, ctx: Ctx, callId: string) {
-  const [c] = await tx.select().from(s.calls).where(and(eq(s.calls.orgId, ctx.orgId), eq(s.calls.id, callId))).for('update');
+  const [c] = await tx
+    .select()
+    .from(s.calls)
+    .where(and(eq(s.calls.orgId, ctx.orgId), eq(s.calls.id, callId)))
+    .for('update');
   if (!c) throw notFound('Call');
   const [t] = await tx.select().from(s.tickets).where(eq(s.tickets.id, c.ticketId));
-  const [cust] = t!.customerId ? await tx.select().from(s.customers).where(eq(s.customers.id, t!.customerId)) : [];
+  const [cust] = t!.customerId
+    ? await tx.select().from(s.customers).where(eq(s.customers.id, t!.customerId))
+    : [];
   return { c, t: t!, phone: cust?.phone ?? '0000' };
 }
 
@@ -60,9 +66,18 @@ export async function startCall(tx: Tx, ctx: Ctx, ticketIdOrNumber: string): Pro
   const t = await lockTicket(tx, ctx.orgId, found.id);
   const [c] = await tx
     .insert(s.calls)
-    .values({ orgId: ctx.orgId, ticketId: t.id, startedBy: ctx.user.id, state: 'live', startedAt: clock.now(), script: scriptFor(t.number, t.subject) })
+    .values({
+      orgId: ctx.orgId,
+      ticketId: t.id,
+      startedBy: ctx.user.id,
+      state: 'live',
+      startedAt: clock.now(),
+      script: scriptFor(t.number, t.subject),
+    })
     .returning();
-  const [cust] = t.customerId ? await tx.select().from(s.customers).where(eq(s.customers.id, t.customerId)) : [];
+  const [cust] = t.customerId
+    ? await tx.select().from(s.customers).where(eq(s.customers.id, t.customerId))
+    : [];
   return view(c!, t, cust?.phone ?? '0000');
 }
 
@@ -103,16 +118,50 @@ export async function saveCall(tx: Tx, ctx: Ctx, callId: string, discard: boolea
   const outcome = outcomeFor(t.number);
   const dur = fmt(c.durationSec);
   await tx.update(s.calls).set({ state: 'saved' }).where(eq(s.calls.id, c.id));
-  await addComment(tx, t.orgId, t.id, { ...actorOf(ctx), name: 'Call recording' }, 'call', `Recording saved (${dur}) with full transcript, ${c.script.length} turns. ${c.summary ?? ''}`);
-  await addComment(tx, t.orgId, t.id, AI_ACTOR, 'system', `Ticket context updated from the call: ${outcome.updates.join(' · ')}`);
+  await addComment(
+    tx,
+    t.orgId,
+    t.id,
+    { ...actorOf(ctx), name: 'Call recording' },
+    'call',
+    `Recording saved (${dur}) with full transcript, ${c.script.length} turns. ${c.summary ?? ''}`,
+  );
+  await addComment(
+    tx,
+    t.orgId,
+    t.id,
+    AI_ACTOR,
+    'system',
+    `Ticket context updated from the call: ${outcome.updates.join(' · ')}`,
+  );
   await tx.insert(s.attachments).values([
-    { orgId: t.orgId, ticketId: t.id, ext: 'MP3', name: `Call recording · ${dur}`, size: `${dur} min`, storageKey: c.recordingKey },
-    { orgId: t.orgId, ticketId: t.id, ext: 'TXT', name: `Call transcript · ${c.script.length} turns`, size: '4 KB', storageKey: `calls/${t.orgId}/${c.id}.txt` },
+    {
+      orgId: t.orgId,
+      ticketId: t.id,
+      ext: 'MP3',
+      name: `Call recording · ${dur}`,
+      size: `${dur} min`,
+      storageKey: c.recordingKey,
+    },
+    {
+      orgId: t.orgId,
+      ticketId: t.id,
+      ext: 'TXT',
+      name: `Call transcript · ${c.script.length} turns`,
+      size: '4 KB',
+      storageKey: `calls/${t.orgId}/${c.id}.txt`,
+    },
   ]);
-  if ('completeSubtask' in outcome && outcome.completeSubtask) await setSubtask(tx, t.orgId, t.id, outcome.completeSubtask, true, ctx.user.id);
+  if ('completeSubtask' in outcome && outcome.completeSubtask)
+    await setSubtask(tx, t.orgId, t.id, outcome.completeSubtask, true, ctx.user.id);
   await updateTicket(tx, locked, {
     loggedMinutes: locked.loggedMinutes + Math.max(1, Math.round(c.durationSec / 60)),
     sentiment: t.number === 48199 ? 'de-escalating' : locked.sentiment,
   });
-  await recordTicketEvent(tx, locked, { actor: actorOf(ctx), action: 'call.saved', summary: `${ctx.user.name} saved a ${dur} call on QRY-${t.number}`, data: { callId: c.id } });
+  await recordTicketEvent(tx, locked, {
+    actor: actorOf(ctx),
+    action: 'call.saved',
+    summary: `${ctx.user.name} saved a ${dur} call on QRY-${t.number}`,
+    data: { callId: c.id },
+  });
 }

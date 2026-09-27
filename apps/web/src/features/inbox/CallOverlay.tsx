@@ -12,7 +12,15 @@ import s from './Inbox.module.css';
 
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
-export function CallOverlay({ callId, ticketNumber, onClose }: { callId: string | null; ticketNumber: string; onClose: () => void }) {
+export function CallOverlay({
+  callId,
+  ticketNumber,
+  onClose,
+}: {
+  callId: string | null;
+  ticketNumber: string;
+  onClose: () => void;
+}) {
   const call = useCall(callId);
   const c = call.data;
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -20,7 +28,10 @@ export function CallOverlay({ callId, ticketNumber, onClose }: { callId: string 
   const end = useAction(() => api.post(`/v1/calls/${callId}/end`), { invalidate: [keys.call(callId ?? '')] });
   const save = useAction((discard: boolean) => api.post(`/v1/calls/${callId}/save`, { discard }), {
     invalidate: [...TICKET_KEYS, keys.call(callId ?? '')],
-    success: (_r, discard) => (discard ? 'Call discarded. Nothing was added to the ticket.' : `Call summary and transcript saved to ${ticketNumber}.`),
+    success: (_r, discard) =>
+      discard
+        ? 'Call discarded. Nothing was added to the ticket.'
+        : `Call summary and transcript saved to ${ticketNumber}.`,
   });
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -46,9 +57,14 @@ export function CallOverlay({ callId, ticketNumber, onClose }: { callId: string 
             {c?.number ?? ''} · {ticketNumber}
           </div>
         </div>
-        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }} className="mono">
+        <span
+          style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          className="mono"
+        >
           <Dot color={live ? 'var(--ok-dot)' : 'var(--dot-idle)'} pulse={live} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: live ? 'var(--ok)' : 'var(--muted)' }}>{c ? (c.state === 'dialing' ? 'dialing' : mmss(c.durationSec)) : '—'}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: live ? 'var(--ok)' : 'var(--muted)' }}>
+            {c ? (c.state === 'dialing' ? 'dialing' : mmss(c.durationSec)) : '—'}
+          </span>
         </span>
       </div>
 
@@ -64,13 +80,17 @@ export function CallOverlay({ callId, ticketNumber, onClose }: { callId: string 
                 {line.text}
               </div>
             ))}
-            {c.transcript.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Ringing…</div>}
+            {c.transcript.length === 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Ringing…</div>
+            )}
           </div>
           <div className={s.callFoot}>
             <Button size="sm" aria-pressed={muted} onClick={() => setMuted((m) => !m)}>
               {muted ? 'Unmute' : 'Mute'}
             </Button>
-            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Recording on · transcript saves to the ticket</span>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+              Recording on · transcript saves to the ticket
+            </span>
             <span style={{ flex: 1 }} />
             <Button variant="danger" onClick={() => end.mutate(undefined)} loading={end.isPending}>
               End call
@@ -103,11 +123,18 @@ export function CallOverlay({ callId, ticketNumber, onClose }: { callId: string 
             )}
           </div>
           <div className={s.callFoot}>
-            <Button onClick={() => save.mutate(true, { onSuccess: onClose })} loading={save.isPending && save.variables === true}>
+            <Button
+              onClick={() => save.mutate(true, { onSuccess: onClose })}
+              loading={save.isPending && save.variables === true}
+            >
               Discard
             </Button>
             <span style={{ flex: 1 }} />
-            <Button variant="primary" onClick={() => save.mutate(false, { onSuccess: onClose })} loading={save.isPending && save.variables === false}>
+            <Button
+              variant="primary"
+              onClick={() => save.mutate(false, { onSuccess: onClose })}
+              loading={save.isPending && save.variables === false}
+            >
               Save to ticket
             </Button>
           </div>
@@ -115,8 +142,22 @@ export function CallOverlay({ callId, ticketNumber, onClose }: { callId: string 
       )}
 
       {confirmEnd && (
-        <div role="alertdialog" aria-label="Leave the call?" style={{ padding: '12px 16px', borderTop: '1px solid var(--line-soft)', background: 'var(--warn-bg)', display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5 }}>
-          <span style={{ flex: 1, color: 'var(--warn-strong)' }}>{live ? 'The call is still live. End it first?' : 'Save or discard the call before closing.'}</span>
+        <div
+          role="alertdialog"
+          aria-label="Leave the call?"
+          style={{
+            padding: '12px 16px',
+            borderTop: '1px solid var(--line-soft)',
+            background: 'var(--warn-bg)',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            fontSize: 12.5,
+          }}
+        >
+          <span style={{ flex: 1, color: 'var(--warn-strong)' }}>
+            {live ? 'The call is still live. End it first?' : 'Save or discard the call before closing.'}
+          </span>
           <Button size="sm" onClick={() => setConfirmEnd(false)}>
             Stay
           </Button>

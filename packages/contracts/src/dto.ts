@@ -211,7 +211,8 @@ export interface BriefDTO {
 }
 
 export type GateMode = 'action' | 'draft' | 'manual';
-export type GateState = 'open' | 'awaiting_checker' | 'scheduled' | 'executing' | 'done' | 'rejected' | 'taken';
+export type GateState =
+  'open' | 'awaiting_checker' | 'scheduled' | 'executing' | 'done' | 'rejected' | 'taken';
 
 export interface GateDTO {
   mode: GateMode;
@@ -501,7 +502,13 @@ export interface PeopleDTO {
 
 export interface AutoAssignResultDTO {
   checked: number;
-  moves: { ticketNumber: string; priority: Priority; minutesLeft: number | null; to: string | null; reason: string }[];
+  moves: {
+    ticketNumber: string;
+    priority: Priority;
+    minutesLeft: number | null;
+    to: string | null;
+    reason: string;
+  }[];
 }
 
 export interface KpiTileDTO {
@@ -606,10 +613,28 @@ export interface ActionsDTO {
 
 export interface PoliciesDTO {
   bucketRules: { id: string; description: string; target: string; kind: string; hits: string }[];
-  priorityRules: { id: string; key: string; description: string; target: string; hard: boolean; enabled: boolean; hits: string }[];
-  matrix: { cols: string[]; rows: { capability: string; values: ('yes' | 'no' | 'appr' | 'cell' | 'auto')[] }[] };
+  priorityRules: {
+    id: string;
+    key: string;
+    description: string;
+    target: string;
+    hard: boolean;
+    enabled: boolean;
+    hits: string;
+  }[];
+  matrix: {
+    cols: string[];
+    rows: { capability: string; values: ('yes' | 'no' | 'appr' | 'cell' | 'auto')[] }[];
+  };
   cycles: { cell: string; chain: string[]; note: string }[];
-  proposedRules: { id: string; text: string; ticketNumber: string | null; proposedBy: string; at: string; status: string }[];
+  proposedRules: {
+    id: string;
+    text: string;
+    ticketNumber: string | null;
+    proposedBy: string;
+    at: string;
+    status: string;
+  }[];
 }
 
 export interface KnowledgeSourceDTO {

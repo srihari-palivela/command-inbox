@@ -105,7 +105,12 @@ export default function BoardsScreen() {
           title="Boards"
           subtitle="Each board is one source of mail with its own AI agents, team and rules."
           actions={
-            <Button variant="dark" disabled={!canCreate} title={canCreate ? undefined : 'Only Admin can create a board.'} onClick={() => setWizard(true)}>
+            <Button
+              variant="dark"
+              disabled={!canCreate}
+              title={canCreate ? undefined : 'Only Admin can create a board.'}
+              onClick={() => setWizard(true)}
+            >
               + New board
             </Button>
           }
@@ -125,7 +130,12 @@ export default function BoardsScreen() {
           list.length ? (
             <div className={s.grid}>
               {list.map((b, i) => (
-                <BoardCard key={b.id} b={b} i={i} onOpen={() => navigate(`/tickets${filtersToSearch({ board: b.key })}`)} />
+                <BoardCard
+                  key={b.id}
+                  b={b}
+                  i={i}
+                  onOpen={() => navigate(`/tickets${filtersToSearch({ board: b.key })}`)}
+                />
               ))}
             </div>
           ) : (

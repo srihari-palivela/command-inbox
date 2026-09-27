@@ -39,7 +39,9 @@ export async function pickAssignee(
   exclude: string | null = null,
 ): Promise<{ id: string; name: string; reason: string } | null> {
   if (!departmentId) return null;
-  const pool = (await candidates(tx, orgId, departmentId)).filter((c) => c.availability === 'available' && c.id !== exclude);
+  const pool = (await candidates(tx, orgId, departmentId)).filter(
+    (c) => c.availability === 'available' && c.id !== exclude,
+  );
   if (!pool.length) return null;
   pool.sort((a, b) => a.open / a.capacity - b.open / b.capacity || b.level - a.level);
   const pick = pool[0]!;

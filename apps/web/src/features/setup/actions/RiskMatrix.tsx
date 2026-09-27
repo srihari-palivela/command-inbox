@@ -10,11 +10,22 @@ import { Eyebrow } from '../../../ui';
 import { cellKey, cellLook, cellNote, COLS, DIAL_LABELS, dialBlockedReason, gateLook, ROWS } from './cells';
 import s from './actions.module.css';
 
-export function RiskMatrix({ data, selected, onSelect, canDial }: { data: ActionsDTO; selected: RiskCellDTO; onSelect: (c: RiskCell) => void; canDial: boolean }) {
+export function RiskMatrix({
+  data,
+  selected,
+  onSelect,
+  canDial,
+}: {
+  data: ActionsDTO;
+  selected: RiskCellDTO;
+  onSelect: (c: RiskCell) => void;
+  canDial: boolean;
+}) {
   const autoIn00 = data.templates.filter((t) => t.cell === '0-0' && t.approval === 'auto').length;
   const setDial = useAction((v: { cell: RiskCell; level: number }) => api.put('/v1/actions/dial', v), {
     invalidate: [keys.actions, keys.me],
-    success: (_r, v) => `Autonomy for “${data.cells.find((c) => c.cell === v.cell)?.title ?? v.cell}” set to ${DIAL_LABELS[v.level]?.toLowerCase()}.`,
+    success: (_r, v) =>
+      `Autonomy for “${data.cells.find((c) => c.cell === v.cell)?.title ?? v.cell}” set to ${DIAL_LABELS[v.level]?.toLowerCase()}.`,
   });
   const gate = gateLook(selected);
 
@@ -76,7 +87,8 @@ export function RiskMatrix({ data, selected, onSelect, canDial }: { data: Action
           {DIAL_LABELS.map((label, level) => {
             const on = selected.dial === level;
             const blocked = dialBlockedReason(selected, level);
-            const reason = blocked ?? (canDial ? undefined : 'Only Admin · Risk can change the autonomy dial.');
+            const reason =
+              blocked ?? (canDial ? undefined : 'Only Admin · Risk can change the autonomy dial.');
             return (
               <button
                 key={label}

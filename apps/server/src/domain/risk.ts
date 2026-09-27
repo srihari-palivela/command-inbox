@@ -45,12 +45,22 @@ export const APPROVAL_CYCLES: { cell: string; chain: string[]; note: string }[] 
   },
   {
     cell: CELL_TITLE['0-1'],
-    chain: ['AI fills & validates', 'Staff approves (maker)', 'Team lead approves (checker)', 'Executes · audit'],
+    chain: [
+      'AI fills & validates',
+      'Staff approves (maker)',
+      'Team lead approves (checker)',
+      'Executes · audit',
+    ],
     note: 'Two approvers always, because permanence.',
   },
   {
     cell: CELL_TITLE['1-1'],
-    chain: ['AI fills & validates', 'Staff approves (maker)', 'Team lead approves (checker)', 'Executes · audit'],
+    chain: [
+      'AI fills & validates',
+      'Staff approves (maker)',
+      'Team lead approves (checker)',
+      'Executes · audit',
+    ],
     note: 'Locked to this chain by policy. Escalates to the lead if the checker is silent for 2 hours.',
   },
 ];

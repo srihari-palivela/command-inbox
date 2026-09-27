@@ -27,10 +27,30 @@ export const SLA_TONE: Record<SlaTone, Tone & { label: string }> = {
 };
 
 export const PRIORITY_TONE: Record<Priority, Tone & { label: string; note: string }> = {
-  P1: { fg: 'var(--bad-text)', bg: 'var(--bad-bg)', label: 'P1 · Critical', note: 'Regulator, fraud, or money at risk today' },
-  P2: { fg: 'var(--warn)', bg: 'var(--warn-bg)', label: 'P2 · High', note: 'Deadline inside 8 hours, or a repeat contact' },
-  P3: { fg: 'var(--accent)', bg: 'var(--accent-bg)', label: 'P3 · Normal', note: 'Standard servicing, inside the day' },
-  P4: { fg: 'var(--text-2)', bg: 'var(--surface-3)', label: 'P4 · Low', note: 'Informational, no deadline pressure' },
+  P1: {
+    fg: 'var(--bad-text)',
+    bg: 'var(--bad-bg)',
+    label: 'P1 · Critical',
+    note: 'Regulator, fraud, or money at risk today',
+  },
+  P2: {
+    fg: 'var(--warn)',
+    bg: 'var(--warn-bg)',
+    label: 'P2 · High',
+    note: 'Deadline inside 8 hours, or a repeat contact',
+  },
+  P3: {
+    fg: 'var(--accent)',
+    bg: 'var(--accent-bg)',
+    label: 'P3 · Normal',
+    note: 'Standard servicing, inside the day',
+  },
+  P4: {
+    fg: 'var(--text-2)',
+    bg: 'var(--surface-3)',
+    label: 'P4 · Low',
+    note: 'Informational, no deadline pressure',
+  },
 };
 
 export const STATUS_WORD: Record<StatusGroup, string> = {

@@ -46,30 +46,47 @@ async function series(tx: Tx, orgId: string, metric: string): Promise<number[]> 
 async function liveMetrics(tx: Tx, orgId: string): Promise<Partial<Record<KpiMetric, number>>> {
   const since = new Date(clock.now().getTime() - 7 * 86400_000);
   const out: Partial<Record<KpiMetric, number>> = {};
-  const [drafts] = await tx.execute<{ sent: number; unedited: number }>(sql`
+  const [drafts] = await tx
+    .execute<{ sent: number; unedited: number }>(
+      sql`
     select count(*)::int as sent, count(*) filter (where trim(current_body) = trim(original_body))::int as unedited
-      from drafts where org_id = ${orgId} and state = 'sent' and sent_at >= ${since}`).then((r) => r.rows);
+      from drafts where org_id = ${orgId} and state = 'sent' and sent_at >= ${since}`,
+    )
+    .then((r) => r.rows);
   if (drafts && drafts.sent >= 20) out.accept = Math.round((drafts.unedited / drafts.sent) * 100);
   out.awo = await approveWithoutOpenPct(tx, orgId);
   return out;
 }
 
 export async function approveWithoutOpenPct(tx: Tx, orgId: string): Promise<number> {
-  const [awo] = await tx.execute<{ n: number; without: number }>(sql`
+  const [awo] = await tx
+    .execute<{ n: number; without: number }>(
+      sql`
     select count(*)::int as n, count(*) filter (where not opened_evidence)::int as without
-      from approvals where org_id = ${orgId} and created_at >= ${new Date(clock.now().getTime() - 7 * 86400_000)}`).then((r) => r.rows);
+      from approvals where org_id = ${orgId} and created_at >= ${new Date(clock.now().getTime() - 7 * 86400_000)}`,
+    )
+    .then((r) => r.rows);
   if (awo && awo.n > 0) return Math.round((awo.without / awo.n) * 100);
   const hist = await series(tx, orgId, 'weekly.awo');
   return hist.at(-1) ?? 0;
 }
 
-function tile(key: string, label: string, values: number[], unit: string, digest: string, opts: { decimals?: number; bad?: boolean; lowerBetter?: boolean; valueOverride?: string } = {}): KpiTileDTO {
+function tile(
+  key: string,
+  label: string,
+  values: number[],
+  unit: string,
+  digest: string,
+  opts: { decimals?: number; bad?: boolean; lowerBetter?: boolean; valueOverride?: string } = {},
+): KpiTileDTO {
   const last = values.at(-1) ?? 0;
   const first = values[0] ?? last;
   const change = first ? ((last - first) / first) * 100 : 0;
   // Small percentages (reopen rate) read better as a change in points than as a relative change.
   const pts = unit === '%' && Math.abs(last) < 10;
-  const trendPct = pts ? `${last - first >= 0 ? '+' : '−'}${Math.abs(last - first).toFixed(1)}pt` : `${change >= 0 ? '+' : '−'}${Math.abs(Math.round(change))}%`;
+  const trendPct = pts
+    ? `${last - first >= 0 ? '+' : '−'}${Math.abs(last - first).toFixed(1)}pt`
+    : `${change >= 0 ? '+' : '−'}${Math.abs(Math.round(change))}%`;
   const good = opts.lowerBetter ? last <= first : last >= first;
   return {
     key,
@@ -91,12 +108,44 @@ export async function performance(tx: Tx, ctx: Ctx): Promise<PerformanceDTO> {
   const tat = await series(tx, orgId, 'weekly.tat');
   const missed = await series(tx, orgId, 'weekly.missed');
   const reopen = await series(tx, orgId, 'weekly.reopen');
-  const [vol] = await tx.execute<{ n: number }>(sql`select coalesce(sum(volume_24h), 0)::int as n from mailboxes where org_id = ${orgId}`).then((r) => r.rows);
+  const [vol] = await tx
+    .execute<{ n: number }>(
+      sql`select coalesce(sum(volume_24h), 0)::int as n from mailboxes where org_id = ${orgId}`,
+    )
+    .then((r) => r.rows);
   const tiles: KpiTileDTO[] = [
-    tile('fr', 'Time to first reply', fr, 'min typical', 'Fell every week for 12 weeks; the floor is now auto-acknowledgement, not people.', { lowerBetter: true }),
-    tile('tat', 'Time to fully resolve', tat, 'hours', 'Improvement is flattening — the remaining hours sit in disputes, not in drafting.', { decimals: 1, lowerBetter: true }),
-    tile('missed', 'Missed deadlines', missed, `of ${(vol?.n ?? 0).toLocaleString('en-IN')}`, 'All misses this week are disputes tickets past the provisional-credit window.', { bad: true, lowerBetter: true }),
-    tile('reopen', 'Reopen rate', reopen, '%', 'Creeping up 8 weeks straight — reopens cluster on fee answers citing the stale schedule.', { decimals: 1, lowerBetter: true }),
+    tile(
+      'fr',
+      'Time to first reply',
+      fr,
+      'min typical',
+      'Fell every week for 12 weeks; the floor is now auto-acknowledgement, not people.',
+      { lowerBetter: true },
+    ),
+    tile(
+      'tat',
+      'Time to fully resolve',
+      tat,
+      'hours',
+      'Improvement is flattening — the remaining hours sit in disputes, not in drafting.',
+      { decimals: 1, lowerBetter: true },
+    ),
+    tile(
+      'missed',
+      'Missed deadlines',
+      missed,
+      `of ${(vol?.n ?? 0).toLocaleString('en-IN')}`,
+      'All misses this week are disputes tickets past the provisional-credit window.',
+      { bad: true, lowerBetter: true },
+    ),
+    tile(
+      'reopen',
+      'Reopen rate',
+      reopen,
+      '%',
+      'Creeping up 8 weeks straight — reopens cluster on fee answers citing the stale schedule.',
+      { decimals: 1, lowerBetter: true },
+    ),
   ];
 
   const qts = await tx
@@ -117,11 +166,17 @@ export async function performance(tx: Tx, ctx: Ctx): Promise<PerformanceDTO> {
     owner: q.ownerLabel,
   }));
 
-  const alertRows = await tx.select().from(s.alerts).where(and(eq(s.alerts.orgId, orgId), isNull(s.alerts.resolvedAt))).orderBy(desc(s.alerts.createdAt));
+  const alertRows = await tx
+    .select()
+    .from(s.alerts)
+    .where(and(eq(s.alerts.orgId, orgId), isNull(s.alerts.resolvedAt)))
+    .orderBy(desc(s.alerts.createdAt));
   const kpiRows = await tx
     .select()
     .from(s.kpis)
-    .where(and(eq(s.kpis.orgId, orgId), sql`(${s.kpis.scope} = 'team' or ${s.kpis.ownerId} = ${ctx.user.id})`))
+    .where(
+      and(eq(s.kpis.orgId, orgId), sql`(${s.kpis.scope} = 'team' or ${s.kpis.ownerId} = ${ctx.user.id})`),
+    )
     .orderBy(asc(s.kpis.createdAt));
   const live = await liveMetrics(tx, orgId);
   const metricKeys = Object.keys(METRIC_LABEL) as KpiMetric[];
@@ -195,15 +250,51 @@ export async function results(tx: Tx, ctx: Ctx): Promise<ResultsDTO> {
       return { lane, pct: Math.round((v / total) * 100), volume: v };
     }),
     phases: [
-      { n: 1, label: 'Drafts only', scope: 'The AI writes, a human sends every reply', state: 'Complete', current: false },
-      { n: 2, label: 'Actions that can be undone', scope: 'Statements, certificates, cheque books', state: 'Live now', current: true },
-      { n: 3, label: 'Actions where money moves', scope: 'Fee reversals and provisional credit, with approval', state: 'Next · gated on Risk', current: false },
-      { n: 4, label: 'Wider autonomy', scope: 'One risk group at a time, approval everywhere else', state: 'Gated on Risk', current: false },
+      {
+        n: 1,
+        label: 'Drafts only',
+        scope: 'The AI writes, a human sends every reply',
+        state: 'Complete',
+        current: false,
+      },
+      {
+        n: 2,
+        label: 'Actions that can be undone',
+        scope: 'Statements, certificates, cheque books',
+        state: 'Live now',
+        current: true,
+      },
+      {
+        n: 3,
+        label: 'Actions where money moves',
+        scope: 'Fee reversals and provisional credit, with approval',
+        state: 'Next · gated on Risk',
+        current: false,
+      },
+      {
+        n: 4,
+        label: 'Wider autonomy',
+        scope: 'One risk group at a time, approval everywhere else',
+        state: 'Gated on Risk',
+        current: false,
+      },
     ],
     pools: [
-      { label: 'Capacity released', metric: `${nowHours ? (baselineHours / nowHours).toFixed(1) : '—'}× per FTE`, note: 'Same headcount, more queries closed per person per day at the current coverage mix.' },
-      { label: 'Complaint deflection', metric: '−38% repeat contacts', note: 'Second and third emails on the same thread fall sharply once first response drops under 15 minutes.' },
-      { label: 'Audit position', metric: '100% traced', note: 'Every suggestion, approval, edit and execution carries an actor, a timestamp and a source. No silent automation.' },
+      {
+        label: 'Capacity released',
+        metric: `${nowHours ? (baselineHours / nowHours).toFixed(1) : '—'}× per FTE`,
+        note: 'Same headcount, more queries closed per person per day at the current coverage mix.',
+      },
+      {
+        label: 'Complaint deflection',
+        metric: '−38% repeat contacts',
+        note: 'Second and third emails on the same thread fall sharply once first response drops under 15 minutes.',
+      },
+      {
+        label: 'Audit position',
+        metric: '100% traced',
+        note: 'Every suggestion, approval, edit and execution carries an actor, a timestamp and a source. No silent automation.',
+      },
     ],
   };
 }
@@ -211,25 +302,51 @@ export async function results(tx: Tx, ctx: Ctx): Promise<ResultsDTO> {
 export async function createKpi(tx: Tx, ctx: Ctx, body: KpiBody): Promise<void> {
   requireCap(ctx, 'kpi.manage', 'create a KPI');
   await tx.insert(s.kpis).values({ orgId: ctx.orgId, ownerId: ctx.user.id, ...body });
-  await audit(tx, ctx.orgId, { actor: actorOf(ctx), action: 'kpi.created', entity: 'kpi', summary: `KPI "${body.name}" created on the ${body.scope === 'team' ? 'team' : 'personal'} dashboard` });
+  await audit(tx, ctx.orgId, {
+    actor: actorOf(ctx),
+    action: 'kpi.created',
+    entity: 'kpi',
+    summary: `KPI "${body.name}" created on the ${body.scope === 'team' ? 'team' : 'personal'} dashboard`,
+  });
   await publish(tx, ctx.orgId, 'insights.updated', { area: 'kpis' });
 }
 
 export async function deleteKpi(tx: Tx, ctx: Ctx, id: string): Promise<void> {
-  const [k] = await tx.select().from(s.kpis).where(and(eq(s.kpis.orgId, ctx.orgId), eq(s.kpis.id, id)));
+  const [k] = await tx
+    .select()
+    .from(s.kpis)
+    .where(and(eq(s.kpis.orgId, ctx.orgId), eq(s.kpis.id, id)));
   if (!k) throw notFound('KPI');
-  if (k.ownerId !== ctx.user.id && !ctx.capabilities.has('kpi.manage')) throw forbidden('Only the owner or a team lead can remove this KPI.');
+  if (k.ownerId !== ctx.user.id && !ctx.capabilities.has('kpi.manage'))
+    throw forbidden('Only the owner or a team lead can remove this KPI.');
   await tx.delete(s.kpis).where(eq(s.kpis.id, id));
-  await audit(tx, ctx.orgId, { actor: actorOf(ctx), action: 'kpi.deleted', entity: 'kpi', entityId: id, summary: `KPI "${k.name}" removed` });
+  await audit(tx, ctx.orgId, {
+    actor: actorOf(ctx),
+    action: 'kpi.deleted',
+    entity: 'kpi',
+    entityId: id,
+    summary: `KPI "${k.name}" removed`,
+  });
   await publish(tx, ctx.orgId, 'insights.updated', { area: 'kpis' });
 }
 
-export async function actOnAlert(tx: Tx, ctx: Ctx, id: string, mode: 'act' | 'notify'): Promise<{ message: string }> {
+export async function actOnAlert(
+  tx: Tx,
+  ctx: Ctx,
+  id: string,
+  mode: 'act' | 'notify',
+): Promise<{ message: string }> {
   requireCap(ctx, 'insights.view', 'act on alerts');
-  const [a] = await tx.select().from(s.alerts).where(and(eq(s.alerts.orgId, ctx.orgId), eq(s.alerts.id, id)));
+  const [a] = await tx
+    .select()
+    .from(s.alerts)
+    .where(and(eq(s.alerts.orgId, ctx.orgId), eq(s.alerts.id, id)));
   if (!a) throw notFound('Alert');
   if (mode === 'act') {
-    await tx.update(s.alerts).set({ resolvedAt: clock.now(), resolvedBy: ctx.user.id }).where(eq(s.alerts.id, id));
+    await tx
+      .update(s.alerts)
+      .set({ resolvedAt: clock.now(), resolvedBy: ctx.user.id })
+      .where(eq(s.alerts.id, id));
   }
   await tx.insert(s.notifications).values({
     orgId: ctx.orgId,
@@ -245,12 +362,20 @@ export async function actOnAlert(tx: Tx, ctx: Ctx, id: string, mode: 'act' | 'no
     action: mode === 'act' ? 'alert.actioned' : 'alert.notified',
     entity: 'alert',
     entityId: id,
-    summary: mode === 'act' ? `${a.actionLabel} — ${a.bucket} alert cleared` : `${a.owner} notified about ${a.bucket.toLowerCase()}`,
+    summary:
+      mode === 'act'
+        ? `${a.actionLabel} — ${a.bucket} alert cleared`
+        : `${a.owner} notified about ${a.bucket.toLowerCase()}`,
     feed: { tone: 'info', meta: 'performance' },
   });
   await publish(tx, ctx.orgId, 'activity.created', {});
   await publish(tx, ctx.orgId, 'notification.created', {});
-  return { message: mode === 'act' ? `${a.actionLabel} — done. ${a.bucket} alert cleared.` : `${a.owner} notified about ${a.bucket.toLowerCase()}.` };
+  return {
+    message:
+      mode === 'act'
+        ? `${a.actionLabel} — done. ${a.bucket} alert cleared.`
+        : `${a.owner} notified about ${a.bucket.toLowerCase()}.`,
+  };
 }
 
 export async function activity(tx: Tx, ctx: Ctx, limit = 20): Promise<ActivityDTO[]> {
@@ -274,12 +399,16 @@ export async function activity(tx: Tx, ctx: Ctx, limit = 20): Promise<ActivityDT
 export async function shift(tx: Tx, ctx: Ctx): Promise<ShiftDTO> {
   const start = new Date(clock.now());
   start.setHours(0, 0, 0, 0);
-  const [r] = await tx.execute<{ closed: number; ai: number; drafts: number; missed: number }>(sql`
+  const [r] = await tx
+    .execute<{ closed: number; ai: number; drafts: number; missed: number }>(
+      sql`
     select
       (select count(*) from tickets where org_id = ${ctx.orgId} and resolved_at >= ${start})::int as closed,
       (select count(*) from tickets where org_id = ${ctx.orgId} and resolved_at >= ${start} and owner_kind = 'ai')::int as ai,
       (select count(*) from drafts where org_id = ${ctx.orgId} and state = 'sent' and sent_at >= ${start})::int as drafts,
-      (select count(*) from tickets where org_id = ${ctx.orgId} and status not in ('resolved','closed','waiting_customer') and due_at < now())::int as missed`).then((x) => x.rows);
+      (select count(*) from tickets where org_id = ${ctx.orgId} and status not in ('resolved','closed','waiting_customer') and due_at < now())::int as missed`,
+    )
+    .then((x) => x.rows);
   const accept = await series(tx, ctx.orgId, 'weekly.accept');
   const live = await liveMetrics(tx, ctx.orgId);
   // Work closed on other channels today and the time-and-motion baseline arrive with the daily import.
@@ -287,7 +416,13 @@ export async function shift(tx: Tx, ctx: Ctx): Promise<ShiftDTO> {
   const imported = await tx
     .select({ metric: s.dailyMetrics.metric, value: s.dailyMetrics.value })
     .from(s.dailyMetrics)
-    .where(and(eq(s.dailyMetrics.orgId, ctx.orgId), eq(s.dailyMetrics.day, today), sql`${s.dailyMetrics.metric} like 'shift.%'`));
+    .where(
+      and(
+        eq(s.dailyMetrics.orgId, ctx.orgId),
+        eq(s.dailyMetrics.day, today),
+        sql`${s.dailyMetrics.metric} like 'shift.%'`,
+      ),
+    );
   const imp = (k: string) => imported.find((m) => m.metric === k)?.value ?? 0;
   return {
     closedToday: imp('shift.closed_imported') + (r?.closed ?? 0),

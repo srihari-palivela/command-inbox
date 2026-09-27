@@ -13,9 +13,23 @@ import s from './agents.module.css';
 const STEPS = ['Template', 'Name & model', 'Prompt', 'Boards & launch'];
 
 const namePlaceholder = (t: AgentTemplateDTO | undefined) =>
-  !t ? '' : t.key === 'bucketing' ? 'Cards Bucketer' : t.key === 'drafting' ? 'NRI Reply Drafter' : `My ${t.label.toLowerCase()}`;
+  !t
+    ? ''
+    : t.key === 'bucketing'
+      ? 'Cards Bucketer'
+      : t.key === 'drafting'
+        ? 'NRI Reply Drafter'
+        : `My ${t.label.toLowerCase()}`;
 
-export function NewAgentWizard({ open, onClose, overview }: { open: boolean; onClose: () => void; overview: AgentsOverviewDTO }) {
+export function NewAgentWizard({
+  open,
+  onClose,
+  overview,
+}: {
+  open: boolean;
+  onClose: () => void;
+  overview: AgentsOverviewDTO;
+}) {
   return (
     <Modal open={open} onClose={onClose} title="New AI agent" width={640}>
       {open && <WizardBody onClose={onClose} overview={overview} />}
@@ -36,7 +50,8 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
 
   const launch = useAction((body: AgentBody) => api.post('/v1/agents', body), {
     invalidate: [keys.agents, keys.boards, keys.me],
-    success: (_r, v) => `${v.name} created in observe mode — it scores nothing until the golden-set evals pass.`,
+    success: (_r, v) =>
+      `${v.name} created in observe mode — it scores nothing until the golden-set evals pass.`,
   });
 
   const pick = (t: AgentTemplateDTO) => {
@@ -48,8 +63,24 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
     setStep(1);
   };
 
-  const canNext = step === 0 ? !!tpl : step === 1 ? name.trim().length >= 2 && !taken && !!model : step === 2 ? prompt.trim().length >= 20 : false;
-  const nextHint = step === 1 ? (taken ? 'An agent with that name already exists.' : !name.trim() ? 'Give the agent a name first.' : '') : step === 2 && prompt.trim().length < 20 ? 'Write at least a sentence of prompt.' : '';
+  const canNext =
+    step === 0
+      ? !!tpl
+      : step === 1
+        ? name.trim().length >= 2 && !taken && !!model
+        : step === 2
+          ? prompt.trim().length >= 20
+          : false;
+  const nextHint =
+    step === 1
+      ? taken
+        ? 'An agent with that name already exists.'
+        : !name.trim()
+          ? 'Give the agent a name first.'
+          : ''
+      : step === 2 && prompt.trim().length < 20
+        ? 'Write at least a sentence of prompt.'
+        : '';
   const summary = `${name.trim() || 'Unnamed agent'} · ${tpl?.label ?? '—'} · ${model} · ${boardIds.length || 'no'} board${boardIds.length === 1 ? '' : 's'}`;
 
   return (
@@ -59,7 +90,14 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
       {step === 0 && (
         <div className={s.choices} role="radiogroup" aria-label="Template">
           {overview.templates.map((t) => (
-            <button key={t.key} type="button" role="radio" aria-checked={t.key === tplKey} className={s.choice} onClick={() => pick(t)}>
+            <button
+              key={t.key}
+              type="button"
+              role="radio"
+              aria-checked={t.key === tplKey}
+              className={s.choice}
+              onClick={() => pick(t)}
+            >
               <span className={s.choiceAbbr} aria-hidden>
                 {t.abbr}
               </span>
@@ -80,14 +118,28 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
         <>
           <label className={s.wizBlock} style={{ display: 'block' }}>
             <span className={s.wizLabel}>Agent name — yours, not ours</span>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={namePlaceholder(tpl)} maxLength={60} data-autofocus style={{ height: 40, fontSize: 13.5 }} />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={namePlaceholder(tpl)}
+              maxLength={60}
+              data-autofocus
+              style={{ height: 40, fontSize: 13.5 }}
+            />
           </label>
           <span className={s.wizLabel} id="wiz-model">
             Model
           </span>
           <div className={s.choices} role="radiogroup" aria-labelledby="wiz-model">
             {overview.models.map((m) => (
-              <button key={m.id} type="button" role="radio" aria-checked={m.id === model} className={s.choice} onClick={() => setModel(m.id)}>
+              <button
+                key={m.id}
+                type="button"
+                role="radio"
+                aria-checked={m.id === model}
+                className={s.choice}
+                onClick={() => setModel(m.id)}
+              >
                 <span style={{ minWidth: 0, flex: '1 1 auto' }}>
                   <span className={s.choiceMono} style={{ display: 'block' }}>
                     {m.id}
@@ -96,7 +148,9 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
                     {m.note}
                   </span>
                 </span>
-                {tpl?.recommendedModel === m.id && <span className={s.rec}>recommended for this template</span>}
+                {tpl?.recommendedModel === m.id && (
+                  <span className={s.rec}>recommended for this template</span>
+                )}
               </button>
             ))}
           </div>
@@ -107,11 +161,18 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
         <>
           <label style={{ display: 'block', marginBottom: 10 }}>
             <span className={s.wizLabel}>System prompt</span>
-            <TextArea className={s.wizPrompt} value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={8000} data-autofocus />
+            <TextArea
+              className={s.wizPrompt}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              maxLength={8000}
+              data-autofocus
+            />
           </label>
           <WarnNote>
-            Starts from the {tpl?.label ?? 'template'} base. Your edits ship as v1 and every change after that is versioned. Guardrail lines — no recall answers, no unsourced amounts — are
-            enforced outside the prompt and cannot be edited away.
+            Starts from the {tpl?.label ?? 'template'} base. Your edits ship as v1 and every change after that
+            is versioned. Guardrail lines — no recall answers, no unsourced amounts — are enforced outside the
+            prompt and cannot be edited away.
           </WarnNote>
         </>
       )}
@@ -126,7 +187,15 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
               <div className={s.checkList}>
                 {(boards.data ?? []).map((b) => (
                   <label key={b.id} className={s.check}>
-                    <input type="checkbox" checked={boardIds.includes(b.id)} onChange={(e) => setBoardIds((cur) => (e.target.checked ? [...cur, b.id] : cur.filter((x) => x !== b.id)))} />
+                    <input
+                      type="checkbox"
+                      checked={boardIds.includes(b.id)}
+                      onChange={(e) =>
+                        setBoardIds((cur) =>
+                          e.target.checked ? [...cur, b.id] : cur.filter((x) => x !== b.id),
+                        )
+                      }
+                    />
                     <span className={s.checkName}>{b.name}</span>
                     <span className={s.checkSrc}>{b.source}</span>
                   </label>
@@ -146,12 +215,23 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
         </>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18, paddingTop: 12, borderTop: '1px solid var(--line-soft)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: 18,
+          paddingTop: 12,
+          borderTop: '1px solid var(--line-soft)',
+        }}
+      >
         <Button onClick={onClose}>Cancel</Button>
         {step > 0 && <Button onClick={() => setStep(step - 1)}>← Back</Button>}
         <div className={s.footRight}>
           {step < 3 && nextHint && <span className={s.footNote}>{nextHint}</span>}
-          {step === 3 && boardIds.length === 0 && <span className={s.footNote}>Attach at least one board.</span>}
+          {step === 3 && boardIds.length === 0 && (
+            <span className={s.footNote}>Attach at least one board.</span>
+          )}
           {step > 0 && step < 3 && (
             <Button variant="dark" disabled={!canNext} onClick={() => setStep(step + 1)}>
               {step === 1 ? 'Write the prompt →' : 'Continue →'}
@@ -162,7 +242,13 @@ function WizardBody({ onClose, overview }: { onClose: () => void; overview: Agen
               variant="primary"
               disabled={!boardIds.length || !tpl}
               loading={launch.isPending}
-              onClick={() => tpl && launch.mutate({ name: name.trim(), template: tpl.key, model, prompt: prompt.trim(), boardIds }, { onSuccess: onClose })}
+              onClick={() =>
+                tpl &&
+                launch.mutate(
+                  { name: name.trim(), template: tpl.key, model, prompt: prompt.trim(), boardIds },
+                  { onSuccess: onClose },
+                )
+              }
             >
               Launch in observe mode
             </Button>

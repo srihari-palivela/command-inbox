@@ -4,7 +4,12 @@ import { PRIORITY_TONE } from '../../lib/presentation';
 import { Button, Popover } from '../../ui';
 import s from './Tickets.module.css';
 
-export const NL_EXAMPLES = ['late disputes assigned to me', 'auto tickets waiting on approval', 'unowned trade tickets below the bar', 'everything closed today'];
+export const NL_EXAMPLES = [
+  'late disputes assigned to me',
+  'auto tickets waiting on approval',
+  'unowned trade tickets below the bar',
+  'everything closed today',
+];
 
 type FacetKey = 'pri' | 'bucket' | 'status' | 'lane' | 'team' | 'owner' | 'due' | 'conf';
 
@@ -16,7 +21,11 @@ interface FacetDef {
 
 export function facetDefs(data: TicketListDTO): FacetDef[] {
   return [
-    { key: 'pri', label: 'Priority', opts: (['P1', 'P2', 'P3', 'P4'] as const).map((p) => [p, PRIORITY_TONE[p].label]) },
+    {
+      key: 'pri',
+      label: 'Priority',
+      opts: (['P1', 'P2', 'P3', 'P4'] as const).map((p) => [p, PRIORITY_TONE[p].label]),
+    },
     { key: 'bucket', label: 'Bucket', opts: data.buckets.map((b) => [b, b]) },
     {
       key: 'status',
@@ -75,10 +84,20 @@ export function filterValueLabel(data: TicketListDTO, key: FilterKey, value: str
   return def?.opts.find((o) => o[0] === value)?.[1] ?? value;
 }
 
-function FacetDropdown({ def, value, counts, onSet }: { def: FacetDef; value: string | undefined; counts: Record<string, number> | undefined; onSet: (v: string | null) => void }) {
+function FacetDropdown({
+  def,
+  value,
+  counts,
+  onSet,
+}: {
+  def: FacetDef;
+  value: string | undefined;
+  counts: Record<string, number> | undefined;
+  onSet: (v: string | null) => void;
+}) {
   const [open, setOpen] = useState(false);
   const active = !!value;
-  const label = active ? def.opts.find((o) => o[0] === value)?.[1] ?? value : def.label;
+  const label = active ? (def.opts.find((o) => o[0] === value)?.[1] ?? value) : def.label;
   return (
     <div className={s.facet}>
       <button
@@ -98,14 +117,25 @@ function FacetDropdown({ def, value, counts, onSet }: { def: FacetDef; value: st
         )}
       </button>
       {active && (
-        <button type="button" className={s.facetClear} onClick={() => onSet(null)} aria-label={`Clear ${def.label.toLowerCase()} filter`}>
+        <button
+          type="button"
+          className={s.facetClear}
+          onClick={() => onSet(null)}
+          aria-label={`Clear ${def.label.toLowerCase()} filter`}
+        >
           ×
         </button>
       )}
-      <Popover open={open} onClose={() => setOpen(false)} label={def.label} className={s.facetPop} style={{ top: 30, left: 0 }}>
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        label={def.label}
+        className={s.facetPop}
+        style={{ top: 30, left: 0 }}
+      >
         <div className={s.facetList}>
           {[['', `Any ${def.label.toLowerCase()}`] as [string, string], ...def.opts].map(([v, l]) => {
-            const n = v ? counts?.[v] ?? 0 : undefined;
+            const n = v ? (counts?.[v] ?? 0) : undefined;
             const sel = v ? value === v : !active;
             return (
               <button
@@ -178,7 +208,13 @@ export function FilterPanel({
         <label className={s.nlBox}>
           <span className={s.nlDot} aria-hidden />
           <span className="sr-only">Describe what you want to see</span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Describe what you want to see — “late disputes assigned to me”" className={s.nlInput} maxLength={300} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Describe what you want to see — “late disputes assigned to me”"
+            className={s.nlInput}
+            maxLength={300}
+          />
         </label>
         <Button type="submit" variant="primary" loading={nlPending} disabled={!q.trim()}>
           Apply
@@ -194,7 +230,13 @@ export function FilterPanel({
         <div className={s.chipRow}>
           <span className={s.hint}>Read as</span>
           {chips.map((c) => (
-            <button key={`${c.key}:${c.value}`} type="button" className={s.nlChip} onClick={() => onRemoveChip(c)} aria-label={`Remove filter: ${c.text}`}>
+            <button
+              key={`${c.key}:${c.value}`}
+              type="button"
+              className={s.nlChip}
+              onClick={() => onRemoveChip(c)}
+              aria-label={`Remove filter: ${c.text}`}
+            >
               {c.text} <span aria-hidden>×</span>
             </button>
           ))}
@@ -203,7 +245,13 @@ export function FilterPanel({
 
       <div className={s.facetRow}>
         {facetDefs(data).map((d) => (
-          <FacetDropdown key={d.key} def={d} value={filters[d.key]} counts={data.facets[d.key]} onSet={(v) => onSet(d.key, v)} />
+          <FacetDropdown
+            key={d.key}
+            def={d}
+            value={filters[d.key]}
+            counts={data.facets[d.key]}
+            onSet={(v) => onSet(d.key, v)}
+          />
         ))}
         <span className={s.listCount}>
           <span className="mono">{data.total}</span> of <span className="mono">{data.all}</span> tickets

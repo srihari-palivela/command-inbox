@@ -24,7 +24,12 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts: RequestOptions = {},
+): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (method !== 'GET' && csrfToken) headers['x-csrf-token'] = csrfToken;
@@ -42,7 +47,12 @@ async function request<T>(method: string, path: string, body?: unknown, opts: Re
     try {
       problem = (await res.json()) as ProblemDTO;
     } catch {
-      problem = { type: 'about:blank', title: res.statusText || 'Request failed', status: res.status, code: 'http_error' };
+      problem = {
+        type: 'about:blank',
+        title: res.statusText || 'Request failed',
+        status: res.status,
+        code: 'http_error',
+      };
     }
     throw new ApiError(res.status, problem);
   }
@@ -54,16 +64,19 @@ export const api = {
   get: <T>(path: string, opts?: RequestOptions) => request<T>('GET', path, undefined, opts),
   post: <T>(path: string, body: unknown = {}, opts?: RequestOptions) => request<T>('POST', path, body, opts),
   put: <T>(path: string, body: unknown = {}, opts?: RequestOptions) => request<T>('PUT', path, body, opts),
-  patch: <T>(path: string, body: unknown = {}, opts?: RequestOptions) => request<T>('PATCH', path, body, opts),
+  patch: <T>(path: string, body: unknown = {}, opts?: RequestOptions) =>
+    request<T>('PATCH', path, body, opts),
   del: <T>(path: string, opts?: RequestOptions) => request<T>('DELETE', path, undefined, opts),
 };
 
-export const newIdempotencyKey = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+export const newIdempotencyKey = () =>
+  crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
 /** Build a query string from a filter object, dropping empty values. */
 export function qs(params: Record<string, string | number | undefined | null>): string {
   const u = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') u.set(k, String(v));
+  for (const [k, v] of Object.entries(params))
+    if (v !== undefined && v !== null && v !== '') u.set(k, String(v));
   const s = u.toString();
   return s ? `?${s}` : '';
 }

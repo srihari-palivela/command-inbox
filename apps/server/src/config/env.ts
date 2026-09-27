@@ -49,8 +49,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
   const env = parsed.data;
   if (env.NODE_ENV === 'production') {
-    if (env.ENCRYPTION_KEY.startsWith('dev-only')) throw new Error('ENCRYPTION_KEY must be set in production');
-    if (env.INTAKE_WEBHOOK_SECRET === 'dev-intake-secret') throw new Error('INTAKE_WEBHOOK_SECRET must be set in production');
+    if (env.ENCRYPTION_KEY.startsWith('dev-only'))
+      throw new Error('ENCRYPTION_KEY must be set in production');
+    if (env.INTAKE_WEBHOOK_SECRET === 'dev-intake-secret')
+      throw new Error('INTAKE_WEBHOOK_SECRET must be set in production');
     if (!env.COOKIE_SECURE) throw new Error('COOKIE_SECURE must be true in production');
   }
   return env;

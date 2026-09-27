@@ -28,7 +28,14 @@ export interface DetailHandle {
  * canary) — it turns true when the work card has been on screen for a moment, or the person opened the
  * reasoning, the fields or the trace.
  */
-export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
+export function Detail({
+  t,
+  me,
+  onNext,
+  onApproved,
+  onOpenTicket,
+  handle,
+}: {
   t: TicketDetailDTO;
   me: MeDTO;
   onNext: () => void;
@@ -82,7 +89,10 @@ export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
     // Same key for retries of the same decision on the same gate state; a new state gets a new key.
     const scope = `${t.id}:${t.gate.state}:${t.version}`;
     if (approveKey.current?.scope !== scope) approveKey.current = { scope, key: newIdempotencyKey() };
-    actions.approve.mutate({ openedEvidence: opened, key: approveKey.current.key }, { onSuccess: onApproved });
+    actions.approve.mutate(
+      { openedEvidence: opened, key: approveKey.current.key },
+      { onSuccess: onApproved },
+    );
   };
   const edit = () => {
     setOpened(true);
@@ -95,7 +105,13 @@ export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
   const reply = () => {
     setTab('conversation');
     setReplyOpen(true);
-    setTimeout(() => scrollRef.current?.querySelector('#reply-body')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    setTimeout(
+      () =>
+        scrollRef.current
+          ?.querySelector('#reply-body')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+      50,
+    );
   };
   handle.current = { approve, reply, edit };
 
@@ -115,12 +131,17 @@ export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
           <header>
             <div className={s.metaLine}>
               <span className="mono">{t.number}</span>
-              <span className="mono" style={{ color: pr.fg, background: pr.bg, borderRadius: 5, padding: '2px 7px', fontSize: 11 }} title={pr.note}>
+              <span
+                className="mono"
+                style={{ color: pr.fg, background: pr.bg, borderRadius: 5, padding: '2px 7px', fontSize: 11 }}
+                title={pr.note}
+              >
                 {pr.label.split(' · ')[1]} · {t.segment}
               </span>
               {t.sla.tone !== 'closed' && t.sla.minutesLeft !== null && (
                 <span style={{ color: sla.fg }}>
-                  <b className="mono">{minutesLeftLabel(t.sla.minutesLeft)}</b> {t.sla.minutesLeft >= 0 ? 'left' : ''} of {formatMinutes(t.sla.budgetMinutes)} · {sla.label}
+                  <b className="mono">{minutesLeftLabel(t.sla.minutesLeft)}</b>{' '}
+                  {t.sla.minutesLeft >= 0 ? 'left' : ''} of {formatMinutes(t.sla.budgetMinutes)} · {sla.label}
                 </span>
               )}
               <span style={{ marginLeft: 'auto' }} className="mono">
@@ -155,7 +176,13 @@ export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
               ]}
             />
             <div className={s.tabActions}>
-              <Button size="sm" className={s.callBtn} onClick={call} loading={actions.startCall.isPending} disabled={!t.permissions.canWork}>
+              <Button
+                size="sm"
+                className={s.callBtn}
+                onClick={call}
+                loading={actions.startCall.isPending}
+                disabled={!t.permissions.canWork}
+              >
                 ● Call customer
               </Button>
               <Button size="sm" onClick={reply} disabled={!t.permissions.canReply} kbd="R">
@@ -167,19 +194,49 @@ export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
           {tab === 'conversation' && (
             <>
               <Eyebrow>
-                Original email <span style={{ textTransform: 'none', letterSpacing: 0, fontFamily: 'var(--font-sans)', fontWeight: 400, marginLeft: 6 }}>
+                Original email{' '}
+                <span
+                  style={{
+                    textTransform: 'none',
+                    letterSpacing: 0,
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: 400,
+                    marginLeft: 6,
+                  }}
+                >
                   {t.messages.length} message{t.messages.length === 1 ? '' : 's'} · received at {t.mailbox}
                 </span>
               </Eyebrow>
               {t.messages.map((m, i) => (
-                <article key={m.id} className={cx(s.msg, m.direction === 'note' && s.msgNote, m.direction === 'outbound' && s.msgOut)} style={{ animationDelay: `${i * 0.05}s` }}>
+                <article
+                  key={m.id}
+                  className={cx(
+                    s.msg,
+                    m.direction === 'note' && s.msgNote,
+                    m.direction === 'outbound' && s.msgOut,
+                  )}
+                  style={{ animationDelay: `${i * 0.05}s` }}
+                >
                   <div className={s.msgHead}>
-                    <Avatar initials={m.direction === 'inbound' ? t.fromInitials : m.direction === 'note' ? 'AI' : me.user.initials} size={22} fg={m.direction === 'note' ? 'var(--accent)' : undefined} bg={m.direction === 'note' ? 'var(--accent-bg)' : undefined} />
+                    <Avatar
+                      initials={
+                        m.direction === 'inbound'
+                          ? t.fromInitials
+                          : m.direction === 'note'
+                            ? 'AI'
+                            : me.user.initials
+                      }
+                      size={22}
+                      fg={m.direction === 'note' ? 'var(--accent)' : undefined}
+                      bg={m.direction === 'note' ? 'var(--accent-bg)' : undefined}
+                    />
                     <b>{m.fromName}</b>
                     <span className={s.msgAddr}>{m.fromAddr}</span>
                     <span className={s.msgTime}>{clockTime(m.sentAt)}</span>
                   </div>
-                  <div className={s.msgTo}>To&nbsp;&nbsp;{m.direction === 'note' ? 'internal note — not sent' : m.toAddr}</div>
+                  <div className={s.msgTo}>
+                    To&nbsp;&nbsp;{m.direction === 'note' ? 'internal note — not sent' : m.toAddr}
+                  </div>
                   <div className={s.msgBody}>{m.body}</div>
                 </article>
               ))}
@@ -199,8 +256,19 @@ export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
               />
 
               {t.action && <FilledAction ref={workRef} a={t.action} />}
-              {t.draft && <DraftCard ref={workRef} d={t.draft} t={t} actions={actions} editing={editingDraft} onEditing={setEditingDraft} />}
-              {t.brief && t.lane === 'manual' && <BriefCard ref={workRef} b={t.brief} t={t} actions={actions} />}
+              {t.draft && (
+                <DraftCard
+                  ref={workRef}
+                  d={t.draft}
+                  t={t}
+                  actions={actions}
+                  editing={editingDraft}
+                  onEditing={setEditingDraft}
+                />
+              )}
+              {t.brief && t.lane === 'manual' && (
+                <BriefCard ref={workRef} b={t.brief} t={t} actions={actions} />
+              )}
               <Progress t={t} />
             </>
           )}
@@ -209,7 +277,16 @@ export function Detail({ t, me, onNext, onApproved, onOpenTicket, handle }: {
         </div>
       </div>
 
-      <Gateway t={t} me={me} actions={actions} onApprove={approve} approving={actions.approve.isPending} onEdit={edit} onReply={reply} onNext={onNext} />
+      <Gateway
+        t={t}
+        me={me}
+        actions={actions}
+        onApprove={approve}
+        approving={actions.approve.isPending}
+        onEdit={edit}
+        onReply={reply}
+        onNext={onNext}
+      />
       <AmendModal t={t} open={amending} onClose={() => setAmending(false)} actions={actions} />
       <CallOverlay callId={callId} ticketNumber={t.number} onClose={() => setCallId(null)} />
     </section>
@@ -226,7 +303,15 @@ const loadSaved = (id: string) => {
   }
 };
 
-function Composer({ t, actions, onClose }: { t: TicketDetailDTO; actions: ReturnType<typeof useTicketActions>; onClose: () => void }) {
+function Composer({
+  t,
+  actions,
+  onClose,
+}: {
+  t: TicketDetailDTO;
+  actions: ReturnType<typeof useTicketActions>;
+  onClose: () => void;
+}) {
   const [text, setText] = useState(() => loadSaved(t.id));
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
   const persist = (v: string | null) => {
@@ -256,7 +341,18 @@ function Composer({ t, actions, onClose }: { t: TicketDetailDTO; actions: Return
               Pull in the AI draft
             </Button>
           ) : (
-            <span style={{ fontSize: 11.5, color: 'var(--accent)', background: 'var(--accent-bg-2)', border: '1px solid var(--accent-line)', borderRadius: 6, padding: '3px 8px' }}>No AI draft here</span>
+            <span
+              style={{
+                fontSize: 11.5,
+                color: 'var(--accent)',
+                background: 'var(--accent-bg-2)',
+                border: '1px solid var(--accent-line)',
+                borderRadius: 6,
+                padding: '3px 8px',
+              }}
+            >
+              No AI draft here
+            </span>
           )}
           <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close the reply">
             ✕
@@ -268,7 +364,13 @@ function Composer({ t, actions, onClose }: { t: TicketDetailDTO; actions: Return
       <label className="sr-only" htmlFor="reply-body">
         Reply to {t.fromName}
       </label>
-      <textarea id="reply-body" value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your reply, or pull in the AI draft above…" autoFocus />
+      <textarea
+        id="reply-body"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Write your reply, or pull in the AI draft above…"
+        autoFocus
+      />
       <div className={s.composerFoot}>
         <span className={s.small} style={{ marginTop: 0 }}>
           {words ? `${words} words · recallable for 60s after send` : 'Empty'}

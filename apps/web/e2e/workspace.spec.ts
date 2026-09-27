@@ -22,7 +22,14 @@ test('every screen a team lead can reach renders without errors', async ({ brows
 
 test('admin setup screens render', async ({ browser }) => {
   const page = await signedIn(browser, 'admin');
-  for (const path of ['/setup/agents', '/setup/actions', '/setup/policies', '/setup/knowledge', '/setup/ownership', '/setup/mailboxes']) {
+  for (const path of [
+    '/setup/agents',
+    '/setup/actions',
+    '/setup/policies',
+    '/setup/knowledge',
+    '/setup/ownership',
+    '/setup/mailboxes',
+  ]) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
   }

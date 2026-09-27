@@ -34,12 +34,19 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     orgs: await listOrgChoices('p.sharma@bank.example'),
   }));
 
-  app.post('/v1/auth/login', { config: { public: true, csrfExempt: true }, schema: { body: LoginBody } }, async (req, reply) => {
-    const session = await loginByEmail(req.body.email, { userAgent: req.headers['user-agent'] ?? '', ip: req.ip });
-    reply.setCookie(SESSION_COOKIE, session.token, cookieOpts);
-    const resolved = await resolveSession(session.token, req.id);
-    return buildMe(resolved!.ctx, session.csrfToken);
-  });
+  app.post(
+    '/v1/auth/login',
+    { config: { public: true, csrfExempt: true }, schema: { body: LoginBody } },
+    async (req, reply) => {
+      const session = await loginByEmail(req.body.email, {
+        userAgent: req.headers['user-agent'] ?? '',
+        ip: req.ip,
+      });
+      reply.setCookie(SESSION_COOKIE, session.token, cookieOpts);
+      const resolved = await resolveSession(session.token, req.id);
+      return buildMe(resolved!.ctx, session.csrfToken);
+    },
+  );
 
   app.post('/v1/auth/logout', async (req, reply) => {
     await logout(ctxOf(req));

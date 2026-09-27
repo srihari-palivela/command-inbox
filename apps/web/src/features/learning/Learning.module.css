@@ -148,7 +148,9 @@
   font-size: 13px;
   color: var(--ink);
   line-height: 1.45;
-  transition: border-color 0.16s ease, background 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
   width: 100%;
 }
 .opt:hover:not(:disabled) {

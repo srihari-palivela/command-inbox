@@ -70,10 +70,14 @@ function Deck({ course, onClose }: { course: CourseDTO; onClose: () => void }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [mode, next, prev]);
 
-  const complete = useAction((answers: number[]) => api.post<{ score: number; total: number }>(`/v1/courses/${course.id}/complete`, { answers }), {
-    invalidate: [keys.learning, keys.me],
-    success: `Marked complete — your record on ${course.title} is updated.`,
-  });
+  const complete = useAction(
+    (answers: number[]) =>
+      api.post<{ score: number; total: number }>(`/v1/courses/${course.id}/complete`, { answers }),
+    {
+      invalidate: [keys.learning, keys.me],
+      success: `Marked complete — your record on ${course.title} is updated.`,
+    },
+  );
 
   if (mode === 'cards') {
     const card = course.cards[idx]!;
@@ -90,7 +94,11 @@ function Deck({ course, onClose }: { course: CourseDTO; onClose: () => void }) {
           {idx > 0 ? <Button onClick={prev}>← Back</Button> : <span style={{ width: 72 }} />}
           <div className={s.dots} aria-hidden>
             {course.cards.map((_, i) => (
-              <span key={i} className={s.navDot} style={{ background: i === idx ? 'var(--accent)' : i < idx ? 'var(--ok)' : 'var(--line)' }} />
+              <span
+                key={i}
+                className={s.navDot}
+                style={{ background: i === idx ? 'var(--accent)' : i < idx ? 'var(--ok)' : 'var(--line)' }}
+              />
             ))}
           </div>
           <Button variant="primary" onClick={next} data-autofocus>
@@ -153,7 +161,9 @@ function Deck({ course, onClose }: { course: CourseDTO; onClose: () => void }) {
         {answered && (
           <div className={s.feedback} role="status">
             <span className={s.feedbackText} style={{ color: right ? 'var(--ok)' : 'var(--bad-text)' }}>
-              {right ? `Right. ${q.options[q.correct]}` : `Not quite — the answer is: ${q.options[q.correct]}`}
+              {right
+                ? `Right. ${q.options[q.correct]}`
+                : `Not quite — the answer is: ${q.options[q.correct]}`}
             </span>
             <Button variant="dark" onClick={() => (lastQ ? setMode('done') : setQi(qi + 1))} autoFocus>
               {lastQ ? 'Finish' : 'Next question →'}
@@ -169,7 +179,14 @@ function Deck({ course, onClose }: { course: CourseDTO; onClose: () => void }) {
     <div className={s.done}>
       <div className={s.doneIcon} aria-hidden>
         <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-          <path d="M3.5 8.4l3 3 6-6.4" stroke="var(--ok-dot)" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="26" style={{ animation: 'drawCheck .45s ease .05s both' }} />
+          <path
+            d="M3.5 8.4l3 3 6-6.4"
+            stroke="var(--ok-dot)"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeDasharray="26"
+            style={{ animation: 'drawCheck .45s ease .05s both' }}
+          />
         </svg>
       </div>
       <div className={s.doneScore}>
@@ -187,7 +204,16 @@ function Deck({ course, onClose }: { course: CourseDTO; onClose: () => void }) {
         >
           Start again
         </Button>
-        <Button variant="dark" loading={complete.isPending} onClick={() => complete.mutate(course.quiz.map((_, i) => picks[i] ?? 0), { onSuccess: onClose })}>
+        <Button
+          variant="dark"
+          loading={complete.isPending}
+          onClick={() =>
+            complete.mutate(
+              course.quiz.map((_, i) => picks[i] ?? 0),
+              { onSuccess: onClose },
+            )
+          }
+        >
           Mark complete
         </Button>
       </div>

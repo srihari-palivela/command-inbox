@@ -36,7 +36,11 @@ export async function orgBar(tx: Tx, orgId: string): Promise<number> {
 }
 
 /** Load tickets with the joins every summary needs. */
-export async function loadSummaries(tx: Tx, orgId: string, where?: SQL): Promise<{ row: TicketRow; x: SummaryExtras }[]> {
+export async function loadSummaries(
+  tx: Tx,
+  orgId: string,
+  where?: SQL,
+): Promise<{ row: TicketRow; x: SummaryExtras }[]> {
   const rows = await tx
     .select({
       t: s.tickets,
@@ -61,7 +65,12 @@ export async function loadSummaries(tx: Tx, orgId: string, where?: SQL): Promise
     .where(and(eq(s.messages.orgId, orgId), inArray(s.messages.ticketId, ids)))
     .groupBy(s.messages.ticketId);
   const actions = await tx
-    .select({ ticketId: s.actionInstances.ticketId, state: s.actionInstances.state, chain: s.actionInstances.chain, createdAt: s.actionInstances.createdAt })
+    .select({
+      ticketId: s.actionInstances.ticketId,
+      state: s.actionInstances.state,
+      chain: s.actionInstances.chain,
+      createdAt: s.actionInstances.createdAt,
+    })
     .from(s.actionInstances)
     .where(and(eq(s.actionInstances.orgId, orgId), inArray(s.actionInstances.ticketId, ids)))
     .orderBy(desc(s.actionInstances.createdAt));
@@ -91,16 +100,15 @@ export async function loadSummaries(tx: Tx, orgId: string, where?: SQL): Promise
 
 export function toSummary(row: TicketRow, x: SummaryExtras, now: Date): TicketSummaryDTO {
   const open = isOpen(row.status);
-  const pendingGate =
-    !open
-      ? null
-      : x.actionState === 'drafted'
-        ? 'maker'
-        : x.actionState === 'awaiting_checker'
-          ? 'checker'
-          : row.lane === 'draft' && x.draftState === 'draft' && row.status === 'awaiting_approval'
-            ? 'send'
-            : null;
+  const pendingGate = !open
+    ? null
+    : x.actionState === 'drafted'
+      ? 'maker'
+      : x.actionState === 'awaiting_checker'
+        ? 'checker'
+        : row.lane === 'draft' && x.draftState === 'draft' && row.status === 'awaiting_approval'
+          ? 'send'
+          : null;
   return {
     id: row.id,
     number: ticketNumber(row.number),
@@ -134,14 +142,22 @@ const DAY = 24 * 3600_000;
 /** What a board shows: everything open, plus what closed in the last 24 h (not old history or merged). */
 function visibleOnBoard(t: TicketSummaryDTO, row: TicketRow, now: Date): boolean {
   if (row.mergedIntoId) return false;
-  if (row.status === 'closed' && (!row.resolvedAt || now.getTime() - row.resolvedAt.getTime() > DAY)) return false;
-  if (row.status === 'resolved' && row.resolvedAt && now.getTime() - row.resolvedAt.getTime() > DAY) return false;
+  if (row.status === 'closed' && (!row.resolvedAt || now.getTime() - row.resolvedAt.getTime() > DAY))
+    return false;
+  if (row.status === 'resolved' && row.resolvedAt && now.getTime() - row.resolvedAt.getTime() > DAY)
+    return false;
   return true;
 }
 
 export type FilterFn = (t: TicketSummaryDTO) => boolean;
 
-export function matcher(key: keyof TicketFilters, value: string, ctx: Ctx, bar: number, boardKeys: Map<string, string>): FilterFn {
+export function matcher(
+  key: keyof TicketFilters,
+  value: string,
+  ctx: Ctx,
+  bar: number,
+  boardKeys: Map<string, string>,
+): FilterFn {
   switch (key) {
     case 'board':
       return (t) => (t.boardId ? boardKeys.get(t.boardId) === value : false);
@@ -161,7 +177,8 @@ export function matcher(key: keyof TicketFilters, value: string, ctx: Ctx, bar: 
               ? t.ownerKind === 'unassigned'
               : t.assignee?.id === value;
     case 'due':
-      return (t) => (value === 'risk' ? atRisk(t.sla.tone) : value === 'open' ? isOpen(t.status) : !isOpen(t.status));
+      return (t) =>
+        value === 'risk' ? atRisk(t.sla.tone) : value === 'open' ? isOpen(t.status) : !isOpen(t.status);
     case 'conf':
       return (t) => (value === 'low' ? t.confidence < bar : t.confidence >= 0.9);
     case 'pri':
@@ -171,7 +188,14 @@ export function matcher(key: keyof TicketFilters, value: string, ctx: Ctx, bar: 
     case 'q': {
       const q = value.toLowerCase();
       return (t) =>
-        [t.number, t.subject, t.bucket, t.department, t.fromName, t.assignee?.name ?? (t.ownerKind === 'ai' ? 'agent' : 'unassigned')]
+        [
+          t.number,
+          t.subject,
+          t.bucket,
+          t.department,
+          t.fromName,
+          t.assignee?.name ?? (t.ownerKind === 'ai' ? 'agent' : 'unassigned'),
+        ]
           .join(' ')
           .toLowerCase()
           .includes(q);
@@ -179,7 +203,16 @@ export function matcher(key: keyof TicketFilters, value: string, ctx: Ctx, bar: 
   }
 }
 
-const FACET_KEYS: (keyof TicketFilters)[] = ['pri', 'bucket', 'status', 'lane', 'team', 'owner', 'due', 'conf'];
+const FACET_KEYS: (keyof TicketFilters)[] = [
+  'pri',
+  'bucket',
+  'status',
+  'lane',
+  'team',
+  'owner',
+  'due',
+  'conf',
+];
 const FACET_VALUES: Partial<Record<keyof TicketFilters, string[]>> = {
   pri: ['P1', 'P2', 'P3', 'P4'],
   status: ['triage', 'approval', 'executing', 'human', 'customer', 'resolved'],
@@ -199,7 +232,13 @@ export async function listTickets(tx: Tx, ctx: Ctx, filters: TicketFilters): Pro
   const now = clock.now();
   const bar = await orgBar(tx, ctx.orgId);
   const boards = await tx
-    .select({ id: s.boards.id, key: s.boards.key, name: s.boards.name, state: s.boards.state, source: s.mailboxes.address })
+    .select({
+      id: s.boards.id,
+      key: s.boards.key,
+      name: s.boards.name,
+      state: s.boards.state,
+      source: s.mailboxes.address,
+    })
     .from(s.boards)
     .leftJoin(s.mailboxes, eq(s.mailboxes.id, s.boards.mailboxId))
     .where(eq(s.boards.orgId, ctx.orgId))
@@ -214,9 +253,14 @@ export async function listTickets(tx: Tx, ctx: Ctx, filters: TicketFilters): Pro
   const loaded = await loadSummaries(
     tx,
     ctx.orgId,
-    and(isNull(s.tickets.mergedIntoId), or(sql`${s.tickets.status} <> 'closed'`, sql`${s.tickets.resolvedAt} > now() - interval '24 hours'`)),
+    and(
+      isNull(s.tickets.mergedIntoId),
+      or(sql`${s.tickets.status} <> 'closed'`, sql`${s.tickets.resolvedAt} > now() - interval '24 hours'`),
+    ),
   );
-  const base = loaded.map((l) => ({ dto: toSummary(l.row, l.x, now), row: l.row })).filter((x) => visibleOnBoard(x.dto, x.row, now));
+  const base = loaded
+    .map((l) => ({ dto: toSummary(l.row, l.x, now), row: l.row }))
+    .filter((x) => visibleOnBoard(x.dto, x.row, now));
   const universe = base.map((b) => b.dto);
 
   const active = (Object.entries(filters) as [keyof TicketFilters, string | undefined][]).filter(
@@ -232,7 +276,7 @@ export async function listTickets(tx: Tx, ctx: Ctx, filters: TicketFilters): Pro
   const facets: TicketListDTO['facets'] = {};
   for (const key of FACET_KEYS) {
     const values =
-      key === 'bucket' ? buckets : key === 'team' ? departments.map((d) => d.id) : FACET_VALUES[key] ?? [];
+      key === 'bucket' ? buckets : key === 'team' ? departments.map((d) => d.id) : (FACET_VALUES[key] ?? []);
     const counts: Record<string, number> = {};
     const pool = universe.filter((t) => passes(t, key));
     for (const v of values) {
@@ -276,7 +320,11 @@ const PRI_RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2, P4: 3 };
  * The personal queue: open work assigned to me, work waiting for my check as a checker, and what the
  * AI closed for me today (post-hoc review). Ordered by what needs a decision soonest.
  */
-export async function inbox(tx: Tx, ctx: Ctx, filter: 'all' | 'auto' | 'draft' | 'manual' | 'late'): Promise<InboxDTO> {
+export async function inbox(
+  tx: Tx,
+  ctx: Ctx,
+  filter: 'all' | 'auto' | 'draft' | 'manual' | 'late',
+): Promise<InboxDTO> {
   const now = clock.now();
   const loaded = await loadSummaries(
     tx,
@@ -286,7 +334,10 @@ export async function inbox(tx: Tx, ctx: Ctx, filter: 'all' | 'auto' | 'draft' |
       or(
         and(
           eq(s.tickets.assigneeId, ctx.user.id),
-          or(sql`${s.tickets.status} not in ('resolved','closed')`, sql`${s.tickets.resolvedAt} > now() - interval '24 hours'`),
+          or(
+            sql`${s.tickets.status} not in ('resolved','closed')`,
+            sql`${s.tickets.resolvedAt} > now() - interval '24 hours'`,
+          ),
         ),
         ctx.capabilities.has('action.approve_checker')
           ? sql`exists (select 1 from action_instances ai where ai.ticket_id = ${s.tickets.id} and ai.state = 'awaiting_checker' and ai.maker_id <> ${ctx.user.id})`
@@ -315,7 +366,8 @@ export async function inbox(tx: Tx, ctx: Ctx, filter: 'all' | 'auto' | 'draft' |
     manual: open.filter((t) => t.lane === 'manual').length,
     late: all.filter(late).length,
   };
-  const items = filter === 'all' ? all : filter === 'late' ? all.filter(late) : all.filter((t) => t.lane === filter);
+  const items =
+    filter === 'all' ? all : filter === 'late' ? all.filter(late) : all.filter((t) => t.lane === filter);
   return { items, counts };
 }
 

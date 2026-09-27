@@ -60,7 +60,9 @@ test('a person edits the draft, sends it, and can recall it inside the window', 
   await expect(draft).toContainText('Cited sources');
   await draft.getByRole('button', { name: 'Edit draft' }).click();
   const box = page.getByLabel('Edit the reply');
-  await box.fill((await box.inputValue()).replace('We will need the following', 'Please arrange the following documents'));
+  await box.fill(
+    (await box.inputValue()).replace('We will need the following', 'Please arrange the following documents'),
+  );
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(toast(page)).toContainText('Draft saved');
   // The diff shows what the person changed against the AI's version.
@@ -91,7 +93,9 @@ test('sending work back records a correction and hands the ticket to me', async 
 test('taking on a stood-down ticket makes it mine', async ({ browser }) => {
   const page = await signedIn(browser, 'staff');
   await page.goto('/inbox/QRY-48174');
-  await gateway(page).getByRole('button', { name: /Take it on/ }).click();
+  await gateway(page)
+    .getByRole('button', { name: /Take it on/ })
+    .click();
   await expect(toast(page)).toContainText('is yours now');
   await expect(gateway(page)).toContainText('Yours now');
 });

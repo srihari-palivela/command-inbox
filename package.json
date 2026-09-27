@@ -14,7 +14,11 @@
     "db:migrate": "pnpm --filter @ci/server db:migrate",
     "db:seed": "pnpm --filter @ci/server db:seed",
     "db:reset": "pnpm --filter @ci/server db:reset",
-    "e2e": "pnpm --filter @ci/web e2e"
+    "e2e": "pnpm --filter @ci/web e2e",
+    "test:unit": "pnpm --filter @ci/web test && pnpm --filter @ci/server test:unit",
+    "test:integration": "pnpm --filter @ci/server test:integration",
+    "format:check": "prettier --check \"apps/*/src/**/*.{ts,tsx,css}\" \"apps/web/e2e/**/*.ts\" \"apps/server/test/**/*.ts\" \"packages/*/src/**/*.ts\"",
+    "format": "prettier --write \"apps/*/src/**/*.{ts,tsx,css}\" \"apps/web/e2e/**/*.ts\" \"apps/server/test/**/*.ts\" \"packages/*/src/**/*.ts\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

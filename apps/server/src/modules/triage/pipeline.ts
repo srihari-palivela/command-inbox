@@ -79,21 +79,41 @@ export function templateFor(queryType: string | null, text: string): string | nu
 
 async function loadContext(orgId: string, ticketId: string) {
   return withTenant(orgId, async (tx) => {
-    const [t] = await tx.select().from(s.tickets).where(and(eq(s.tickets.orgId, orgId), eq(s.tickets.id, ticketId)));
+    const [t] = await tx
+      .select()
+      .from(s.tickets)
+      .where(and(eq(s.tickets.orgId, orgId), eq(s.tickets.id, ticketId)));
     if (!t) return null;
     const msgs = await tx
       .select()
       .from(s.messages)
-      .where(and(eq(s.messages.orgId, orgId), eq(s.messages.ticketId, ticketId), eq(s.messages.direction, 'inbound')))
+      .where(
+        and(
+          eq(s.messages.orgId, orgId),
+          eq(s.messages.ticketId, ticketId),
+          eq(s.messages.direction, 'inbound'),
+        ),
+      )
       .orderBy(asc(s.messages.sentAt));
     const [org] = await tx.select().from(s.orgs).where(eq(s.orgs.id, orgId));
     const depts = await tx.select().from(s.departments).where(eq(s.departments.orgId, orgId));
-    const qts = await tx.select().from(s.queryTypes).where(eq(s.queryTypes.orgId, orgId)).orderBy(asc(s.queryTypes.sort));
+    const qts = await tx
+      .select()
+      .from(s.queryTypes)
+      .where(eq(s.queryTypes.orgId, orgId))
+      .orderBy(asc(s.queryTypes.sort));
     const agentRows = await tx.select().from(s.agents).where(eq(s.agents.orgId, orgId));
     const boardAgents = t.boardId
-      ? await tx.select({ agentId: s.agentBoards.agentId }).from(s.agentBoards).where(and(eq(s.agentBoards.orgId, orgId), eq(s.agentBoards.boardId, t.boardId)))
+      ? await tx
+          .select({ agentId: s.agentBoards.agentId })
+          .from(s.agentBoards)
+          .where(and(eq(s.agentBoards.orgId, orgId), eq(s.agentBoards.boardId, t.boardId)))
       : [];
-    const bucketRules = await tx.select().from(s.bucketRules).where(eq(s.bucketRules.orgId, orgId)).orderBy(asc(s.bucketRules.sort));
+    const bucketRules = await tx
+      .select()
+      .from(s.bucketRules)
+      .where(eq(s.bucketRules.orgId, orgId))
+      .orderBy(asc(s.bucketRules.sort));
     const priorityRules = await tx.select().from(s.priorityRules).where(eq(s.priorityRules.orgId, orgId));
     const templates = await tx.select().from(s.actionTemplates).where(eq(s.actionTemplates.orgId, orgId));
     const dial = await tx.select().from(s.autonomyDial).where(eq(s.autonomyDial.orgId, orgId));
@@ -101,22 +121,47 @@ async function loadContext(orgId: string, ticketId: string) {
       ? await tx
           .select({ queryTypeId: s.tickets.queryTypeId, subject: s.tickets.subject })
           .from(s.tickets)
-          .where(and(eq(s.tickets.orgId, orgId), eq(s.tickets.customerId, t.customerId), ne(s.tickets.id, t.id)))
+          .where(
+            and(eq(s.tickets.orgId, orgId), eq(s.tickets.customerId, t.customerId), ne(s.tickets.id, t.id)),
+          )
       : [];
-    const customer = t.customerId ? (await tx.select().from(s.customers).where(eq(s.customers.id, t.customerId)))[0] : undefined;
+    const customer = t.customerId
+      ? (await tx.select().from(s.customers).where(eq(s.customers.id, t.customerId)))[0]
+      : undefined;
     const docs = await tx
       .select()
       .from(s.knowledgeDocs)
       .where(and(eq(s.knowledgeDocs.orgId, orgId), inArray(s.knowledgeDocs.status, ['approved', 'stale'])));
-    return { t, msgs, org: org!, depts, qts, agentRows, boardAgents, bucketRules, priorityRules, templates, dial, prior, customer, docs };
+    return {
+      t,
+      msgs,
+      org: org!,
+      depts,
+      qts,
+      agentRows,
+      boardAgents,
+      bucketRules,
+      priorityRules,
+      templates,
+      dial,
+      prior,
+      customer,
+      docs,
+    };
   });
 }
 
-function agentFor(ctx: NonNullable<Awaited<ReturnType<typeof loadContext>>>, role: string, preferName?: string): AgentConfig {
+function agentFor(
+  ctx: NonNullable<Awaited<ReturnType<typeof loadContext>>>,
+  role: string,
+  preferName?: string,
+): AgentConfig {
   const onBoard = new Set(ctx.boardAgents.map((b) => b.agentId));
   const candidates = ctx.agentRows.filter((a) => a.role === role && a.state !== 'paused');
   const pick =
-    (preferName && candidates.find((a) => a.name === preferName)) ?? candidates.find((a) => onBoard.has(a.id)) ?? candidates[0];
+    (preferName && candidates.find((a) => a.name === preferName)) ??
+    candidates.find((a) => onBoard.has(a.id)) ??
+    candidates[0];
   return pick
     ? { name: pick.name, model: pick.model, prompt: pick.prompt }
     : { name: role, model: 'claude-sonnet-5', prompt: 'You are a careful banking operations assistant.' };
@@ -133,7 +178,14 @@ export async function runTriage(job: JobRow): Promise<void> {
   const started = Date.now();
   const spans: SpanRec[] = [];
   let degraded = false;
-  const span = (agent: string, action: string, output: string, usage: Staged<unknown>['usage'] | null, status: SpanRec['status'], model?: string) => {
+  const span = (
+    agent: string,
+    action: string,
+    output: string,
+    usage: Staged<unknown>['usage'] | null,
+    status: SpanRec['status'],
+    model?: string,
+  ) => {
     spans.push({
       seq: spans.length + 1,
       offsetMs: Date.now() - started - (usage?.latencyMs ?? 0),
@@ -166,12 +218,27 @@ export async function runTriage(job: JobRow): Promise<void> {
     messages: masked,
     customer: { segment: t.segment, priorContacts: ctx.prior.length, priorSameTopic: priorSame },
   };
-  span('Mail intake', 'Assembled the thread and masked PII before any model call', `${ctx.msgs.length} message${ctx.msgs.length === 1 ? '' : 's'} · ${Object.keys(vault).length} values masked · sender ${ctx.customer ? `matched to ${ctx.customer.cif}` : 'not matched to a customer'}`, null, 'ok', '—');
+  span(
+    'Mail intake',
+    'Assembled the thread and masked PII before any model call',
+    `${ctx.msgs.length} message${ctx.msgs.length === 1 ? '' : 's'} · ${Object.keys(vault).length} values masked · sender ${ctx.customer ? `matched to ${ctx.customer.cif}` : 'not matched to a customer'}`,
+    null,
+    'ok',
+    '—',
+  );
 
   // ── 2. Guardrail Sentinel ──
   const guardAgent = agentFor(ctx, 'guard');
   const guard = await stage<GuardResult>((p) => p.guard(thread, guardAgent));
-  span(guardAgent.name, 'Screened for hard stop rules before anything else ran', guard.result.stop ? `STOP · ${guard.result.stop} — customer-facing generation suspended` : 'Clear · no hard stop fired', guard.usage, guard.result.stop ? 'stop' : 'ok');
+  span(
+    guardAgent.name,
+    'Screened for hard stop rules before anything else ran',
+    guard.result.stop
+      ? `STOP · ${guard.result.stop} — customer-facing generation suspended`
+      : 'Clear · no hard stop fired',
+    guard.usage,
+    guard.result.stop ? 'stop' : 'ok',
+  );
 
   // ── 3. Bucketing: deterministic rules first, then the model ──
   const taxonomy: TaxonomyEntry[] = ctx.qts.map((q) => ({
@@ -194,40 +261,77 @@ export async function runTriage(job: JobRow): Promise<void> {
   const cls = await stage<ClassifyResult>((p) => p.classify(thread, taxonomy, bucketAgent));
   let classification = cls.result;
   if (ruleHit?.pattern?.queryType) {
-    classification = { ...classification, queryType: ruleHit.pattern.queryType, confidence: Math.max(classification.confidence, 0.94) };
+    classification = {
+      ...classification,
+      queryType: ruleHit.pattern.queryType,
+      confidence: Math.max(classification.confidence, 0.94),
+    };
   }
   const qt = ctx.qts.find((q) => q.name === classification.queryType) ?? null;
   const bar = ctx.org.confidenceBar;
   const confidence = Math.round(classification.confidence * 100) / 100;
   span(
     bucketAgent.name,
-    ruleHit ? `Bucketing rule ${ruleHit.sort + 1} fired, then classified against the taxonomy` : 'Classified the query against the taxonomy',
+    ruleHit
+      ? `Bucketing rule ${ruleHit.sort + 1} fired, then classified against the taxonomy`
+      : 'Classified the query against the taxonomy',
     `${classification.queryType ?? 'No matching query type'} · confidence ${confidence.toFixed(2)} · ${confidence >= bar ? 'above the bar' : 'below the bar, human required'}`,
     cls.usage,
     confidence >= bar ? 'ok' : 'flag',
   );
 
-  const department = qt?.departmentId ? ctx.depts.find((d) => d.id === qt.departmentId) ?? null : null;
+  const department = qt?.departmentId ? (ctx.depts.find((d) => d.id === qt.departmentId) ?? null) : null;
   const owned = !!qt?.departmentId;
   const templateCode = templateFor(classification.queryType, fullText);
-  const template = templateCode ? ctx.templates.find((x) => x.code === templateCode) ?? null : null;
+  const template = templateCode ? (ctx.templates.find((x) => x.code === templateCode) ?? null) : null;
 
   // ── 4. Path-specific work ──
   let extraction: ExtractResult | null = null;
   let draft: DraftResult | null = null;
   let brief: BriefResult | null = null;
   const docsForDept = ctx.docs.filter((d) => !department || d.departmentId === department.id);
-  const grounding = docsForDept.slice(0, 6).map((d, i) => ({ n: i + 1, title: d.title, section: d.section, body: d.body, id: d.id, owner: d.owner, verifiedAt: d.verifiedAt }));
+  const grounding = docsForDept.slice(0, 6).map((d, i) => ({
+    n: i + 1,
+    title: d.title,
+    section: d.section,
+    body: d.body,
+    id: d.id,
+    owner: d.owner,
+    verifiedAt: d.verifiedAt,
+  }));
 
-  const wantAction = !!template && !classification.informational && !guard.result.stop && !classification.multiIntent;
+  const wantAction =
+    !!template && !classification.informational && !guard.result.stop && !classification.multiIntent;
   if ((wantAction && forceLane !== 'draft' && forceLane !== 'manual') || forceLane === 'auto') {
     if (template) {
       const extractor = agentFor(ctx, 'extractor');
-      const ex = await stage<ExtractResult>((p) => p.extract(thread, { code: template.code, name: template.name, fields: TEMPLATE_FIELDS[template.code] ?? ['Account number'] }, extractor));
+      const ex = await stage<ExtractResult>((p) =>
+        p.extract(
+          thread,
+          {
+            code: template.code,
+            name: template.name,
+            fields: TEMPLATE_FIELDS[template.code] ?? ['Account number'],
+          },
+          extractor,
+        ),
+      );
       // Re-bind masked values inside the bank boundary, now that no model will see them.
-      extraction = { ...ex.result, fields: ex.result.fields.map((f) => ({ ...f, value: f.value.replace(/\[[A-Z]+_\d+\]/g, (tok) => vault[tok] ?? tok) })) };
+      extraction = {
+        ...ex.result,
+        fields: ex.result.fields.map((f) => ({
+          ...f,
+          value: f.value.replace(/\[[A-Z]+_\d+\]/g, (tok) => vault[tok] ?? tok),
+        })),
+      };
       const inferred = extraction.fields.filter((f) => f.inferred).length;
-      span(extractor.name, `Filled ${template.code} from the thread and system records`, `${extraction.fields.length} of ${(TEMPLATE_FIELDS[template.code] ?? []).length} fields · ${inferred} inferred${extraction.complete ? '' : ' · missing fields, a person must complete them'}`, ex.usage, extraction.complete ? 'ok' : 'flag');
+      span(
+        extractor.name,
+        `Filled ${template.code} from the thread and system records`,
+        `${extraction.fields.length} of ${(TEMPLATE_FIELDS[template.code] ?? []).length} fields · ${inferred} inferred${extraction.complete ? '' : ' · missing fields, a person must complete them'}`,
+        ex.usage,
+        extraction.complete ? 'ok' : 'flag',
+      );
     }
   }
 
@@ -252,15 +356,32 @@ export async function runTriage(job: JobRow): Promise<void> {
     if (forceLane === 'auto' && extraction?.complete) lane = 'auto';
     else if (forceLane === 'draft') lane = 'draft';
     else if (forceLane === 'manual') lane = 'manual';
-    laneNote = lane === forceLane ? `Re-run as ${LANE_NAME[lane]} after an override` : `Override to ${forceLane} not possible — ${decision.note}`;
+    laneNote =
+      lane === forceLane
+        ? `Re-run as ${LANE_NAME[lane]} after an override`
+        : `Override to ${forceLane} not possible — ${decision.note}`;
   }
 
   // Informational queries that passed the gates try the grounded drafting path.
-  if ((lane === 'manual' && !guard.result.stop && owned && !classification.multiIntent && confidence >= 0.6 && !template) || lane === 'draft') {
+  if (
+    (lane === 'manual' &&
+      !guard.result.stop &&
+      owned &&
+      !classification.multiIntent &&
+      confidence >= 0.6 &&
+      !template) ||
+    lane === 'draft'
+  ) {
     const drafter = agentFor(ctx, 'drafter');
     const dr = await stage<DraftResult>((p) => p.draft(thread, grounding, drafter, t.fromName));
     draft = dr.result;
-    span(drafter.name, 'Drafted the reply from approved sources only', `${draft.citations.length} citation${draft.citations.length === 1 ? '' : 's'} · ${draft.coverage === 'full' ? 'full coverage' : draft.coverage === 'partial' ? '1 gap flagged' : 'no approved source — nothing quotable'}`, dr.usage, draft.coverage === 'full' ? 'ok' : 'flag');
+    span(
+      drafter.name,
+      'Drafted the reply from approved sources only',
+      `${draft.citations.length} citation${draft.citations.length === 1 ? '' : 's'} · ${draft.coverage === 'full' ? 'full coverage' : draft.coverage === 'partial' ? '1 gap flagged' : 'no approved source — nothing quotable'}`,
+      dr.usage,
+      draft.coverage === 'full' ? 'ok' : 'flag',
+    );
     const d2 = decideLane({
       hardStop: null,
       confidence,
@@ -291,11 +412,16 @@ export async function runTriage(job: JobRow): Promise<void> {
       .join('\n');
     const br = await stage<BriefResult>((p) => p.brief(thread, facts, summariser));
     brief = br.result;
-    if (classification.multiIntent) brief.suggestions.unshift({ label: 'Split into two child tickets', meta: 'recommended' });
+    if (classification.multiIntent)
+      brief.suggestions.unshift({ label: 'Split into two child tickets', meta: 'recommended' });
     span(
       classification.multiIntent ? 'Split proposer' : summariser.name,
-      classification.multiIntent ? 'Detected two intents owned by different teams' : 'Assembled context for the person taking over',
-      classification.multiIntent ? 'Proposed split into two child tickets · held for your decision' : `Brief attached · ${brief.context.length} context items · no customer-facing text generated`,
+      classification.multiIntent
+        ? 'Detected two intents owned by different teams'
+        : 'Assembled context for the person taking over',
+      classification.multiIntent
+        ? 'Proposed split into two child tickets · held for your decision'
+        : `Brief attached · ${brief.context.length} context items · no customer-facing text generated`,
       br.usage,
       classification.multiIntent ? 'flag' : 'ok',
     );
@@ -307,7 +433,14 @@ export async function runTriage(job: JobRow): Promise<void> {
     const cell = cellOf(template.reversible, template.moneyMoves);
     const dial = ctx.dial.find((d) => d.cell === cell)?.level ?? 1;
     chain = chainFor(cell, template.approval as 'auto' | 'single' | 'dual', dial);
-    span('Policy engine', 'Looked up the action’s risk cell and approval route', `${template.reversible ? 'Can be undone' : 'Cannot be undone'} · ${template.moneyMoves ? 'Money moves' : 'No money moves'} → ${chain === 'auto' ? 'the AI may act alone' : chain === 'dual' ? 'maker + checker' : 'one approver'}`, null, chain === 'dual' ? 'flag' : 'ok', 'rules');
+    span(
+      'Policy engine',
+      'Looked up the action’s risk cell and approval route',
+      `${template.reversible ? 'Can be undone' : 'Cannot be undone'} · ${template.moneyMoves ? 'Money moves' : 'No money moves'} → ${chain === 'auto' ? 'the AI may act alone' : chain === 'dual' ? 'maker + checker' : 'one approver'}`,
+      null,
+      chain === 'dual' ? 'flag' : 'ok',
+      'rules',
+    );
     if (chain === 'auto') laneNote = 'Can be undone — the AI already did it';
     else if (chain === 'dual') laneNote = 'Filled in, waiting on two approvers';
     else laneNote = 'Filled in, waiting on one approver';
@@ -330,7 +463,14 @@ export async function runTriage(job: JobRow): Promise<void> {
     ctx.priorityRules.map((r) => ({ key: r.key, hard: r.hard, enabled: r.enabled })),
   );
   const slaMinutes = slaBudget(ranked.priority, t.segment, escalation);
-  span('Priority Ranker', 'Scored urgency from deadline, sentiment, amount and repeat contacts', `${ranked.priority} · rules fired: ${ranked.fired.length ? ranked.fired.join(', ') : 'none (default P3)'}`, null, ranked.priority === 'P1' ? 'flag' : 'ok', 'rules + claude-haiku-4-5');
+  span(
+    'Priority Ranker',
+    'Scored urgency from deadline, sentiment, amount and repeat contacts',
+    `${ranked.priority} · rules fired: ${ranked.fired.length ? ranked.fired.join(', ') : 'none (default P3)'}`,
+    null,
+    ranked.priority === 'P1' ? 'flag' : 'ok',
+    'rules + claude-haiku-4-5',
+  );
 
   if (degraded) {
     lane = 'manual';
@@ -345,32 +485,113 @@ export async function runTriage(job: JobRow): Promise<void> {
     if (locked.status !== 'triaging') return;
 
     const assignee =
-      chain === 'auto' ? null : await pickAssignee(tx, job.orgId, department?.id ?? null, classification.queryType ?? 'this query', null);
-    span('Router', 'Placed the ticket with the right person at the right position', assignee ? `Assigned to ${assignee.name} · clearance-checked · position by ${ranked.priority}` : chain === 'auto' ? 'Owned by the AI · auto-execution cell' : 'No cleared person available — left unassigned for the team lead', null, assignee || chain === 'auto' ? 'ok' : 'flag', 'rules');
+      chain === 'auto'
+        ? null
+        : await pickAssignee(
+            tx,
+            job.orgId,
+            department?.id ?? null,
+            classification.queryType ?? 'this query',
+            null,
+          );
+    span(
+      'Router',
+      'Placed the ticket with the right person at the right position',
+      assignee
+        ? `Assigned to ${assignee.name} · clearance-checked · position by ${ranked.priority}`
+        : chain === 'auto'
+          ? 'Owned by the AI · auto-execution cell'
+          : 'No cleared person available — left unassigned for the team lead',
+      null,
+      assignee || chain === 'auto' ? 'ok' : 'flag',
+      'rules',
+    );
 
     const totalMs = Date.now() - started;
     const traceId = `TRC-${locked.number}-${String(await nextRunNo(tx, job.orgId, ticketId)).padStart(2, '0')}`;
     const cost = spans.reduce((a, x) => a + (x.costMinor ?? 0), 0);
     const evidence = [
-      { tag: 'INTENT', quote: classification.phrases[0] ? `"${classification.phrases[0]}"` : classification.intents.join(' + ') || 'no clear intent', why: classification.multiIntent ? 'more than one intent' : 'drove the classification' },
+      {
+        tag: 'INTENT',
+        quote: classification.phrases[0]
+          ? `"${classification.phrases[0]}"`
+          : classification.intents.join(' + ') || 'no clear intent',
+        why: classification.multiIntent ? 'more than one intent' : 'drove the classification',
+      },
       ...(guard.result.stop ? [{ tag: 'POLICY', quote: guard.result.stop, why: 'hard stop rule' }] : []),
-      ...(extraction ? [{ tag: 'ENTITY', quote: extraction.fields.slice(0, 3).map((f) => f.value).join(' · '), why: extraction.complete ? 'all mandatory fields present' : 'some fields missing' }] : []),
-      ...(draft ? [{ tag: draft.coverage === 'full' ? 'MATCH' : 'GAP', quote: draft.coverage === 'full' ? `${draft.citations.length} approved source${draft.citations.length === 1 ? '' : 's'} cover the answer` : 'part of the question has no approved source', why: draft.coverage === 'full' ? 'approved source' : 'gap ticket raised' }] : []),
+      ...(extraction
+        ? [
+            {
+              tag: 'ENTITY',
+              quote: extraction.fields
+                .slice(0, 3)
+                .map((f) => f.value)
+                .join(' · '),
+              why: extraction.complete ? 'all mandatory fields present' : 'some fields missing',
+            },
+          ]
+        : []),
+      ...(draft
+        ? [
+            {
+              tag: draft.coverage === 'full' ? 'MATCH' : 'GAP',
+              quote:
+                draft.coverage === 'full'
+                  ? `${draft.citations.length} approved source${draft.citations.length === 1 ? '' : 's'} cover the answer`
+                  : 'part of the question has no approved source',
+              why: draft.coverage === 'full' ? 'approved source' : 'gap ticket raised',
+            },
+          ]
+        : []),
     ];
-    const reasoning = composeReasoning({ lane, confidence, bar, guard: guard.result, classification, template, chain, draft, degraded, owned });
+    const reasoning = composeReasoning({
+      lane,
+      confidence,
+      bar,
+      guard: guard.result,
+      classification,
+      template,
+      chain,
+      draft,
+      degraded,
+      owned,
+    });
     const [run] = await tx
       .insert(s.triageRuns)
-      .values({ orgId: job.orgId, ticketId, traceId, reasoning, evidence, confidence, lane, latencyMs: totalMs, costMinor: cost, provider: degraded ? 'degraded' : guard.usage.model === 'rules' ? 'heuristic' : 'claude' })
+      .values({
+        orgId: job.orgId,
+        ticketId,
+        traceId,
+        reasoning,
+        evidence,
+        confidence,
+        lane,
+        latencyMs: totalMs,
+        costMinor: cost,
+        provider: degraded ? 'degraded' : guard.usage.model === 'rules' ? 'heuristic' : 'claude',
+      })
       .returning();
     await tx.insert(s.traceSpans).values(spans.map((x) => ({ orgId: job.orgId, runId: run!.id, ...x })));
 
     const links: { kind: string; label: string; ref: string | null }[] = [];
-    let status: 'awaiting_approval' | 'with_human' | 'executing' = lane === 'manual' ? 'with_human' : 'awaiting_approval';
+    let status: 'awaiting_approval' | 'with_human' | 'executing' =
+      lane === 'manual' ? 'with_human' : 'awaiting_approval';
 
     if (lane === 'auto' && template && extraction && chain) {
       const fields = extraction.fields;
-      const idempotencyKey = sha256(canonicalJson({ orgId: job.orgId, code: template.code, fields: fields.map((f) => [f.label, f.value]) }));
-      const [existing] = await tx.select({ id: s.actionInstances.id }).from(s.actionInstances).where(and(eq(s.actionInstances.orgId, job.orgId), eq(s.actionInstances.idempotencyKey, idempotencyKey)));
+      const idempotencyKey = sha256(
+        canonicalJson({
+          orgId: job.orgId,
+          code: template.code,
+          fields: fields.map((f) => [f.label, f.value]),
+        }),
+      );
+      const [existing] = await tx
+        .select({ id: s.actionInstances.id })
+        .from(s.actionInstances)
+        .where(
+          and(eq(s.actionInstances.orgId, job.orgId), eq(s.actionInstances.idempotencyKey, idempotencyKey)),
+        );
       if (existing) {
         // Same instruction already exists: never create a second executable copy.
         status = 'with_human';
@@ -385,7 +606,9 @@ export async function runTriage(job: JobRow): Promise<void> {
             templateId: template.id,
             accountRef: fields.find((f) => /account|card/i.test(f.label))?.value ?? '',
             fields,
-            validation: extraction.complete ? 'All mandatory fields extracted. Verified against the customer record where available.' : 'Some fields are missing.',
+            validation: extraction.complete
+              ? 'All mandatory fields extracted. Verified against the customer record where available.'
+              : 'Some fields are missing.',
             state: chain === 'auto' ? 'scheduled' : 'drafted',
             chain,
             idempotencyKey,
@@ -394,7 +617,12 @@ export async function runTriage(job: JobRow): Promise<void> {
           .returning();
         if (chain === 'auto') {
           status = 'executing';
-          await enqueue(tx, { orgId: job.orgId, kind: 'execute_action', payload: { actionId: ai!.id }, dedupeKey: `exec:${ai!.id}:auto` });
+          await enqueue(tx, {
+            orgId: job.orgId,
+            kind: 'execute_action',
+            payload: { actionId: ai!.id },
+            dedupeKey: `exec:${ai!.id}:auto`,
+          });
         }
         links.push({ kind: 'ACTION', label: `${template.code} · ${template.name}`, ref: template.code });
       }
@@ -403,7 +631,14 @@ export async function runTriage(job: JobRow): Promise<void> {
     if (lane === 'draft' && draft) {
       const cites = draft.citations.map((n, i) => {
         const g = grounding.find((x) => x.n === n)!;
-        return { n: i + 1, docId: g.id, doc: g.title, section: g.section, verifiedAt: (g.verifiedAt ?? clock.now()).toISOString(), owner: g.owner };
+        return {
+          n: i + 1,
+          docId: g.id,
+          doc: g.title,
+          section: g.section,
+          verifiedAt: (g.verifiedAt ?? clock.now()).toISOString(),
+          owner: g.owner,
+        };
       });
       // Renumber [n] markers to match the citation order.
       let body = draft.body;
@@ -413,8 +648,28 @@ export async function runTriage(job: JobRow): Promise<void> {
       body = body.replaceAll('[§', '[');
       await tx
         .insert(s.drafts)
-        .values({ orgId: job.orgId, ticketId, subject: `Re: ${t.subject}`, toAddr: t.fromEmail, originalBody: body, currentBody: body, citations: cites, flagged: draft.flagged, state: 'draft' })
-        .onConflictDoUpdate({ target: s.drafts.ticketId, set: { originalBody: body, currentBody: body, citations: cites, flagged: draft.flagged, state: 'draft', updatedAt: clock.now() } });
+        .values({
+          orgId: job.orgId,
+          ticketId,
+          subject: `Re: ${t.subject}`,
+          toAddr: t.fromEmail,
+          originalBody: body,
+          currentBody: body,
+          citations: cites,
+          flagged: draft.flagged,
+          state: 'draft',
+        })
+        .onConflictDoUpdate({
+          target: s.drafts.ticketId,
+          set: {
+            originalBody: body,
+            currentBody: body,
+            citations: cites,
+            flagged: draft.flagged,
+            state: 'draft',
+            updatedAt: clock.now(),
+          },
+        });
       for (const c of cites) links.push({ kind: 'SOURCE', label: `${c.doc} ${c.section}`, ref: c.docId });
       if (draft.coverage !== 'full' && draft.gapQuestion) {
         const n = await nextNumber(tx, job.orgId, 'gap');
@@ -429,7 +684,11 @@ export async function runTriage(job: JobRow): Promise<void> {
           state: 'Needs content',
           cta: 'Write content',
         });
-        links.push({ kind: 'GAP', label: `GAP-${String(n).padStart(4, '0')} · raised from this ticket`, ref: `GAP-${String(n).padStart(4, '0')}` });
+        links.push({
+          kind: 'GAP',
+          label: `GAP-${String(n).padStart(4, '0')} · raised from this ticket`,
+          ref: `GAP-${String(n).padStart(4, '0')}`,
+        });
         await recordTicketEvent(tx, locked, {
           actor: AI_ACTOR,
           action: 'gap.raised',
@@ -442,30 +701,120 @@ export async function runTriage(job: JobRow): Promise<void> {
     if (lane === 'manual' && brief) {
       await tx
         .insert(s.briefs)
-        .values({ orgId: job.orgId, ticketId, why: guard.result.stop ? `Hard stop · ${guard.result.stop}` : laneNote, summary: brief.summary, context: brief.context, suggestions: brief.suggestions })
-        .onConflictDoUpdate({ target: s.briefs.ticketId, set: { summary: brief.summary, context: brief.context, suggestions: brief.suggestions } });
-      links.push({ kind: 'POLICY', label: guard.result.stop ? `Hard stop · ${guard.result.stop}` : laneNote, ref: null });
+        .values({
+          orgId: job.orgId,
+          ticketId,
+          why: guard.result.stop ? `Hard stop · ${guard.result.stop}` : laneNote,
+          summary: brief.summary,
+          context: brief.context,
+          suggestions: brief.suggestions,
+        })
+        .onConflictDoUpdate({
+          target: s.briefs.ticketId,
+          set: { summary: brief.summary, context: brief.context, suggestions: brief.suggestions },
+        });
+      links.push({
+        kind: 'POLICY',
+        label: guard.result.stop ? `Hard stop · ${guard.result.stop}` : laneNote,
+        ref: null,
+      });
     }
     links.push({ kind: 'AUDIT', label: `AUD-${locked.number}`, ref: null });
-    await tx.delete(s.ticketLinks).where(and(eq(s.ticketLinks.orgId, job.orgId), eq(s.ticketLinks.ticketId, ticketId), inArray(s.ticketLinks.kind, ['ACTION', 'SOURCE', 'POLICY', 'AUDIT'])));
-    await tx.insert(s.ticketLinks).values(links.map((l, i) => ({ orgId: job.orgId, ticketId, ...l, sort: i })));
+    await tx
+      .delete(s.ticketLinks)
+      .where(
+        and(
+          eq(s.ticketLinks.orgId, job.orgId),
+          eq(s.ticketLinks.ticketId, ticketId),
+          inArray(s.ticketLinks.kind, ['ACTION', 'SOURCE', 'POLICY', 'AUDIT']),
+        ),
+      );
+    await tx
+      .insert(s.ticketLinks)
+      .values(links.map((l, i) => ({ orgId: job.orgId, ticketId, ...l, sort: i })));
 
-    await tx.delete(s.subtasks).where(and(eq(s.subtasks.orgId, job.orgId), eq(s.subtasks.ticketId, ticketId)));
+    await tx
+      .delete(s.subtasks)
+      .where(and(eq(s.subtasks.orgId, job.orgId), eq(s.subtasks.ticketId, ticketId)));
     const subs =
       lane === 'auto'
         ? chain === 'dual'
-          ? [['a1', 'Verify the request against the customer record', 'AI', true], ['a2', 'Extract and validate the action fields', 'AI', true], ['a3', 'Approve as maker', 'You', false], ['a4', 'Counter-approve as checker', 'Team lead', false]]
-          : [['a1', 'Verify the request against the customer record', 'AI', true], ['a2', 'Extract and validate the action fields', 'AI', true], ['a3', chain === 'auto' ? 'Sampled post-hoc review' : 'Approve', chain === 'auto' ? 'Team lead' : 'You', false]]
+          ? [
+              ['a1', 'Verify the request against the customer record', 'AI', true],
+              ['a2', 'Extract and validate the action fields', 'AI', true],
+              ['a3', 'Approve as maker', 'You', false],
+              ['a4', 'Counter-approve as checker', 'Team lead', false],
+            ]
+          : [
+              ['a1', 'Verify the request against the customer record', 'AI', true],
+              ['a2', 'Extract and validate the action fields', 'AI', true],
+              [
+                'a3',
+                chain === 'auto' ? 'Sampled post-hoc review' : 'Approve',
+                chain === 'auto' ? 'Team lead' : 'You',
+                false,
+              ],
+            ]
         : lane === 'draft'
-          ? [['b1', 'Find approved sources for the answer', 'AI', true], ['b2', 'Draft the reply with citations', 'AI', true], ['b3', draft?.flagged.length ? 'Read the flagged paragraph' : 'Read the draft', 'You', false], ['b4', 'Send and close', 'You', false]]
-          : [['c1', 'Pull the history and records for the brief', 'AI', true], ['c2', classification.multiIntent ? 'Decide whether to split' : 'Decide the next step', 'You', false], ['c3', 'Give the customer a dated commitment', 'You', false], ['c4', guard.result.regulatorNamed ? 'Notify Compliance' : 'Close the loop with the customer', 'You', false]];
-    await tx.insert(s.subtasks).values(subs.map(([key, label, owner, done], i) => ({ orgId: job.orgId, ticketId, key: key as string, label: label as string, owner: owner as string, done: done as boolean, sort: i })));
+          ? [
+              ['b1', 'Find approved sources for the answer', 'AI', true],
+              ['b2', 'Draft the reply with citations', 'AI', true],
+              ['b3', draft?.flagged.length ? 'Read the flagged paragraph' : 'Read the draft', 'You', false],
+              ['b4', 'Send and close', 'You', false],
+            ]
+          : [
+              ['c1', 'Pull the history and records for the brief', 'AI', true],
+              [
+                'c2',
+                classification.multiIntent ? 'Decide whether to split' : 'Decide the next step',
+                'You',
+                false,
+              ],
+              ['c3', 'Give the customer a dated commitment', 'You', false],
+              [
+                'c4',
+                guard.result.regulatorNamed ? 'Notify Compliance' : 'Close the loop with the customer',
+                'You',
+                false,
+              ],
+            ];
+    await tx.insert(s.subtasks).values(
+      subs.map(([key, label, owner, done], i) => ({
+        orgId: job.orgId,
+        ticketId,
+        key: key as string,
+        label: label as string,
+        owner: owner as string,
+        done: done as boolean,
+        sort: i,
+      })),
+    );
 
     const bucket = classification.queryType ?? 'Unclassified';
-    await systemNote(tx, job.orgId, ticketId, `Read the email and classified it as ${bucket.toLowerCase()} with ${confidence >= 0.9 ? 'high' : confidence >= bar ? 'moderate' : 'low'} confidence (${confidence.toFixed(2)}).`);
-    await systemNote(tx, job.orgId, ticketId, lane === 'manual' ? 'Stood down — no customer-facing text generated. Assembled the context instead.' : lane === 'draft' ? 'Drafted a reply grounded in approved sources and attached the citations.' : 'Filled the action template and ran the validation checks.');
-    await systemNote(tx, job.orgId, ticketId, `Routed to ${department?.name ?? 'no owning team'} and placed in the queue by urgency.`);
-    if (assignee) await systemNote(tx, job.orgId, ticketId, `Assigned to ${assignee.name} — ${assignee.reason}.`);
+    await systemNote(
+      tx,
+      job.orgId,
+      ticketId,
+      `Read the email and classified it as ${bucket.toLowerCase()} with ${confidence >= 0.9 ? 'high' : confidence >= bar ? 'moderate' : 'low'} confidence (${confidence.toFixed(2)}).`,
+    );
+    await systemNote(
+      tx,
+      job.orgId,
+      ticketId,
+      lane === 'manual'
+        ? 'Stood down — no customer-facing text generated. Assembled the context instead.'
+        : lane === 'draft'
+          ? 'Drafted a reply grounded in approved sources and attached the citations.'
+          : 'Filled the action template and ran the validation checks.',
+    );
+    await systemNote(
+      tx,
+      job.orgId,
+      ticketId,
+      `Routed to ${department?.name ?? 'no owning team'} and placed in the queue by urgency.`,
+    );
+    if (assignee)
+      await systemNote(tx, job.orgId, ticketId, `Assigned to ${assignee.name} — ${assignee.reason}.`);
 
     await updateTicket(tx, locked, {
       lane,
@@ -484,18 +833,42 @@ export async function runTriage(job: JobRow): Promise<void> {
       regulatoryFlag: guard.result.regulatorNamed ? 'Regulator named' : null,
       sentiment: guard.result.sentiment,
       splitProposed: classification.multiIntent,
-      nextMove: status === 'executing' ? 'Executing in the approved cell' : lane === 'auto' ? (chain === 'dual' ? 'Your approval + checker' : 'Your approval') : lane === 'draft' ? (draft?.flagged.length ? 'Check flagged paragraph' : 'Review & send draft') : classification.multiIntent ? 'Split into two tickets' : 'Human commitment due',
-      category: lane === 'manual' ? (guard.result.stop ? 'Complaints' : 'Servicing') : lane === 'draft' ? 'Servicing' : 'Transactions',
+      nextMove:
+        status === 'executing'
+          ? 'Executing in the approved cell'
+          : lane === 'auto'
+            ? chain === 'dual'
+              ? 'Your approval + checker'
+              : 'Your approval'
+            : lane === 'draft'
+              ? draft?.flagged.length
+                ? 'Check flagged paragraph'
+                : 'Review & send draft'
+              : classification.multiIntent
+                ? 'Split into two tickets'
+                : 'Human commitment due',
+      category:
+        lane === 'manual'
+          ? guard.result.stop
+            ? 'Complaints'
+            : 'Servicing'
+          : lane === 'draft'
+            ? 'Servicing'
+            : 'Transactions',
       subcategory: bucket,
     });
-    await tx.insert(s.predictionOutcomes).values({ orgId: job.orgId, agentName: bucketAgent.name, ticketId, confidence, correct: null });
+    await tx
+      .insert(s.predictionOutcomes)
+      .values({ orgId: job.orgId, agentName: bucketAgent.name, ticketId, confidence, correct: null });
 
     await recordTicketEvent(tx, locked, {
       actor: AI_ACTOR,
       action: 'triage.completed',
       summary: `Classified QRY-${locked.number} as ${bucket} (${confidence.toFixed(2)}) → ${lane}`,
       data: { lane, confidence, traceId, degraded, provider: run!.provider },
-      ...(guard.result.stop ? { feed: { tone: 'stop' as const, meta: `QRY-${locked.number} · hard stop` } } : {}),
+      ...(guard.result.stop
+        ? { feed: { tone: 'stop' as const, meta: `QRY-${locked.number} · hard stop` } }
+        : {}),
     });
     await publish(tx, job.orgId, 'ticket.created', { ticketId });
   });
@@ -522,11 +895,21 @@ function composeReasoning(i: {
   degraded: boolean;
   owned: boolean;
 }): string {
-  if (i.degraded) return 'The model provider was unavailable for part of this run, so nothing customer-facing was generated. The thread is with a person, unaltered.';
+  if (i.degraded)
+    return 'The model provider was unavailable for part of this run, so nothing customer-facing was generated. The thread is with a person, unaltered.';
   const parts: string[] = [];
-  if (i.guard.stop) parts.push(`A hard stop rule fired (${i.guard.stop}), so the agent will not draft customer-facing content and has assembled context for you instead.`);
-  if (i.classification.multiIntent) parts.push(`The email carries ${i.classification.intents.length} intents (${i.classification.intents.join(' + ')}), owned by different teams — the agent proposes a split rather than guessing a primary intent.`);
-  if (!i.owned) parts.push('No team owns this query type yet, so it cannot be automated and goes to a person every time.');
+  if (i.guard.stop)
+    parts.push(
+      `A hard stop rule fired (${i.guard.stop}), so the agent will not draft customer-facing content and has assembled context for you instead.`,
+    );
+  if (i.classification.multiIntent)
+    parts.push(
+      `The email carries ${i.classification.intents.length} intents (${i.classification.intents.join(' + ')}), owned by different teams — the agent proposes a split rather than guessing a primary intent.`,
+    );
+  if (!i.owned)
+    parts.push(
+      'No team owns this query type yet, so it cannot be automated and goes to a person every time.',
+    );
   parts.push(
     `Classified with ${i.confidence >= 0.9 ? 'high' : i.confidence >= i.bar ? 'moderate' : 'low'} confidence (${i.confidence.toFixed(2)}), ${i.confidence >= i.bar ? 'above' : 'below'} the ${i.bar.toFixed(2)} bar${i.classification.phrases.length ? `, driven by ${i.classification.phrases.map((p) => `“${p}”`).join(', ')}` : ''}.`,
   );

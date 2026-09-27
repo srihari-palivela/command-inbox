@@ -5,7 +5,12 @@ import { clock } from './platform/clock.js';
 import { enqueue, Worker, type JobRow } from './platform/jobs.js';
 import { logger } from './platform/logger.js';
 import { jobsProcessed, triageDuration } from './platform/metrics.js';
-import { runEscalateChecker, runExecuteAction, runSendDraft, runSendReply } from './modules/gateway/service.js';
+import {
+  runEscalateChecker,
+  runExecuteAction,
+  runSendDraft,
+  runSendReply,
+} from './modules/gateway/service.js';
 import { runKnowledgeSync } from './modules/setup/policy-knowledge.js';
 import { runTriage } from './modules/triage/pipeline.js';
 
@@ -16,7 +21,8 @@ const timed =
     try {
       await fn(job);
       jobsProcessed.inc({ kind, outcome: 'ok' });
-      if (kind === 'triage') triageDuration.observe({ lane: 'all' }, Number(process.hrtime.bigint() - start) / 1e9);
+      if (kind === 'triage')
+        triageDuration.observe({ lane: 'all' }, Number(process.hrtime.bigint() - start) / 1e9);
     } catch (err) {
       jobsProcessed.inc({ kind, outcome: 'error' });
       throw err;
@@ -31,8 +37,14 @@ export function createWorker(): Worker {
     .register('send_reply', timed('send_reply', runSendReply))
     .register('escalate_checker', timed('escalate_checker', runEscalateChecker))
     .register('knowledge_sync', timed('knowledge_sync', runKnowledgeSync))
-    .register('rerank', timed('rerank', async () => undefined))
-    .register('sla_sweep', timed('sla_sweep', async () => undefined));
+    .register(
+      'rerank',
+      timed('rerank', async () => undefined),
+    )
+    .register(
+      'sla_sweep',
+      timed('sla_sweep', async () => undefined),
+    );
 }
 
 /**

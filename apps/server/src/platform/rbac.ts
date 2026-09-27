@@ -22,7 +22,14 @@ const LEAD: Capability[] = [
   'kpi.manage',
   'learning.send',
 ];
-const ADMIN: Capability[] = [...LEAD, 'setup.view', 'setup.edit', 'autonomy.change', 'rules.edit', 'audit.verify'];
+const ADMIN: Capability[] = [
+  ...LEAD,
+  'setup.view',
+  'setup.edit',
+  'autonomy.change',
+  'rules.edit',
+  'audit.verify',
+];
 
 export const ROLE_CAPABILITIES: Record<Role, ReadonlySet<Capability>> = {
   staff: new Set(STAFF),
@@ -45,12 +52,23 @@ export function requireCap(ctx: Pick<Ctx, 'capabilities' | 'role'>, cap: Capabil
 export const CLEARANCE = { none: 0, read: 1, resolve: 2, approve: 3 } as const;
 export const CLEARANCE_LABEL = ['None', 'Can read', 'Can resolve', 'Can approve'] as const;
 
-export async function clearanceOf(tx: Tx, orgId: string, userId: string, departmentId: string | null): Promise<number> {
+export async function clearanceOf(
+  tx: Tx,
+  orgId: string,
+  userId: string,
+  departmentId: string | null,
+): Promise<number> {
   if (!departmentId) return 0;
   const [row] = await tx
     .select({ level: clearances.level })
     .from(clearances)
-    .where(and(eq(clearances.orgId, orgId), eq(clearances.userId, userId), eq(clearances.departmentId, departmentId)));
+    .where(
+      and(
+        eq(clearances.orgId, orgId),
+        eq(clearances.userId, userId),
+        eq(clearances.departmentId, departmentId),
+      ),
+    );
   return row?.level ?? 0;
 }
 
@@ -71,7 +89,10 @@ export async function requireClearance(
 }
 
 /** Display form of the capability matrix (Rules & policies → Who may do what). */
-export const POLICY_MATRIX: { cols: string[]; rows: { capability: string; values: ('yes' | 'no' | 'appr' | 'cell' | 'auto')[] }[] } = {
+export const POLICY_MATRIX: {
+  cols: string[];
+  rows: { capability: string; values: ('yes' | 'no' | 'appr' | 'cell' | 'auto')[] }[];
+} = {
   cols: ['AI agents', 'Staff', 'Team lead', 'Admin · Risk'],
   rows: [
     { capability: 'Suggest a draft or a filled action', values: ['yes', 'yes', 'yes', 'yes'] },

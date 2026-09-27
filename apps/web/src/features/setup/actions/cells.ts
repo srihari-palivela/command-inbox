@@ -14,7 +14,8 @@ export const COLS: { label: string; irreversible: 0 | 1 }[] = [
 ];
 
 export const cellKey = (money: 0 | 1, irreversible: 0 | 1) => `${money}-${irreversible}` as RiskCell;
-export const isCell = (v: string | null): v is RiskCell => v === '0-0' || v === '0-1' || v === '1-0' || v === '1-1';
+export const isCell = (v: string | null): v is RiskCell =>
+  v === '0-0' || v === '0-1' || v === '1-0' || v === '1-1';
 
 /** Highest dial level each cell may reach: only 0-0 may auto-execute; 1-1 is locked to suggest-only. */
 export const MAX_DIAL: Record<RiskCell, number> = { '0-0': 2, '0-1': 1, '1-0': 1, '1-1': 0 };
@@ -37,11 +38,37 @@ export interface CellLook {
 
 /** The word and colours for a cell's current autonomy. */
 export function cellLook(c: RiskCellDTO): CellLook {
-  if (c.locked) return { state: 'Suggest only · locked', dot: 'var(--bad)', fg: 'var(--bad-text)', tint: 'var(--bad-bg-2)', line: 'var(--bad-line)' };
-  if (c.dial >= 2) return { state: 'Auto-executing', dot: 'var(--ok-dot)', fg: 'var(--ok)', tint: 'var(--ok-bg-3)', line: 'var(--ok-line)' };
+  if (c.locked)
+    return {
+      state: 'Suggest only · locked',
+      dot: 'var(--bad)',
+      fg: 'var(--bad-text)',
+      tint: 'var(--bad-bg-2)',
+      line: 'var(--bad-line)',
+    };
+  if (c.dial >= 2)
+    return {
+      state: 'Auto-executing',
+      dot: 'var(--ok-dot)',
+      fg: 'var(--ok)',
+      tint: 'var(--ok-bg-3)',
+      line: 'var(--ok-line)',
+    };
   if (c.dial === 1)
-    return { state: c.cell === '1-0' ? 'Suggest + approve' : 'Suggest + dual approve', dot: 'var(--accent)', fg: 'var(--accent)', tint: 'var(--accent-bg-4)', line: 'var(--accent-line)' };
-  return { state: 'Suggest only', dot: 'var(--dot-idle)', fg: 'var(--text-2)', tint: 'var(--surface-2)', line: 'var(--line)' };
+    return {
+      state: c.cell === '1-0' ? 'Suggest + approve' : 'Suggest + dual approve',
+      dot: 'var(--accent)',
+      fg: 'var(--accent)',
+      tint: 'var(--accent-bg-4)',
+      line: 'var(--accent-line)',
+    };
+  return {
+    state: 'Suggest only',
+    dot: 'var(--dot-idle)',
+    fg: 'var(--text-2)',
+    tint: 'var(--surface-2)',
+    line: 'var(--line)',
+  };
 }
 
 const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
@@ -82,7 +109,9 @@ export function guardrails(cell: RiskCell): string[] {
     'Idempotency key — a duplicate approval cannot execute twice',
     'Hard stops (regulator, fraud, vulnerable customer) suspend the action',
     'Full trace written to the immutable audit log',
-    cell.endsWith('0') ? 'Undo window while reversal is safe' : 'No undo — permanence is why approvals are doubled',
+    cell.endsWith('0')
+      ? 'Undo window while reversal is safe'
+      : 'No undo — permanence is why approvals are doubled',
   ];
 }
 

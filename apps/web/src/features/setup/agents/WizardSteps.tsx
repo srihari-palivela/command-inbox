@@ -11,7 +11,12 @@ export function WizardSteps({ steps, current }: { steps: string[]; current: numb
       {steps.map((label, i) => {
         const state = i < current ? 'done' : i === current ? 'current' : 'todo';
         return (
-          <li key={label} className={s.step} data-state={state} aria-current={i === current ? 'step' : undefined}>
+          <li
+            key={label}
+            className={s.step}
+            data-state={state}
+            aria-current={i === current ? 'step' : undefined}
+          >
             <span className={s.dot} aria-hidden>
               {i < current ? '✓' : i + 1}
             </span>

@@ -19,7 +19,10 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-const id = () => uuid('id').primaryKey().default(sql`gen_random_uuid()`);
+const id = () =>
+  uuid('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`);
 const orgId = () => uuid('org_id').notNull();
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 const createdAt = () => ts('created_at').notNull().defaultNow();
@@ -51,7 +54,9 @@ export const memberships = pgTable(
   'memberships',
   {
     orgId: orgId().references(() => orgs.id),
-    userId: uuid('user_id').notNull().references(() => users.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
     role: text('role').notNull(), // staff | lead | admin
     title: text('title').notNull().default(''),
     pod: text('pod').notNull().default(''),
@@ -68,8 +73,12 @@ export const sessions = pgTable(
   'sessions',
   {
     id: id(),
-    userId: uuid('user_id').notNull().references(() => users.id),
-    orgId: uuid('org_id').notNull().references(() => orgs.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
     tokenHash: text('token_hash').notNull().unique(),
     csrfToken: text('csrf_token').notNull(),
     userAgent: text('user_agent').notNull().default(''),
@@ -215,7 +224,10 @@ export const customers = pgTable(
     sinceYear: integer('since_year').notNull(),
     account: text('account').notNull().default(''),
   },
-  (t) => [uniqueIndex('customers_org_cif_uq').on(t.orgId, t.cif), index('customers_email_idx').on(t.orgId, t.email)],
+  (t) => [
+    uniqueIndex('customers_org_cif_uq').on(t.orgId, t.cif),
+    index('customers_email_idx').on(t.orgId, t.email),
+  ],
 );
 
 // ── Tenant: tickets ───────────────────────────────────────────────────────────
@@ -627,7 +639,12 @@ export const bucketRules = pgTable('bucket_rules', {
   target: text('target').notNull(),
   kind: text('kind').notNull(),
   hits: text('hits').notNull().default(''),
-  pattern: jsonb('pattern').$type<{ any?: string[]; all?: string[]; regex?: string; queryType?: string } | null>(),
+  pattern: jsonb('pattern').$type<{
+    any?: string[];
+    all?: string[];
+    regex?: string;
+    queryType?: string;
+  } | null>(),
 });
 
 export const priorityRules = pgTable('priority_rules', {
@@ -805,7 +822,9 @@ export const auditEvents = pgTable(
   'audit_events',
   {
     seq: bigserial('seq', { mode: 'number' }).primaryKey(),
-    id: uuid('id').notNull().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .notNull()
+      .default(sql`gen_random_uuid()`),
     orgId: orgId(),
     at: ts('at').notNull().defaultNow(),
     actorKind: text('actor_kind').notNull(), // user | ai | system

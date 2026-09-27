@@ -9,5 +9,3 @@ playwright-report
 test-results
 .DS_Store
 apps/web/e2e/screenshots
-test-results/
-playwright-report/

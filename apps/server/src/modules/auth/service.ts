@@ -15,7 +15,16 @@ import { llmStatus } from '../triage/providers/index.js';
 export const SESSION_COOKIE = 'ci_session';
 
 export function toOrgDTO(o: typeof s.orgs.$inferSelect): OrgDTO {
-  return { id: o.id, slug: o.slug, name: o.name, short: o.short, tint: o.tint, bg: o.bg, plan: o.plan, confidenceBar: o.confidenceBar };
+  return {
+    id: o.id,
+    slug: o.slug,
+    name: o.name,
+    short: o.short,
+    tint: o.tint,
+    bg: o.bg,
+    plan: o.plan,
+    confidenceBar: o.confidenceBar,
+  };
 }
 
 export interface ResolvedSession {
@@ -30,8 +39,17 @@ export async function resolveSession(token: string, requestId: string): Promise<
     .select({ session: s.sessions, user: s.users, role: s.memberships.role })
     .from(s.sessions)
     .innerJoin(s.users, eq(s.users.id, s.sessions.userId))
-    .innerJoin(s.memberships, and(eq(s.memberships.userId, s.sessions.userId), eq(s.memberships.orgId, s.sessions.orgId)))
-    .where(and(eq(s.sessions.tokenHash, sha256(token)), isNull(s.sessions.revokedAt), gt(s.sessions.expiresAt, now)))
+    .innerJoin(
+      s.memberships,
+      and(eq(s.memberships.userId, s.sessions.userId), eq(s.memberships.orgId, s.sessions.orgId)),
+    )
+    .where(
+      and(
+        eq(s.sessions.tokenHash, sha256(token)),
+        isNull(s.sessions.revokedAt),
+        gt(s.sessions.expiresAt, now),
+      ),
+    )
     .limit(1);
   const row = rows[0];
   if (!row) return null;
@@ -123,7 +141,13 @@ export async function listSessions(ctx: Ctx): Promise<SessionDTO[]> {
   const rows = await db
     .select()
     .from(s.sessions)
-    .where(and(eq(s.sessions.userId, ctx.user.id), isNull(s.sessions.revokedAt), gt(s.sessions.expiresAt, clock.now())))
+    .where(
+      and(
+        eq(s.sessions.userId, ctx.user.id),
+        isNull(s.sessions.revokedAt),
+        gt(s.sessions.expiresAt, clock.now()),
+      ),
+    )
     .orderBy(desc(s.sessions.lastSeenAt));
   return rows.map((r) => ({
     id: r.id,
@@ -147,7 +171,13 @@ export async function revokeOtherSessions(ctx: Ctx): Promise<number> {
   const rows = await db
     .update(s.sessions)
     .set({ revokedAt: clock.now() })
-    .where(and(eq(s.sessions.userId, ctx.user.id), isNull(s.sessions.revokedAt), sql`${s.sessions.id} <> ${ctx.sessionId}`))
+    .where(
+      and(
+        eq(s.sessions.userId, ctx.user.id),
+        isNull(s.sessions.revokedAt),
+        sql`${s.sessions.id} <> ${ctx.sessionId}`,
+      ),
+    )
     .returning({ id: s.sessions.id });
   return rows.length;
 }
@@ -172,7 +202,10 @@ export async function listOrgChoices(email?: string): Promise<OrgChoiceDTO[]> {
   const out: OrgChoiceDTO[] = [];
   for (const o of orgRows) {
     const [m] = user
-      ? await db.select().from(s.memberships).where(and(eq(s.memberships.orgId, o.id), eq(s.memberships.userId, user.id)))
+      ? await db
+          .select()
+          .from(s.memberships)
+          .where(and(eq(s.memberships.orgId, o.id), eq(s.memberships.userId, user.id)))
       : [];
     const counts = await withTenant(o.id, async (tx) => {
       const [b] = await tx.select({ n: count() }).from(s.boards);
@@ -186,12 +219,17 @@ export async function listOrgChoices(email?: string): Promise<OrgChoiceDTO[]> {
 export async function demoUsers() {
   if (!env.DEMO_MODE) return [];
   const rows = await db
-    .select({ email: s.users.email, name: s.users.name, role: s.memberships.role, title: s.memberships.title })
+    .select({
+      email: s.users.email,
+      name: s.users.name,
+      role: s.memberships.role,
+      title: s.memberships.title,
+    })
     .from(s.users)
     .innerJoin(s.memberships, eq(s.memberships.userId, s.users.id))
     .innerJoin(s.orgs, and(eq(s.orgs.id, s.memberships.orgId), eq(s.orgs.slug, 'apex')));
   const order: Record<string, number> = { staff: 0, lead: 1, admin: 2 };
-  return rows.sort((a, b) => (order[a.role]! - order[b.role]!) || a.name.localeCompare(b.name));
+  return rows.sort((a, b) => order[a.role]! - order[b.role]! || a.name.localeCompare(b.name));
 }
 
 export async function buildMe(ctx: Ctx, csrfToken: string): Promise<MeDTO> {
@@ -212,24 +250,38 @@ export async function buildMe(ctx: Ctx, csrfToken: string): Promise<MeDTO> {
   for (const m of mine) {
     const stats = await withTenant(m.org.id, async (tx) => {
       const [b] = await tx.select({ n: count() }).from(s.boards);
-      const [u] = await tx.execute<{ n: number }>(sql`
+      const [u] = await tx
+        .execute<{ n: number }>(
+          sql`
         select count(*)::int as n from notifications n
-         where not exists (select 1 from notification_reads r where r.notification_id = n.id and r.user_id = ${ctx.user.id})`).then((r) => r.rows);
+         where not exists (select 1 from notification_reads r where r.notification_id = n.id and r.user_id = ${ctx.user.id})`,
+        )
+        .then((r) => r.rows);
       return { boards: b?.n ?? 0, unread: u?.n ?? 0 };
     });
-    memberships.push({ org: toOrgDTO(m.org), role: m.role as Role, boards: stats.boards, people: m.org.headcount, unread: stats.unread });
+    memberships.push({
+      org: toOrgDTO(m.org),
+      role: m.role as Role,
+      boards: stats.boards,
+      people: m.org.headcount,
+      unread: stats.unread,
+    });
   }
 
   const nav = await withTenant(ctx.orgId, async (tx) => {
-    const one = async (q: ReturnType<typeof sql>) => Number((await tx.execute<{ n: number }>(q)).rows[0]?.n ?? 0);
+    const one = async (q: ReturnType<typeof sql>) =>
+      Number((await tx.execute<{ n: number }>(q)).rows[0]?.n ?? 0);
     return {
       // Same rule as the Inbox's own count: open work assigned to me, plus maker-approved actions I can check.
-      inbox: await one(sql`select count(*)::int n from tickets t where t.merged_into_id is null and t.status not in ('resolved','closed')
+      inbox:
+        await one(sql`select count(*)::int n from tickets t where t.merged_into_id is null and t.status not in ('resolved','closed')
                             and (t.assignee_id = ${ctx.user.id}
                                  or (${ctx.capabilities.has('action.approve_checker')} and exists (
                                        select 1 from action_instances ai where ai.ticket_id = t.id
                                           and ai.state = 'awaiting_checker' and ai.maker_id <> ${ctx.user.id})))`),
-      tickets: await one(sql`select count(*)::int n from tickets where status not in ('closed') and (resolved_at is null or resolved_at > now() - interval '24 hours') and merged_into_id is null`),
+      tickets: await one(
+        sql`select count(*)::int n from tickets where status not in ('closed') and (resolved_at is null or resolved_at > now() - interval '24 hours') and merged_into_id is null`,
+      ),
       boards: await one(sql`select count(*)::int n from boards`),
       alerts: await one(sql`select count(*)::int n from alerts where resolved_at is null`),
       learning: await one(sql`select count(*)::int n from notifications n where n.kind = 'learning'

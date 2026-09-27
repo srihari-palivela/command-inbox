@@ -30,9 +30,20 @@ export function slaLabel(sla: SlaDTO): string {
 export function SlaChip({ sla, suffix }: { sla: SlaDTO; suffix?: string }) {
   const t = slaChipTone(sla);
   const label = slaLabel(sla);
-  const withSuffix = suffix && sla.tone !== 'closed' && sla.tone !== 'paused' && sla.minutesLeft !== null && sla.minutesLeft >= 0 ? `${label} ${suffix}` : label;
+  const withSuffix =
+    suffix &&
+    sla.tone !== 'closed' &&
+    sla.tone !== 'paused' &&
+    sla.minutesLeft !== null &&
+    sla.minutesLeft >= 0
+      ? `${label} ${suffix}`
+      : label;
   return (
-    <span className={s.sla} style={{ color: t.fg, background: t.bg }} title={`Deadline: ${SLA_TONE[sla.tone].label}`}>
+    <span
+      className={s.sla}
+      style={{ color: t.fg, background: t.bg }}
+      title={`Deadline: ${SLA_TONE[sla.tone].label}`}
+    >
       {withSuffix}
     </span>
   );
@@ -46,16 +57,33 @@ export function LanePill({ fg, bg, word, large }: { fg: string; bg: string; word
   );
 }
 
-export function ownerOf(t: Pick<TicketSummaryDTO, 'ownerKind' | 'assignee'>): { name: string; init: string; fg: string; bg: string } {
+export function ownerOf(t: Pick<TicketSummaryDTO, 'ownerKind' | 'assignee'>): {
+  name: string;
+  init: string;
+  fg: string;
+  bg: string;
+} {
   if (t.ownerKind === 'ai') return { name: 'Agent', init: 'AI', fg: 'var(--accent)', bg: 'var(--accent-bg)' };
-  if (t.ownerKind === 'unassigned' || !t.assignee) return { name: 'Unassigned', init: '?', fg: 'var(--warn)', bg: 'var(--warn-bg)' };
+  if (t.ownerKind === 'unassigned' || !t.assignee)
+    return { name: 'Unassigned', init: '?', fg: 'var(--warn)', bg: 'var(--warn-bg)' };
   return { name: t.assignee.name, init: t.assignee.initials, fg: 'var(--text-2)', bg: 'var(--surface-3)' };
 }
 
-export function OwnerDot({ t, size = 18 }: { t: Pick<TicketSummaryDTO, 'ownerKind' | 'assignee'>; size?: number }) {
+export function OwnerDot({
+  t,
+  size = 18,
+}: {
+  t: Pick<TicketSummaryDTO, 'ownerKind' | 'assignee'>;
+  size?: number;
+}) {
   const o = ownerOf(t);
   return (
-    <span className={s.ownerDot} style={{ width: size, height: size, color: o.fg, background: o.bg }} title={`Owner: ${o.name}`} aria-label={`Owner: ${o.name}`}>
+    <span
+      className={s.ownerDot}
+      style={{ width: size, height: size, color: o.fg, background: o.bg }}
+      title={`Owner: ${o.name}`}
+      aria-label={`Owner: ${o.name}`}
+    >
       {o.init}
     </span>
   );

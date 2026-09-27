@@ -73,7 +73,10 @@ export async function audit(tx: Tx, orgId: string, e: AuditInput): Promise<void>
 }
 
 /** Recompute the chain. Any edited, inserted or removed row breaks it at that sequence number. */
-export async function verifyAuditChain(tx: Tx, orgId: string): Promise<{ ok: boolean; events: number; brokenAt: number | null }> {
+export async function verifyAuditChain(
+  tx: Tx,
+  orgId: string,
+): Promise<{ ok: boolean; events: number; brokenAt: number | null }> {
   let prev = GENESIS;
   let count = 0;
   let cursor = 0;

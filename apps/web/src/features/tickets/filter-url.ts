@@ -1,6 +1,17 @@
 import type { TicketFilters } from '@ci/contracts';
 
-const KEYS: (keyof TicketFilters)[] = ['board', 'status', 'lane', 'team', 'owner', 'due', 'conf', 'pri', 'bucket', 'q'];
+const KEYS: (keyof TicketFilters)[] = [
+  'board',
+  'status',
+  'lane',
+  'team',
+  'owner',
+  'due',
+  'conf',
+  'pri',
+  'bucket',
+  'q',
+];
 
 /** Filters live in the URL so a filtered board can be shared, bookmarked, and survives navigation. */
 export function filtersToSearch(f: TicketFilters, view?: 'board' | 'list'): string {

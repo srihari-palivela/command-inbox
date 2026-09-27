@@ -27,7 +27,10 @@ function outcomeOf(t: typeof s.tickets.$inferSelect): { outcome: string; tone: '
   }
   if (!t.resolvedAt) return { outcome: 'Still open', tone: 'warn' };
   const h = (t.resolvedAt.getTime() - t.receivedAt.getTime()) / 3600_000;
-  return { outcome: h < 12 ? `Resolved in ${Math.max(1, Math.round(h))}h` : 'Resolved', tone: h > 24 ? 'warn' : 'ok' };
+  return {
+    outcome: h < 12 ? `Resolved in ${Math.max(1, Math.round(h))}h` : 'Resolved',
+    tone: h > 24 ? 'warn' : 'ok',
+  };
 }
 
 export async function getTicketDetail(tx: Tx, ctx: Ctx, idOrNumber: string): Promise<TicketDetailDTO> {
@@ -120,7 +123,10 @@ export async function getTicketDetail(tx: Tx, ctx: Ctx, idOrNumber: string): Pro
       }
     : null;
 
-  const [brief] = await tx.select().from(s.briefs).where(and(eq(s.briefs.orgId, ctx.orgId), eq(s.briefs.ticketId, t.id)));
+  const [brief] = await tx
+    .select()
+    .from(s.briefs)
+    .where(and(eq(s.briefs.orgId, ctx.orgId), eq(s.briefs.ticketId, t.id)));
   const gate = await computeGate(tx, ctx, t, cur, d);
 
   const subtasks = await tx
@@ -151,7 +157,10 @@ export async function getTicketDetail(tx: Tx, ctx: Ctx, idOrNumber: string): Pro
 
   let customer: CustomerDTO | null = null;
   if (t.customerId) {
-    const [c] = await tx.select().from(s.customers).where(and(eq(s.customers.orgId, ctx.orgId), eq(s.customers.id, t.customerId)));
+    const [c] = await tx
+      .select()
+      .from(s.customers)
+      .where(and(eq(s.customers.orgId, ctx.orgId), eq(s.customers.id, t.customerId)));
     if (c) {
       const past = await tx
         .select()
@@ -165,7 +174,16 @@ export async function getTicketDetail(tx: Tx, ctx: Ctx, idOrNumber: string): Pro
         ...outcomeOf(p),
         sameTopic: !!t.queryTypeId && p.queryTypeId === t.queryTypeId,
       }));
-      customer = { id: c.id, cif: c.cif, name: c.name, email: c.email, sinceYear: c.sinceYear, segment: c.segment, account: c.account, history };
+      customer = {
+        id: c.id,
+        cif: c.cif,
+        name: c.name,
+        email: c.email,
+        sinceYear: c.sinceYear,
+        segment: c.segment,
+        account: c.account,
+        history,
+      };
     }
   }
 
@@ -206,7 +224,9 @@ export async function getTicketDetail(tx: Tx, ctx: Ctx, idOrNumber: string): Pro
       : null,
     action,
     draft,
-    brief: brief ? { why: brief.why, summary: brief.summary, context: brief.context, suggestions: brief.suggestions } : null,
+    brief: brief
+      ? { why: brief.why, summary: brief.summary, context: brief.context, suggestions: brief.suggestions }
+      : null,
     gate,
     trace,
     subtasks: subtasks.map((x) => ({ key: x.key, label: x.label, owner: x.owner, done: x.done })),

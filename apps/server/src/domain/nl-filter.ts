@@ -26,10 +26,12 @@ export function parseNaturalFilters(raw: string, departments: { id: string; name
   };
 
   if (has('triaging', 'being sorted')) add('status', 'triage', 'Agent triaging');
-  else if (has('approval', 'approve', 'sign off', 'waiting on me')) add('status', 'approval', 'Awaiting approval');
+  else if (has('approval', 'approve', 'sign off', 'waiting on me'))
+    add('status', 'approval', 'Awaiting approval');
   else if (has('executing', 'in progress')) add('status', 'executing', 'Executing');
   else if (has('with a human', 'with a person', 'handed over')) add('status', 'human', 'With a human');
-  else if (has('waiting on customer', 'waiting for the customer')) add('status', 'customer', 'Waiting on customer');
+  else if (has('waiting on customer', 'waiting for the customer'))
+    add('status', 'customer', 'Waiting on customer');
   else if (has('closed', 'resolved', ' done ')) add('status', 'resolved', 'Resolved');
 
   if (has(' auto ', 'automated', 'automatic')) add('lane', 'auto', 'Handled: Auto');
@@ -48,9 +50,11 @@ export function parseNaturalFilters(raw: string, departments: { id: string; name
 
   if (has('assigned to me', 'my tickets', ' mine ', ' me ')) add('owner', 'mine', 'Owner: me');
   else if (has('unowned', 'unassigned', 'nobody', 'no owner')) add('owner', 'unassigned', 'Owner: nobody');
-  else if (has('agent-owned', 'the ai owns', 'ai owned', 'ai-owned', 'owned by the ai')) add('owner', 'ai', 'Owner: the AI');
+  else if (has('agent-owned', 'the ai owns', 'ai owned', 'ai-owned', 'owned by the ai'))
+    add('owner', 'ai', 'Owner: the AI');
 
-  if (has(' late', 'overdue', 'breach', 'at risk', 'urgent', 'running out')) add('due', 'risk', 'Running late');
+  if (has(' late', 'overdue', 'breach', 'at risk', 'urgent', 'running out'))
+    add('due', 'risk', 'Running late');
   else if (has(' open ')) add('due', 'open', 'Open only');
 
   if (has('below the bar', 'low confidence', 'unsure', 'not confident')) add('conf', 'low', 'Below the bar');

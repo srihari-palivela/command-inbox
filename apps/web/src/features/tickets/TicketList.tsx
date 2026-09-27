@@ -1,7 +1,14 @@
 import type { Capability, TicketSummaryDTO } from '@ci/contracts';
 import { useEffect, useMemo, useState } from 'react';
 import { api, newIdempotencyKey } from '../../lib/api';
-import { confTone, LANE_TONE, PRIORITY_TONE, STATUS_TONE, STATUS_WORD, statusGroup } from '../../lib/presentation';
+import {
+  confTone,
+  LANE_TONE,
+  PRIORITY_TONE,
+  STATUS_TONE,
+  STATUS_WORD,
+  statusGroup,
+} from '../../lib/presentation';
 import { keys, useAction } from '../../lib/queries';
 import { Button, EmptyState } from '../../ui';
 import { LanePill, ownerOf, OwnerDot, slaChipTone, slaLabel } from './bits';
@@ -25,7 +32,19 @@ function approvable(t: TicketSummaryDTO, caps: Set<Capability>): boolean {
   return false;
 }
 
-export function TicketList({ items, bar, caps, onOpen, activeNumber }: { items: TicketSummaryDTO[]; bar: number; caps: Set<Capability>; onOpen: (t: TicketSummaryDTO) => void; activeNumber: string | null }) {
+export function TicketList({
+  items,
+  bar,
+  caps,
+  onOpen,
+  activeNumber,
+}: {
+  items: TicketSummaryDTO[];
+  bar: number;
+  caps: Set<Capability>;
+  onOpen: (t: TicketSummaryDTO) => void;
+  activeNumber: string | null;
+}) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const selectable = useMemo(() => items.filter((t) => approvable(t, caps)), [items, caps]);
 
@@ -39,7 +58,8 @@ export function TicketList({ items, bar, caps, onOpen, activeNumber }: { items: 
   }, [selectable]);
 
   const batch = useAction(
-    (ticketIds: string[]) => api.post<BatchResult>('/v1/gate/batch-approve', { ticketIds }, { idempotencyKey: newIdempotencyKey() }),
+    (ticketIds: string[]) =>
+      api.post<BatchResult>('/v1/gate/batch-approve', { ticketIds }, { idempotencyKey: newIdempotencyKey() }),
     {
       invalidate: [keys.ticketsAll, keys.inboxAll, keys.ticketAll, keys.activity],
       success: (r) => {
@@ -49,7 +69,9 @@ export function TicketList({ items, bar, caps, onOpen, activeNumber }: { items: 
         const okText = ok.length
           ? `Approved ${ok.length}: ${ok.map((x) => `${num(x.ticketId)} ${OUTCOME_WORD[x.outcome ?? ''] ?? ''}`.trim()).join(', ')}.`
           : '';
-        const failText = failed.length ? ` ${failed.length} not approved — ${failed.map((x) => `${num(x.ticketId)}: ${x.error ?? 'failed'}`).join('; ')}` : '';
+        const failText = failed.length
+          ? ` ${failed.length} not approved — ${failed.map((x) => `${num(x.ticketId)}: ${x.error ?? 'failed'}`).join('; ')}`
+          : '';
         return (okText + failText).trim() || 'Nothing was approved.';
       },
     },
@@ -78,7 +100,11 @@ export function TicketList({ items, bar, caps, onOpen, activeNumber }: { items: 
             checked={allOn}
             disabled={!selectable.length}
             onChange={toggleAll}
-            title={selectable.length ? 'Select every ticket you can approve' : 'Nothing here is waiting on an approval you can give'}
+            title={
+              selectable.length
+                ? 'Select every ticket you can approve'
+                : 'Nothing here is waiting on an approval you can give'
+            }
           />
         </span>
         <span className={`${s.rowGrid} mono`}>
@@ -101,7 +127,12 @@ export function TicketList({ items, bar, caps, onOpen, activeNumber }: { items: 
         const can = approvable(t, caps);
         const own = ownerOf(t);
         return (
-          <div key={t.id} className={s.tr} style={{ animationDelay: `${Math.min(i, 30) * 0.015}s` }} data-active={t.number === activeNumber || undefined}>
+          <div
+            key={t.id}
+            className={s.tr}
+            style={{ animationDelay: `${Math.min(i, 30) * 0.015}s` }}
+            data-active={t.number === activeNumber || undefined}
+          >
             <span className={s.checkCell}>
               {t.pendingGate === 'maker' || t.pendingGate === 'send' ? (
                 <input
@@ -110,13 +141,28 @@ export function TicketList({ items, bar, caps, onOpen, activeNumber }: { items: 
                   disabled={!can}
                   onChange={() => toggle(t.id)}
                   aria-label={`Select ${t.number} for batch approval`}
-                  title={can ? (t.pendingGate === 'send' ? 'Draft ready to send' : 'Action ready for your approval') : 'You are not cleared to approve this'}
+                  title={
+                    can
+                      ? t.pendingGate === 'send'
+                        ? 'Draft ready to send'
+                        : 'Action ready for your approval'
+                      : 'You are not cleared to approve this'
+                  }
                 />
               ) : null}
             </span>
-            <button type="button" className={`${s.rowGrid} ${s.rowBtn}`} onClick={() => onOpen(t)} aria-label={`${t.number}: ${t.subject}`}>
+            <button
+              type="button"
+              className={`${s.rowGrid} ${s.rowBtn}`}
+              onClick={() => onOpen(t)}
+              aria-label={`${t.number}: ${t.subject}`}
+            >
               <span className={`${s.rowId} mono`}>{t.number}</span>
-              <span className={`${s.pri} mono`} style={{ color: pri.fg, background: pri.bg }} title={pri.label}>
+              <span
+                className={`${s.pri} mono`}
+                style={{ color: pri.fg, background: pri.bg }}
+                title={pri.label}
+              >
                 {t.priority}
               </span>
               <LanePill fg={lane.fg} bg={lane.bg} word={lane.word} />
@@ -139,14 +185,20 @@ export function TicketList({ items, bar, caps, onOpen, activeNumber }: { items: 
           </div>
         );
       })}
-      {!items.length && <EmptyState title="No tickets match that search" text="Clear a filter, or try describing what you want to see in plain words." />}
+      {!items.length && (
+        <EmptyState
+          title="No tickets match that search"
+          text="Clear a filter, or try describing what you want to see in plain words."
+        />
+      )}
 
       {selected.size > 0 && (
         <div className={s.batchBar} role="region" aria-label="Batch approval">
           <span className={s.batchText}>
             <b className="mono">{selected.size}</b> selected
             <span className={s.batchNote}>
-              {teams.length === 1 ? ` · all ${teams[0]}` : ` · ${teams.length} teams`} · each approval is logged separately
+              {teams.length === 1 ? ` · all ${teams[0]}` : ` · ${teams.length} teams`} · each approval is
+              logged separately
             </span>
           </span>
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>

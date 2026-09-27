@@ -16,7 +16,8 @@ export default function OwnershipScreen() {
         actions={
           q.data && (
             <span className={s.coverage}>
-              <span className="mono">{q.data.owned}</span> of <span className="mono">{q.data.total}</span> query types have an owner
+              <span className="mono">{q.data.owned}</span> of <span className="mono">{q.data.total}</span>{' '}
+              query types have an owner
             </span>
           )
         }
@@ -34,7 +35,10 @@ export default function OwnershipScreen() {
         {(t) => (
           <>
             {t.departments.length === 0 ? (
-              <EmptyState title="No query types yet" text="Query types appear here once the classifier has seen mail for a team." />
+              <EmptyState
+                title="No query types yet"
+                text="Query types appear here once the classifier has seen mail for a team."
+              />
             ) : (
               <div className={s.cols}>
                 {t.departments.map((d, i) => (

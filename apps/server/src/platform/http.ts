@@ -50,15 +50,30 @@ export async function tenantIdempotent<T>(
   return withTenant(ctx.orgId, async (tx) => {
     const inserted = await tx
       .insert(idempotencyKeys)
-      .values({ orgId: ctx.orgId, userId: ctx.user.id, key, route, requestHash, statusCode: 0, response: null })
+      .values({
+        orgId: ctx.orgId,
+        userId: ctx.user.id,
+        key,
+        route,
+        requestHash,
+        statusCode: 0,
+        response: null,
+      })
       .onConflictDoNothing()
       .returning({ key: idempotencyKeys.key });
     if (!inserted.length) {
       const [prev] = await tx
         .select()
         .from(idempotencyKeys)
-        .where(and(eq(idempotencyKeys.orgId, ctx.orgId), eq(idempotencyKeys.userId, ctx.user.id), eq(idempotencyKeys.key, key)));
-      if (prev && prev.requestHash !== requestHash) throw conflict('idempotency_mismatch', 'This Idempotency-Key was used for a different request.');
+        .where(
+          and(
+            eq(idempotencyKeys.orgId, ctx.orgId),
+            eq(idempotencyKeys.userId, ctx.user.id),
+            eq(idempotencyKeys.key, key),
+          ),
+        );
+      if (prev && prev.requestHash !== requestHash)
+        throw conflict('idempotency_mismatch', 'This Idempotency-Key was used for a different request.');
       if (prev && prev.statusCode) {
         reply.header('idempotent-replay', 'true');
         return prev.response as T;
@@ -69,7 +84,13 @@ export async function tenantIdempotent<T>(
     await tx
       .update(idempotencyKeys)
       .set({ statusCode: 200, response: (result ?? null) as unknown })
-      .where(and(eq(idempotencyKeys.orgId, ctx.orgId), eq(idempotencyKeys.userId, ctx.user.id), eq(idempotencyKeys.key, key)));
+      .where(
+        and(
+          eq(idempotencyKeys.orgId, ctx.orgId),
+          eq(idempotencyKeys.userId, ctx.user.id),
+          eq(idempotencyKeys.key, key),
+        ),
+      );
     return result;
   });
 }

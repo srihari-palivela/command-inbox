@@ -35,7 +35,10 @@ export default function LearningScreen() {
       >
         {(l) =>
           l.courses.length === 0 ? (
-            <EmptyState title="No courses yet" text="When a process or policy changes, a short card deck with a quiz shows up here." />
+            <EmptyState
+              title="No courses yet"
+              text="When a process or policy changes, a short card deck with a quiz shows up here."
+            />
           ) : (
             <div className={s.list}>
               {l.courses.map((c, i) => {
@@ -60,9 +63,19 @@ export default function LearningScreen() {
                           {c.teamCompletionPct}% of team
                         </span>
                       </div>
-                      <Meter pct={c.teamCompletionPct} color={tone} label={`${c.title}: ${c.teamCompletionPct}% of the team completed`} delay={i * 0.05} />
+                      <Meter
+                        pct={c.teamCompletionPct}
+                        color={tone}
+                        label={`${c.title}: ${c.teamCompletionPct}% of the team completed`}
+                        delay={i * 0.05}
+                      />
                     </div>
-                    <Button variant={c.completedByMe ? 'secondary' : 'primary'} className={s.go} onClick={() => ui.openLearn(c.id)} aria-label={`${c.completedByMe ? 'Retake' : 'Start'} ${c.title}`}>
+                    <Button
+                      variant={c.completedByMe ? 'secondary' : 'primary'}
+                      className={s.go}
+                      onClick={() => ui.openLearn(c.id)}
+                      aria-label={`${c.completedByMe ? 'Retake' : 'Start'} ${c.title}`}
+                    >
                       {c.completedByMe ? 'Retake' : 'Start'}
                     </Button>
                   </article>

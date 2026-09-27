@@ -28,20 +28,36 @@ export async function currentAction(tx: Tx, orgId: string, ticketId: string, loc
   return row ?? null;
 }
 
-export async function currentDraft(tx: Tx, orgId: string, ticketId: string, lock = false): Promise<DraftRow | null> {
-  const q = tx.select().from(s.drafts).where(and(eq(s.drafts.orgId, orgId), eq(s.drafts.ticketId, ticketId)));
+export async function currentDraft(
+  tx: Tx,
+  orgId: string,
+  ticketId: string,
+  lock = false,
+): Promise<DraftRow | null> {
+  const q = tx
+    .select()
+    .from(s.drafts)
+    .where(and(eq(s.drafts.orgId, orgId), eq(s.drafts.ticketId, ticketId)));
   const [row] = lock ? await q.for('update') : await q;
   return row ?? null;
 }
 
 export async function userRef(tx: Tx, id: string | null): Promise<UserRef | null> {
   if (!id) return null;
-  const [u] = await tx.select({ id: s.users.id, name: s.users.name, initials: s.users.initials }).from(s.users).where(eq(s.users.id, id));
+  const [u] = await tx
+    .select({ id: s.users.id, name: s.users.name, initials: s.users.initials })
+    .from(s.users)
+    .where(eq(s.users.id, id));
   return u ?? null;
 }
 
 /** Least-loaded available checker: lead/admin, approve clearance in the department, not the maker. */
-export async function proposeChecker(tx: Tx, orgId: string, departmentId: string | null, excludeUserId: string | null): Promise<UserRef | null> {
+export async function proposeChecker(
+  tx: Tx,
+  orgId: string,
+  departmentId: string | null,
+  excludeUserId: string | null,
+): Promise<UserRef | null> {
   if (!departmentId) return null;
   const rows = await tx.execute<{ id: string; name: string; initials: string; load: number }>(sql`
     select u.id, u.name, u.initials,
@@ -79,7 +95,10 @@ export async function duplicateCheck(tx: Tx, a: ActionRow): Promise<{ clear: boo
   const n = row?.n ?? 0;
   return n === 0
     ? { clear: true, text: 'No similar action on this account in 90 days' }
-    : { clear: false, text: `${n} similar action${n > 1 ? 's' : ''} on this account in the last 90 days — check for a duplicate` };
+    : {
+        clear: false,
+        text: `${n} similar action${n > 1 ? 's' : ''} on this account in the last 90 days — check for a duplicate`,
+      };
 }
 
 export function approvalsNeeded(chain: ApprovalChain): number {
@@ -116,7 +135,9 @@ export async function computeGate(
     note: null,
   };
   const needClearance = (min: number, doing: string) =>
-    clearance < min ? `Needs "${CLEARANCE_LABEL[min]}" clearance for ${doing} — you have "${CLEARANCE_LABEL[clearance]}".` : null;
+    clearance < min
+      ? `Needs "${CLEARANCE_LABEL[min]}" clearance for ${doing} — you have "${CLEARANCE_LABEL[clearance]}".`
+      : null;
 
   if (t.lane === 'auto' && action) {
     const a = action.a;
@@ -137,16 +158,20 @@ export async function computeGate(
       case 'drafted':
       case 'failed':
         g.state = 'open';
-        g.proposedChecker = chain === 'dual' ? await proposeChecker(tx, ctx.orgId, t.departmentId, ctx.user.id) : null;
-        if (!ctx.capabilities.has('action.approve_maker')) g.blockedReason = 'Your role cannot approve actions.';
+        g.proposedChecker =
+          chain === 'dual' ? await proposeChecker(tx, ctx.orgId, t.departmentId, ctx.user.id) : null;
+        if (!ctx.capabilities.has('action.approve_maker'))
+          g.blockedReason = 'Your role cannot approve actions.';
         else g.blockedReason = needClearance(CLEARANCE.resolve, 'this team');
         if (!open) g.blockedReason = 'This ticket is closed.';
         break;
       case 'awaiting_checker':
         g.state = 'awaiting_checker';
         g.proposedChecker = await proposeChecker(tx, ctx.orgId, t.departmentId, a.makerId);
-        if (a.makerId === ctx.user.id) g.blockedReason = 'You approved as maker — a different person must check it.';
-        else if (!ctx.capabilities.has('action.approve_checker')) g.blockedReason = 'Only a team lead or admin can approve as checker.';
+        if (a.makerId === ctx.user.id)
+          g.blockedReason = 'You approved as maker — a different person must check it.';
+        else if (!ctx.capabilities.has('action.approve_checker'))
+          g.blockedReason = 'Only a team lead or admin can approve as checker.';
         else g.blockedReason = needClearance(CLEARANCE.approve, 'checking this team’s actions');
         break;
       case 'scheduled':
@@ -156,7 +181,9 @@ export async function computeGate(
           action.t.reversible &&
           !!a.executeAfter &&
           a.executeAfter > now &&
-          (a.makerId === ctx.user.id || a.checkerId === ctx.user.id || ctx.capabilities.has('action.approve_checker'));
+          (a.makerId === ctx.user.id ||
+            a.checkerId === ctx.user.id ||
+            ctx.capabilities.has('action.approve_checker'));
         g.blockedReason = 'Already approved.';
         break;
       case 'executing':
@@ -192,7 +219,10 @@ export async function computeGate(
         g.state = 'scheduled';
         g.maker = await userRef(tx, draft.sentBy);
         g.undoUntil = draft.sendAfter?.toISOString() ?? null;
-        g.canUndo = !!draft.sendAfter && draft.sendAfter > now && (draft.sentBy === ctx.user.id || ctx.capabilities.has('ticket.assign'));
+        g.canUndo =
+          !!draft.sendAfter &&
+          draft.sendAfter > now &&
+          (draft.sentBy === ctx.user.id || ctx.capabilities.has('ticket.assign'));
         g.blockedReason = 'Sending.';
         break;
       case 'sent':
@@ -210,7 +240,11 @@ export async function computeGate(
 
   // Manual lane: the AI has stepped back; the move is to take ownership.
   const g: GateDTO = { ...base, mode: 'manual', state: t.acceptedAt ? 'taken' : 'open' };
-  if (t.lane !== 'manual') g.note = t.lane === 'auto' ? 'No filled action to approve yet — work it by hand or wait for the agent.' : 'No draft to approve yet — reply by hand or wait for the agent.';
+  if (t.lane !== 'manual')
+    g.note =
+      t.lane === 'auto'
+        ? 'No filled action to approve yet — work it by hand or wait for the agent.'
+        : 'No draft to approve yet — reply by hand or wait for the agent.';
   if (!open) g.state = 'done';
   if (g.state === 'open') {
     if (!ctx.capabilities.has('ticket.work')) g.blockedReason = 'Your role cannot work tickets.';

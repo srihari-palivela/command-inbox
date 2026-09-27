@@ -68,11 +68,20 @@ function Actions({ data }: { data: ActionsDTO }) {
   return (
     <>
       <div className="rise">
-        <PageHeader title={TITLE} subtitle={SUB} actions={<span className={s.ownerPill}>Policy owner · Risk &amp; Compliance</span>} />
+        <PageHeader
+          title={TITLE}
+          subtitle={SUB}
+          actions={<span className={s.ownerPill}>Policy owner · Risk &amp; Compliance</span>}
+        />
       </div>
 
       <div className={s.layout}>
-        <RiskMatrix data={data} selected={selected} onSelect={select} canDial={caps.includes('autonomy.change')} />
+        <RiskMatrix
+          data={data}
+          selected={selected}
+          onSelect={select}
+          canDial={caps.includes('autonomy.change')}
+        />
 
         <section className={s.listCard} aria-labelledby="cell-actions-title">
           <header className={s.listHead}>
@@ -80,7 +89,14 @@ function Actions({ data }: { data: ActionsDTO }) {
               {selected.title}
             </h3>
             <span className={s.listCount}>{selected.count} actions</span>
-            <Button size="sm" variant="soft" className={s.newBtn} onClick={() => setWizard(true)} disabled={!canEdit} title={canEdit ? undefined : 'Only an Admin can create an action template.'}>
+            <Button
+              size="sm"
+              variant="soft"
+              className={s.newBtn}
+              onClick={() => setWizard(true)}
+              disabled={!canEdit}
+              title={canEdit ? undefined : 'Only an Admin can create an action template.'}
+            >
               + New action
             </Button>
           </header>
@@ -92,9 +108,15 @@ function Actions({ data }: { data: ActionsDTO }) {
             <span>VOLUME</span>
           </div>
           {rows.length === 0 ? (
-            <EmptyState title="No action templates here yet" text="Add one with “+ New action” — it starts suggest-only and waits for Risk review." />
+            <EmptyState
+              title="No action templates here yet"
+              text="Add one with “+ New action” — it starts suggest-only and waits for Risk review."
+            />
           ) : (
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} aria-label={`Actions in ${selected.title}`}>
+            <ul
+              style={{ listStyle: 'none', margin: 0, padding: 0 }}
+              aria-label={`Actions in ${selected.title}`}
+            >
               {rows.map((a, i) => {
                 const ap = APPROVAL_TONE[a.approval];
                 return (
@@ -103,7 +125,11 @@ function Actions({ data }: { data: ActionsDTO }) {
                       <div className={s.tName}>
                         <span title={a.name}>{a.name}</span>
                         {a.state === 'pending_review' && (
-                          <Pill fg="var(--warn)" bg="var(--warn-bg)" title="New actions stay suggest-only until Risk signs off">
+                          <Pill
+                            fg="var(--warn)"
+                            bg="var(--warn-bg)"
+                            title="New actions stay suggest-only until Risk signs off"
+                          >
                             Pending Risk review
                           </Pill>
                         )}
@@ -118,7 +144,11 @@ function Actions({ data }: { data: ActionsDTO }) {
                         {ap.word}
                       </Pill>
                     </span>
-                    <span className={s.tNum} style={a.stpPct === null ? { color: 'var(--muted-2)' } : undefined} title="Handled with no human help (straight-through)">
+                    <span
+                      className={s.tNum}
+                      style={a.stpPct === null ? { color: 'var(--muted-2)' } : undefined}
+                      title="Handled with no human help (straight-through)"
+                    >
                       {a.stpPct === null ? '—' : `${a.stpPct}%`}
                     </span>
                     <span className={s.tNum}>{a.volume.toLocaleString('en-IN')}</span>
@@ -136,7 +166,13 @@ function Actions({ data }: { data: ActionsDTO }) {
         </section>
       </div>
 
-      <NewActionWizard open={wizard} onClose={() => setWizard(false)} data={data} initialCell={selected.cell} onCreated={select} />
+      <NewActionWizard
+        open={wizard}
+        onClose={() => setWizard(false)}
+        data={data}
+        initialCell={selected.cell}
+        onCreated={select}
+      />
     </>
   );
 }

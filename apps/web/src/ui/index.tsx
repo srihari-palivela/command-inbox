@@ -31,12 +31,31 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: ReactNode;
 }
 
-export function Button({ variant = 'secondary', size = 'md', loading, kbd, icon, className, children, disabled, ...rest }: ButtonProps) {
+export function Button({
+  variant = 'secondary',
+  size = 'md',
+  loading,
+  kbd,
+  icon,
+  className,
+  children,
+  disabled,
+  ...rest
+}: ButtonProps) {
   return (
-    <button {...rest} disabled={disabled || loading} aria-busy={loading || undefined} className={cx(s.btn, s[size], s[variant], className)}>
+    <button
+      {...rest}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={cx(s.btn, s[size], s[variant], className)}
+    >
       {loading ? <span className={s.spinner} aria-hidden /> : icon}
       {children}
-      {kbd && <span className={s.kbd} aria-hidden>{kbd}</span>}
+      {kbd && (
+        <span className={s.kbd} aria-hidden>
+          {kbd}
+        </span>
+      )}
     </button>
   );
 }
@@ -66,7 +85,12 @@ export function Pill({ fg, bg, line, mono, large, children, title, className, st
   );
 }
 
-export function Chip({ on, count, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { on?: boolean; count?: number | string }) {
+export function Chip({
+  on,
+  count,
+  children,
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { on?: boolean; count?: number | string }) {
   return (
     <button type="button" aria-pressed={on} {...rest} className={cx(s.chip, on && s.chipOn, rest.className)}>
       {children}
@@ -76,7 +100,17 @@ export function Chip({ on, count, children, ...rest }: ButtonHTMLAttributes<HTML
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
-export function Card({ title, meta, actions, children, className, bodyClassName, style, flush, id }: {
+export function Card({
+  title,
+  meta,
+  actions,
+  children,
+  className,
+  bodyClassName,
+  style,
+  flush,
+  id,
+}: {
   title?: ReactNode;
   meta?: ReactNode;
   actions?: ReactNode;
@@ -101,7 +135,15 @@ export function Card({ title, meta, actions, children, className, bodyClassName,
   );
 }
 
-export function Eyebrow({ children, style, className }: { children: ReactNode; style?: CSSProperties; className?: string }) {
+export function Eyebrow({
+  children,
+  style,
+  className,
+}: {
+  children: ReactNode;
+  style?: CSSProperties;
+  className?: string;
+}) {
   return (
     <div className={cx(s.eyebrow, className)} style={style}>
       {children}
@@ -116,7 +158,19 @@ export interface TabItem<K extends string> {
   badge?: string | number;
 }
 
-export function Tabs<K extends string>({ items, value, onChange, label, className }: { items: TabItem<K>[]; value: K; onChange: (k: K) => void; label: string; className?: string }) {
+export function Tabs<K extends string>({
+  items,
+  value,
+  onChange,
+  label,
+  className,
+}: {
+  items: TabItem<K>[];
+  value: K;
+  onChange: (k: K) => void;
+  label: string;
+  className?: string;
+}) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const onKey = (e: KeyboardEvent, i: number) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
@@ -149,11 +203,27 @@ export function Tabs<K extends string>({ items, value, onChange, label, classNam
   );
 }
 
-export function Segmented<K extends string>({ items, value, onChange, label }: { items: { key: K; label: ReactNode }[]; value: K; onChange: (k: K) => void; label: string }) {
+export function Segmented<K extends string>({
+  items,
+  value,
+  onChange,
+  label,
+}: {
+  items: { key: K; label: ReactNode }[];
+  value: K;
+  onChange: (k: K) => void;
+  label: string;
+}) {
   return (
     <div className={s.seg} role="group" aria-label={label}>
       {items.map((i) => (
-        <button key={i.key} type="button" aria-pressed={i.key === value} className={s.segBtn} onClick={() => onChange(i.key)}>
+        <button
+          key={i.key}
+          type="button"
+          aria-pressed={i.key === value}
+          className={s.segBtn}
+          onClick={() => onChange(i.key)}
+        >
           {i.label}
         </button>
       ))}
@@ -161,42 +231,143 @@ export function Segmented<K extends string>({ items, value, onChange, label }: {
   );
 }
 
-export function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  disabled?: boolean;
+}) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} className={s.toggle} onClick={() => onChange(!checked)}>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      className={s.toggle}
+      onClick={() => onChange(!checked)}
+    >
       <span className={s.knob} />
     </button>
   );
 }
 
 // ── Small visuals ─────────────────────────────────────────────────────────────
-export function Avatar({ initials, size = 26, fg = 'var(--text-2)', bg = '#f0efeb', title, ring }: { initials: string; size?: number; fg?: string; bg?: string; title?: string; ring?: string }) {
+export function Avatar({
+  initials,
+  size = 26,
+  fg = 'var(--text-2)',
+  bg = '#f0efeb',
+  title,
+  ring,
+}: {
+  initials: string;
+  size?: number;
+  fg?: string;
+  bg?: string;
+  title?: string;
+  ring?: string;
+}) {
   return (
-    <span className={s.avatar} title={title} aria-label={title} style={{ width: size, height: size, fontSize: Math.max(9, size * 0.38), color: fg, background: bg, border: ring ? `1px solid ${ring}` : undefined }}>
+    <span
+      className={s.avatar}
+      title={title}
+      aria-label={title}
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(9, size * 0.38),
+        color: fg,
+        background: bg,
+        border: ring ? `1px solid ${ring}` : undefined,
+      }}
+    >
       {initials}
     </span>
   );
 }
 
 export function Dot({ color, pulse, size = 7 }: { color: string; pulse?: boolean; size?: number }) {
-  return <span className={s.dot} aria-hidden style={{ background: color, width: size, height: size, animation: pulse ? 'breathe 1.8s ease-in-out infinite' : undefined }} />;
+  return (
+    <span
+      className={s.dot}
+      aria-hidden
+      style={{
+        background: color,
+        width: size,
+        height: size,
+        animation: pulse ? 'breathe 1.8s ease-in-out infinite' : undefined,
+      }}
+    />
+  );
 }
 
-export function Meter({ pct, color, height = 5, label, delay }: { pct: number; color: string; height?: number; label?: string; delay?: number }) {
+export function Meter({
+  pct,
+  color,
+  height = 5,
+  label,
+  delay,
+}: {
+  pct: number;
+  color: string;
+  height?: number;
+  label?: string;
+  delay?: number;
+}) {
   const v = Math.max(0, Math.min(100, pct));
   return (
-    <div className={s.meter} style={{ height }} role="meter" aria-valuenow={Math.round(v)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
-      <div className={s.meterFill} style={{ width: `${v}%`, background: color, animationDelay: delay ? `${delay}s` : undefined }} />
+    <div
+      className={s.meter}
+      style={{ height }}
+      role="meter"
+      aria-valuenow={Math.round(v)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={label}
+    >
+      <div
+        className={s.meterFill}
+        style={{ width: `${v}%`, background: color, animationDelay: delay ? `${delay}s` : undefined }}
+      />
     </div>
   );
 }
 
-export function Spark({ values, color, height = 34, label }: { values: number[]; color: string; height?: number; label?: string }) {
+export function Spark({
+  values,
+  color,
+  height = 34,
+  label,
+}: {
+  values: number[];
+  color: string;
+  height?: number;
+  label?: string;
+}) {
   const max = Math.max(...values, 0.0001);
   return (
-    <div className={s.spark} style={{ height }} role="img" aria-label={label ?? `Trend: ${values.join(', ')}`}>
+    <div
+      className={s.spark}
+      style={{ height }}
+      role="img"
+      aria-label={label ?? `Trend: ${values.join(', ')}`}
+    >
       {values.map((v, i) => (
-        <div key={i} className={s.sparkBar} style={{ height: `${Math.max(8, (v / max) * 100)}%`, background: color, animationDelay: `${i * 0.03}s` }} />
+        <div
+          key={i}
+          className={s.sparkBar}
+          style={{
+            height: `${Math.max(8, (v / max) * 100)}%`,
+            background: color,
+            animationDelay: `${i * 0.03}s`,
+          }}
+        />
       ))}
     </div>
   );
@@ -204,7 +375,17 @@ export function Spark({ values, color, height = 34, label }: { values: number[];
 
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="mono" style={{ fontSize: 10, color: 'var(--muted-2)', border: '1px solid var(--line)', borderRadius: 4, padding: '1px 5px', background: 'var(--surface)' }}>
+    <kbd
+      className="mono"
+      style={{
+        fontSize: 10,
+        color: 'var(--muted-2)',
+        border: '1px solid var(--line)',
+        borderRadius: 4,
+        padding: '1px 5px',
+        background: 'var(--surface)',
+      }}
+    >
       {children}
     </kbd>
   );
@@ -230,7 +411,8 @@ export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 }
 
 // ── Overlays ──────────────────────────────────────────────────────────────────
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Focus trap + Escape + focus restore, shared by Modal and Drawer. */
 function useDialog(open: boolean, onClose: () => void) {
@@ -239,7 +421,8 @@ function useDialog(open: boolean, onClose: () => void) {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const el = ref.current;
-    const first = el?.querySelector<HTMLElement>('[data-autofocus]') ?? el?.querySelector<HTMLElement>(FOCUSABLE);
+    const first =
+      el?.querySelector<HTMLElement>('[data-autofocus]') ?? el?.querySelector<HTMLElement>(FOCUSABLE);
     first?.focus();
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -269,7 +452,17 @@ function useDialog(open: boolean, onClose: () => void) {
   return ref;
 }
 
-export function Modal({ open, onClose, title, subtitle, children, footer, width, top, labelledBy }: {
+export function Modal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  footer,
+  width,
+  top,
+  labelledBy,
+}: {
   open: boolean;
   onClose: () => void;
   title?: ReactNode;
@@ -286,7 +479,14 @@ export function Modal({ open, onClose, title, subtitle, children, footer, width,
   return createPortal(
     <>
       <div className={s.scrim} onClick={onClose} aria-hidden />
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={labelledBy ?? (title ? id : undefined)} className={cx(s.modal, top && s.modalTop)} style={width ? { width: `min(${width}px, calc(100vw - 32px))` } : undefined}>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy ?? (title ? id : undefined)}
+        className={cx(s.modal, top && s.modalTop)}
+        style={width ? { width: `min(${width}px, calc(100vw - 32px))` } : undefined}
+      >
         {title && (
           <div className={s.modalHead}>
             <div style={{ minWidth: 0 }}>
@@ -308,7 +508,15 @@ export function Modal({ open, onClose, title, subtitle, children, footer, width,
   );
 }
 
-export function Drawer({ open, onClose, title, subtitle, children, footer, width }: {
+export function Drawer({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  footer,
+  width,
+}: {
   open: boolean;
   onClose: () => void;
   title: ReactNode;
@@ -323,7 +531,14 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
   return createPortal(
     <>
       <div className={s.scrim} onClick={onClose} aria-hidden />
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={id} className={s.drawer} style={width ? { width: `min(${width}px, 100vw)` } : undefined}>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={id}
+        className={s.drawer}
+        style={width ? { width: `min(${width}px, 100vw)` } : undefined}
+      >
         <div className={s.modalHead}>
           <div style={{ minWidth: 0 }}>
             <h2 id={id} className={s.modalTitle}>
@@ -344,7 +559,21 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
 }
 
 /** Anchored popover that closes on outside click and Escape. Position with `style`. */
-export function Popover({ open, onClose, children, style, className, label }: { open: boolean; onClose: () => void; children: ReactNode; style?: CSSProperties; className?: string; label?: string }) {
+export function Popover({
+  open,
+  onClose,
+  children,
+  style,
+  className,
+  label,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  style?: CSSProperties;
+  className?: string;
+  label?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -368,9 +597,23 @@ export function Popover({ open, onClose, children, style, className, label }: { 
   );
 }
 
-export function MenuItem({ children, onClick, danger }: { children: ReactNode; onClick: () => void; danger?: boolean }) {
+export function MenuItem({
+  children,
+  onClick,
+  danger,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+}) {
   return (
-    <button type="button" role="menuitem" className={s.menuItem} onClick={onClick} style={danger ? { color: 'var(--bad-text)' } : undefined}>
+    <button
+      type="button"
+      role="menuitem"
+      className={s.menuItem}
+      onClick={onClick}
+      style={danger ? { color: 'var(--bad-text)' } : undefined}
+    >
       {children}
     </button>
   );
@@ -419,7 +662,15 @@ export function EmptyState({ title, text, action }: { title: string; text?: Reac
   );
 }
 
-export function Skeleton({ h = 14, w = '100%', style }: { h?: number; w?: number | string; style?: CSSProperties }) {
+export function Skeleton({
+  h = 14,
+  w = '100%',
+  style,
+}: {
+  h?: number;
+  w?: number | string;
+  style?: CSSProperties;
+}) {
   return <div className={s.skel} style={{ height: h, width: w, ...style }} aria-hidden />;
 }
 
@@ -454,7 +705,15 @@ export function Page({ children, narrow }: { children: ReactNode; narrow?: boole
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  subtitle,
+  actions,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
     <div className={s.pageHead}>
       <div style={{ minWidth: 0 }}>
@@ -467,7 +726,15 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
 }
 
 /** Loading / error / data switch for query results. */
-export function Loadable<T>({ query, skeleton, children }: { query: { data: T | undefined; isLoading: boolean; error: unknown; refetch: () => unknown }; skeleton?: ReactNode; children: (data: T) => ReactNode }) {
+export function Loadable<T>({
+  query,
+  skeleton,
+  children,
+}: {
+  query: { data: T | undefined; isLoading: boolean; error: unknown; refetch: () => unknown };
+  skeleton?: ReactNode;
+  children: (data: T) => ReactNode;
+}) {
   if (query.error) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   if (query.isLoading || query.data === undefined)
     return (

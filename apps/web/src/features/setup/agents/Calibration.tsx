@@ -11,7 +11,12 @@ const PREDICTED = 'var(--line-strong)';
 
 export function Calibration({ bands }: { bands: CalibrationBandDTO[] }) {
   const v = calibrationVerdict(bands);
-  const tone = v.tone === 'ok' ? { fg: 'var(--ok)', bg: 'var(--ok-bg)', word: 'Calibrated' } : v.tone === 'warn' ? { fg: 'var(--warn)', bg: 'var(--warn-bg)', word: 'Drifting' } : { fg: 'var(--text-2)', bg: 'var(--surface-3)', word: 'Not enough data' };
+  const tone =
+    v.tone === 'ok'
+      ? { fg: 'var(--ok)', bg: 'var(--ok-bg)', word: 'Calibrated' }
+      : v.tone === 'warn'
+        ? { fg: 'var(--warn)', bg: 'var(--warn-bg)', word: 'Drifting' }
+        : { fg: 'var(--text-2)', bg: 'var(--surface-3)', word: 'Not enough data' };
   return (
     <section className={s.section} aria-labelledby="cal-head">
       <div className={s.sectionHead}>
@@ -46,15 +51,32 @@ export function Calibration({ bands }: { bands: CalibrationBandDTO[] }) {
                 <span className={s.calBand}>{b.band}</span>
                 <div className={s.calBars}>
                   <div className={s.calBar}>
-                    <Meter pct={b.predicted * 100} color={PREDICTED} height={5} label={`Stated confidence ${pct(b.predicted)}`} delay={i * 0.04} />
+                    <Meter
+                      pct={b.predicted * 100}
+                      color={PREDICTED}
+                      height={5}
+                      label={`Stated confidence ${pct(b.predicted)}`}
+                      delay={i * 0.04}
+                    />
                     <span>{pct(b.predicted)}</span>
                   </div>
                   <div className={s.calBar}>
-                    <Meter pct={(b.observed ?? 0) * 100} color={obsColor} height={5} label={`Observed accuracy ${b.observed === null ? 'unknown' : pct(b.observed)}`} delay={i * 0.04 + 0.02} />
-                    <span style={{ color: off ? 'var(--warn)' : 'var(--ok)', fontWeight: 600 }}>{b.observed === null ? '—' : pct(b.observed)}</span>
+                    <Meter
+                      pct={(b.observed ?? 0) * 100}
+                      color={obsColor}
+                      height={5}
+                      label={`Observed accuracy ${b.observed === null ? 'unknown' : pct(b.observed)}`}
+                      delay={i * 0.04 + 0.02}
+                    />
+                    <span style={{ color: off ? 'var(--warn)' : 'var(--ok)', fontWeight: 600 }}>
+                      {b.observed === null ? '—' : pct(b.observed)}
+                    </span>
                   </div>
                 </div>
-                <span className={s.calN} title={thin ? `Fewer than ${MIN_BAND_N} outcomes — not counted in the verdict` : undefined}>
+                <span
+                  className={s.calN}
+                  title={thin ? `Fewer than ${MIN_BAND_N} outcomes — not counted in the verdict` : undefined}
+                >
                   n = {b.n}
                   {thin ? ' · thin' : ''}
                 </span>

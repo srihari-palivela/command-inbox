@@ -14,8 +14,18 @@ import { candidates } from './routing.js';
 
 export async function listStaff(tx: Tx, ctx: Ctx): Promise<StaffDTO[]> {
   const rows = await tx.execute<{
-    id: string; name: string; initials: string; role: Role; title: string; pod: string; years: number;
-    capacity: number; open: number; status: string | null; checkin: string | null; calendar: string | null;
+    id: string;
+    name: string;
+    initials: string;
+    role: Role;
+    title: string;
+    pod: string;
+    years: number;
+    capacity: number;
+    open: number;
+    status: string | null;
+    checkin: string | null;
+    calendar: string | null;
   }>(sql`
     select u.id, u.name, u.initials, m.role, m.title, m.pod, m.years, m.capacity,
            (m.base_load + (select count(*) from tickets t where t.org_id = ${ctx.orgId} and t.assignee_id = u.id
@@ -40,7 +50,9 @@ export async function listStaff(tx: Tx, ctx: Ctx): Promise<StaffDTO[]> {
     availability: (r.status ?? 'available') as StaffDTO['availability'],
     checkin: r.checkin ?? '',
     calendar: r.calendar ?? '',
-    clearances: Object.fromEntries(clear.filter((c) => c.userId === r.id).map((c) => [c.departmentId, c.level])),
+    clearances: Object.fromEntries(
+      clear.filter((c) => c.userId === r.id).map((c) => [c.departmentId, c.level]),
+    ),
     isMe: r.id === ctx.user.id,
   }));
 }
@@ -53,10 +65,20 @@ export async function people(tx: Tx, ctx: Ctx): Promise<PeopleDTO> {
     .from(s.departments)
     .where(and(eq(s.departments.orgId, ctx.orgId), eq(s.departments.inMatrix, true)))
     .orderBy(asc(s.departments.sort));
-  return { staff: await listStaff(tx, ctx), departments, editable: ctx.capabilities.has('people.edit_clearance') };
+  return {
+    staff: await listStaff(tx, ctx),
+    departments,
+    editable: ctx.capabilities.has('people.edit_clearance'),
+  };
 }
 
-export async function setClearance(tx: Tx, ctx: Ctx, userId: string, departmentId: string, level: number): Promise<void> {
+export async function setClearance(
+  tx: Tx,
+  ctx: Ctx,
+  userId: string,
+  departmentId: string,
+  level: number,
+): Promise<void> {
   requireCap(ctx, 'people.edit_clearance', 'change someone’s clearance');
   // The person must belong to this workspace: a user id from another org is "not found", never written.
   const [u] = await tx
@@ -64,12 +86,18 @@ export async function setClearance(tx: Tx, ctx: Ctx, userId: string, departmentI
     .from(s.users)
     .innerJoin(s.memberships, and(eq(s.memberships.userId, s.users.id), eq(s.memberships.orgId, ctx.orgId)))
     .where(eq(s.users.id, userId));
-  const [d] = await tx.select().from(s.departments).where(and(eq(s.departments.orgId, ctx.orgId), eq(s.departments.id, departmentId)));
+  const [d] = await tx
+    .select()
+    .from(s.departments)
+    .where(and(eq(s.departments.orgId, ctx.orgId), eq(s.departments.id, departmentId)));
   if (!u || !d) throw notFound('Person or team');
   await tx
     .insert(s.clearances)
     .values({ orgId: ctx.orgId, userId, departmentId, level })
-    .onConflictDoUpdate({ target: [s.clearances.orgId, s.clearances.userId, s.clearances.departmentId], set: { level } });
+    .onConflictDoUpdate({
+      target: [s.clearances.orgId, s.clearances.userId, s.clearances.departmentId],
+      set: { level },
+    });
   await audit(tx, ctx.orgId, {
     actor: actorOf(ctx),
     action: 'clearance.changed',
@@ -91,21 +119,44 @@ export async function autoAssign(tx: Tx, ctx: Ctx): Promise<AutoAssignResultDTO>
   const rows = await tx
     .select()
     .from(s.tickets)
-    .where(and(eq(s.tickets.orgId, ctx.orgId), sql`${s.tickets.status} not in ('resolved','closed','waiting_customer')`, sql`${s.tickets.ownerKind} in ('ai','unassigned')`))
+    .where(
+      and(
+        eq(s.tickets.orgId, ctx.orgId),
+        sql`${s.tickets.status} not in ('resolved','closed','waiting_customer')`,
+        sql`${s.tickets.ownerKind} in ('ai','unassigned')`,
+      ),
+    )
     .orderBy(asc(s.tickets.dueAt))
     .for('update');
-  const atRiskRows = rows.filter((t) => t.priority === 'P1' || t.priority === 'P2' || atRisk(computeSla(t, now).tone));
+  const atRiskRows = rows.filter(
+    (t) => t.priority === 'P1' || t.priority === 'P2' || atRisk(computeSla(t, now).tone),
+  );
   const loads = new Map<string, number>();
   const moves: AutoAssignResultDTO['moves'] = [];
-  const [lead] = await tx.execute<{ name: string }>(sql`
+  const [lead] = await tx
+    .execute<{ name: string }>(
+      sql`
     select u.name from memberships m join users u on u.id = m.user_id
-     where m.org_id = ${ctx.orgId} and m.role = 'lead' order by m.joined_at limit 1`).then((r) => r.rows);
+     where m.org_id = ${ctx.orgId} and m.role = 'lead' order by m.joined_at limit 1`,
+    )
+    .then((r) => r.rows);
 
   for (const t of atRiskRows) {
     const minutesLeft = computeSla(t, now).minutesLeft;
     if (!t.departmentId) {
-      moves.push({ ticketNumber: `QRY-${t.number}`, priority: t.priority as Priority, minutesLeft, to: null, reason: `no team owns ${t.bucket.toLowerCase()} — escalated to ${lead?.name ?? 'the team lead'}` });
-      await systemNote(tx, ctx.orgId, t.id, `Auto-assign: no team owns this query type — escalated to ${lead?.name ?? 'the team lead'}.`);
+      moves.push({
+        ticketNumber: `QRY-${t.number}`,
+        priority: t.priority as Priority,
+        minutesLeft,
+        to: null,
+        reason: `no team owns ${t.bucket.toLowerCase()} — escalated to ${lead?.name ?? 'the team lead'}`,
+      });
+      await systemNote(
+        tx,
+        ctx.orgId,
+        t.id,
+        `Auto-assign: no team owns this query type — escalated to ${lead?.name ?? 'the team lead'}.`,
+      );
       continue;
     }
     const pool = (await candidates(tx, ctx.orgId, t.departmentId))
@@ -114,15 +165,32 @@ export async function autoAssign(tx: Tx, ctx: Ctx): Promise<AutoAssignResultDTO>
       .sort((a, b) => a.open / a.capacity - b.open / b.capacity);
     const pick = pool[0];
     if (!pick) {
-      moves.push({ ticketNumber: `QRY-${t.number}`, priority: t.priority as Priority, minutesLeft, to: null, reason: `no available staff cleared for ${t.bucket.toLowerCase()} — escalated to ${lead?.name ?? 'the team lead'}` });
+      moves.push({
+        ticketNumber: `QRY-${t.number}`,
+        priority: t.priority as Priority,
+        minutesLeft,
+        to: null,
+        reason: `no available staff cleared for ${t.bucket.toLowerCase()} — escalated to ${lead?.name ?? 'the team lead'}`,
+      });
       continue;
     }
     loads.set(pick.id, (loads.get(pick.id) ?? 0) + 1);
     const reason = `available, cleared for ${pick.department}, lightest load (${pick.open}/${pick.capacity})`;
     await updateTicket(tx, t, { assigneeId: pick.id, ownerKind: 'user' });
     await systemNote(tx, ctx.orgId, t.id, `Auto-assigned to ${pick.name} — ${reason}.`);
-    await recordTicketEvent(tx, t, { actor: actorOf(ctx), action: 'ticket.auto_assigned', summary: `QRY-${t.number} → ${pick.name}`, data: { reason } });
-    moves.push({ ticketNumber: `QRY-${t.number}`, priority: t.priority as Priority, minutesLeft, to: pick.name, reason });
+    await recordTicketEvent(tx, t, {
+      actor: actorOf(ctx),
+      action: 'ticket.auto_assigned',
+      summary: `QRY-${t.number} → ${pick.name}`,
+      data: { reason },
+    });
+    moves.push({
+      ticketNumber: `QRY-${t.number}`,
+      priority: t.priority as Priority,
+      minutesLeft,
+      to: pick.name,
+      reason,
+    });
   }
   await audit(tx, ctx.orgId, {
     actor: actorOf(ctx),

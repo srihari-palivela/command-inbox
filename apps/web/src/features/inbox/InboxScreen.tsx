@@ -27,7 +27,10 @@ const readRail = () => {
 
 const isTyping = (el: EventTarget | null) => {
   const n = el as HTMLElement | null;
-  return !!n && (n.tagName === 'INPUT' || n.tagName === 'TEXTAREA' || n.tagName === 'SELECT' || n.isContentEditable);
+  return (
+    !!n &&
+    (n.tagName === 'INPUT' || n.tagName === 'TEXTAREA' || n.tagName === 'SELECT' || n.isContentEditable)
+  );
 };
 
 export default function InboxScreen() {
@@ -35,7 +38,9 @@ export default function InboxScreen() {
   const navigate = useNavigate();
   const { ticket: param } = useParams();
   const [search, setSearch] = useSearchParams();
-  const filter: InboxFilter = FILTERS.includes(search.get('filter') as InboxFilter) ? (search.get('filter') as InboxFilter) : 'all';
+  const filter: InboxFilter = FILTERS.includes(search.get('filter') as InboxFilter)
+    ? (search.get('filter') as InboxFilter)
+    : 'all';
   const inbox = useInbox(filter);
   const items = useMemo(() => inbox.data?.items ?? [], [inbox.data]);
   const [railOpen, setRailOpen] = useState(readRail);
@@ -50,7 +55,10 @@ export default function InboxScreen() {
   const go = useCallback(
     (number: string | null | undefined, replace = false) => {
       if (!number) return;
-      navigate({ pathname: `/inbox/${number}`, search: search.toString() ? `?${search.toString()}` : '' }, { replace });
+      navigate(
+        { pathname: `/inbox/${number}`, search: search.toString() ? `?${search.toString()}` : '' },
+        { replace },
+      );
     },
     [navigate, search],
   );
@@ -74,7 +82,8 @@ export default function InboxScreen() {
   const onApproved = (r: ApproveResult) => {
     // Stay put while an undo or recall window is open ('scheduled', 'sending') so the person can use it;
     // once the work has left their hands, move on if they want to.
-    if ((r.outcome === 'awaiting_checker' || r.outcome === 'taken') && pref(me, 'autoAdvance')) setTimeout(() => move(1), 500);
+    if ((r.outcome === 'awaiting_checker' || r.outcome === 'taken') && pref(me, 'autoAdvance'))
+      setTimeout(() => move(1), 500);
   };
 
   // Keyboard: J/K move, A approve, R reply, E edit, ? help. Only when the person has shortcuts on.
@@ -117,17 +126,33 @@ export default function InboxScreen() {
 
   return (
     <div className={cx(s.layout, !railOpen && s.layoutRailClosed)}>
-      <Queue query={inbox} filter={filter} onFilter={setFilter} selectedId={t?.id ?? null} onSelect={(x: TicketSummaryDTO) => go(x.number)} />
+      <Queue
+        query={inbox}
+        filter={filter}
+        onFilter={setFilter}
+        selectedId={t?.id ?? null}
+        onSelect={(x: TicketSummaryDTO) => go(x.number)}
+      />
 
       {detail.error ? (
         <section className={s.detail} style={{ padding: 24 }}>
           <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />
         </section>
       ) : t ? (
-        <Detail t={t} me={me} onNext={() => move(1)} onApproved={onApproved} onOpenTicket={(n) => go(n)} handle={handle} />
+        <Detail
+          t={t}
+          me={me}
+          onNext={() => move(1)}
+          onApproved={onApproved}
+          onOpenTicket={(n) => go(n)}
+          handle={handle}
+        />
       ) : inbox.data && !items.length && !param ? (
         <section className={s.detail} style={{ justifyContent: 'center' }}>
-          <EmptyState title="You're clear" text="Nothing needs you right now. The AI keeps working the rest, and anything that needs a person lands here." />
+          <EmptyState
+            title="You're clear"
+            text="Nothing needs you right now. The AI keeps working the rest, and anything that needs a person lands here."
+          />
         </section>
       ) : (
         <section className={s.detail} style={{ padding: 24 }} aria-busy>
@@ -140,7 +165,12 @@ export default function InboxScreen() {
         </section>
       )}
 
-      <Rail open={railOpen} onToggle={toggleRail} live={me.worker.state === 'live'} onOpenTicket={(n) => go(n)} />
+      <Rail
+        open={railOpen}
+        onToggle={toggleRail}
+        live={me.worker.state === 'live'}
+        onOpenTicket={(n) => go(n)}
+      />
 
       <Modal open={help} onClose={() => setHelp(false)} title="Keyboard shortcuts" width={380}>
         <div className={s.shortcuts}>
@@ -158,7 +188,9 @@ export default function InboxScreen() {
             </div>
           ))}
         </div>
-        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 14 }}>Turn shortcuts off in Settings if they get in the way of a screen reader.</p>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 14 }}>
+          Turn shortcuts off in Settings if they get in the way of a screen reader.
+        </p>
       </Modal>
     </div>
   );

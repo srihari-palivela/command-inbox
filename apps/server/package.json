@@ -15,7 +15,11 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed/index.ts",
     "db:reset": "tsx src/db/reset.ts",
-    "simulate": "tsx src/scripts/simulate-mail.ts"
+    "simulate": "tsx src/scripts/simulate-mail.ts",
+    "db:migrate:prod": "node dist/migrate.js",
+    "db:seed:prod": "node dist/seed.js",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

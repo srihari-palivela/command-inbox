@@ -14,7 +14,19 @@ import s from './actions.module.css';
 
 const STEPS = ['Define', 'Risk & guardrails', 'Approval cycle'];
 
-export function NewActionWizard({ open, onClose, data, initialCell, onCreated }: { open: boolean; onClose: () => void; data: ActionsDTO; initialCell: RiskCell; onCreated: (cell: RiskCell) => void }) {
+export function NewActionWizard({
+  open,
+  onClose,
+  data,
+  initialCell,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  data: ActionsDTO;
+  initialCell: RiskCell;
+  onCreated: (cell: RiskCell) => void;
+}) {
   return (
     <Modal open={open} onClose={onClose} title="New action template" width={600}>
       {open && <Body onClose={onClose} data={data} initialCell={initialCell} onCreated={onCreated} />}
@@ -22,7 +34,17 @@ export function NewActionWizard({ open, onClose, data, initialCell, onCreated }:
   );
 }
 
-function Body({ onClose, data, initialCell, onCreated }: { onClose: () => void; data: ActionsDTO; initialCell: RiskCell; onCreated: (cell: RiskCell) => void }) {
+function Body({
+  onClose,
+  data,
+  initialCell,
+  onCreated,
+}: {
+  onClose: () => void;
+  data: ActionsDTO;
+  initialCell: RiskCell;
+  onCreated: (cell: RiskCell) => void;
+}) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [system, setSystem] = useState(SYSTEMS[0]!);
@@ -31,10 +53,13 @@ function Body({ onClose, data, initialCell, onCreated }: { onClose: () => void; 
   const title = (c: RiskCell) => data.cells.find((x) => x.cell === c)?.title ?? c;
   const chain = policies.data?.cycles.find((x) => x.cell === title(cell));
 
-  const create = useAction((b: ActionTemplateBody) => api.post<ActionTemplateDTO>('/v1/actions/templates', b), {
-    invalidate: [keys.actions],
-    success: (_r, b) => `${b.name} created as suggest-only in “${title(b.cell)}” — pending Risk review.`,
-  });
+  const create = useAction(
+    (b: ActionTemplateBody) => api.post<ActionTemplateDTO>('/v1/actions/templates', b),
+    {
+      invalidate: [keys.actions],
+      success: (_r, b) => `${b.name} created as suggest-only in “${title(b.cell)}” — pending Risk review.`,
+    },
+  );
 
   const nameOk = name.trim().length >= 3;
 
@@ -46,14 +71,27 @@ function Body({ onClose, data, initialCell, onCreated }: { onClose: () => void; 
         <>
           <label style={{ display: 'block', marginBottom: 13 }}>
             <span className={s.wizLabel}>Action name</span>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Waive locker rent for one year" maxLength={120} data-autofocus />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Waive locker rent for one year"
+              maxLength={120}
+              data-autofocus
+            />
           </label>
           <span className={s.wizLabel} id="aw-sys">
             Executes via
           </span>
           <div className={s.systems} role="radiogroup" aria-labelledby="aw-sys">
             {SYSTEMS.map((x) => (
-              <button key={x} type="button" role="radio" aria-checked={x === system} className={s.opt} onClick={() => setSystem(x)}>
+              <button
+                key={x}
+                type="button"
+                role="radio"
+                aria-checked={x === system}
+                className={s.opt}
+                onClick={() => setSystem(x)}
+              >
                 {x}
               </button>
             ))}
@@ -68,7 +106,15 @@ function Body({ onClose, data, initialCell, onCreated }: { onClose: () => void; 
           </span>
           <div className={s.cellOpts} role="radiogroup" aria-labelledby="aw-cell">
             {data.cells.map((c) => (
-              <button key={c.cell} type="button" role="radio" aria-checked={c.cell === cell} className={s.opt} onClick={() => setCell(c.cell)} style={{ padding: '11px 13px', borderRadius: 10 }}>
+              <button
+                key={c.cell}
+                type="button"
+                role="radio"
+                aria-checked={c.cell === cell}
+                className={s.opt}
+                onClick={() => setCell(c.cell)}
+                style={{ padding: '11px 13px', borderRadius: 10 }}
+              >
                 <span className={s.optTitle}>{c.title}</span>
                 <span className={s.optSub}>{ROUTES[c.cell]}</span>
               </button>
@@ -92,8 +138,15 @@ function Body({ onClose, data, initialCell, onCreated }: { onClose: () => void; 
         <>
           <div className={s.chainTitle}>{title(cell)}</div>
           <div className={s.chainRoute}>{ROUTES[cell]}</div>
-          {policies.isLoading ? <Skeleton h={30} style={{ marginBottom: 14 }} /> : chain ? <Chain steps={chain.chain} label="Approval chain" /> : null}
-          <WarnNote>New actions always start suggest-only, run against the golden set, and need Risk sign-off before the first real execution — whatever the risk group.</WarnNote>
+          {policies.isLoading ? (
+            <Skeleton h={30} style={{ marginBottom: 14 }} />
+          ) : chain ? (
+            <Chain steps={chain.chain} label="Approval chain" />
+          ) : null}
+          <WarnNote>
+            New actions always start suggest-only, run against the golden set, and need Risk sign-off before
+            the first real execution — whatever the risk group.
+          </WarnNote>
         </>
       )}
 

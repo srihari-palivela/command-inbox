@@ -128,7 +128,9 @@
   gap: 4px;
   min-width: 36px;
   justify-content: center;
-  transition: background 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
 }
 .switch[aria-checked='true'] {
   background: var(--ok-bg);

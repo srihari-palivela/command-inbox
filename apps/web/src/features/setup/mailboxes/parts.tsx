@@ -8,8 +8,19 @@ import { CONNECTOR_TONE, MAILBOX_TONE } from './tones';
 
 export function MailboxesCard({ mailboxes }: { mailboxes: AdminDTO['mailboxes'] }) {
   return (
-    <Card title="Monitored mailboxes" actions={<span className={s.hint}>Read and label only · sending always needs a person</span>} flush className={s.rise} style={{ animationDelay: '.05s' }}>
-      {mailboxes.length === 0 && <EmptyState title="No mailboxes connected" text="Connect a shared mailbox from Boards to start triage." />}
+    <Card
+      title="Monitored mailboxes"
+      actions={<span className={s.hint}>Read and label only · sending always needs a person</span>}
+      flush
+      className={s.rise}
+      style={{ animationDelay: '.05s' }}
+    >
+      {mailboxes.length === 0 && (
+        <EmptyState
+          title="No mailboxes connected"
+          text="Connect a shared mailbox from Boards to start triage."
+        />
+      )}
       {mailboxes.map((m, i) => {
         const t = MAILBOX_TONE[m.state];
         return (
@@ -31,15 +42,29 @@ export function MailboxesCard({ mailboxes }: { mailboxes: AdminDTO['mailboxes'] 
           </div>
         );
       })}
-      <div className={s.foot}>Attachments are parsed for text and never stored outside the bank tenancy. PII is masked before it reaches the classifier.</div>
+      <div className={s.foot}>
+        Attachments are parsed for text and never stored outside the bank tenancy. PII is masked before it
+        reaches the classifier.
+      </div>
     </Card>
   );
 }
 
 export function ConnectorsCard({ connectors }: { connectors: AdminDTO['connectors'] }) {
   return (
-    <Card title="System connectors" actions={<span className={s.hint}>scoped per action, not per system</span>} flush className={s.rise} style={{ animationDelay: '.1s' }}>
-      {connectors.length === 0 && <EmptyState title="No systems connected" text="The AI cannot touch any core system until one is connected here." />}
+    <Card
+      title="System connectors"
+      actions={<span className={s.hint}>scoped per action, not per system</span>}
+      flush
+      className={s.rise}
+      style={{ animationDelay: '.1s' }}
+    >
+      {connectors.length === 0 && (
+        <EmptyState
+          title="No systems connected"
+          text="The AI cannot touch any core system until one is connected here."
+        />
+      )}
       {connectors.map((c) => {
         const t = CONNECTOR_TONE[c.state];
         return (
@@ -87,7 +112,10 @@ export function AuditCard() {
   return (
     <Card title="Audit log integrity" className={s.rise} style={{ animationDelay: '.18s' }}>
       <div className={s.audit}>
-        <p className={s.auditText}>Every decision is written to a hash-chained log. Verifying recomputes each link, so an edited or deleted event shows up as a break.</p>
+        <p className={s.auditText}>
+          Every decision is written to a hash-chained log. Verifying recomputes each link, so an edited or
+          deleted event shows up as a break.
+        </p>
         <Button variant="dark" loading={q.isFetching} onClick={run}>
           Verify the chain
         </Button>
@@ -100,7 +128,11 @@ export function AuditCard() {
         <div
           role="status"
           className={s.result}
-          style={r.ok ? { color: 'var(--ok)', background: 'var(--ok-bg-2)', borderColor: 'var(--ok-line)' } : { color: 'var(--bad-text)', background: 'var(--bad-bg)', borderColor: 'var(--bad-line)' }}
+          style={
+            r.ok
+              ? { color: 'var(--ok)', background: 'var(--ok-bg-2)', borderColor: 'var(--ok-line)' }
+              : { color: 'var(--bad-text)', background: 'var(--bad-bg)', borderColor: 'var(--bad-line)' }
+          }
         >
           {r.ok ? (
             <span>
@@ -108,7 +140,8 @@ export function AuditCard() {
             </span>
           ) : (
             <span>
-              × Broken at event <span className="mono">#{r.brokenAt}</span> of <span className="mono">{r.events.toLocaleString('en-IN')}</span> — raise it with Risk now
+              × Broken at event <span className="mono">#{r.brokenAt}</span> of{' '}
+              <span className="mono">{r.events.toLocaleString('en-IN')}</span> — raise it with Risk now
             </span>
           )}
           <span className={s.resultMeta}>checked {clockTime(new Date(q.dataUpdatedAt).toISOString())}</span>

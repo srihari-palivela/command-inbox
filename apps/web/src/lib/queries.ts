@@ -98,7 +98,8 @@ export function useMe() {
 export function useDemo() {
   return useQuery({
     queryKey: keys.demo,
-    queryFn: () => api.get<{ demoMode: boolean; users: DemoUserDTO[]; orgs: OrgChoiceDTO[] }>('/v1/auth/demo'),
+    queryFn: () =>
+      api.get<{ demoMode: boolean; users: DemoUserDTO[]; orgs: OrgChoiceDTO[] }>('/v1/auth/demo'),
     staleTime: Infinity,
   });
 }
@@ -139,7 +140,9 @@ export function useSessionSwitch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { orgId?: string; role?: 'staff' | 'lead' | 'admin' }) =>
-      v.orgId ? api.post('/v1/session/org', { orgId: v.orgId }) : api.post('/v1/session/demo-role', { role: v.role }),
+      v.orgId
+        ? api.post('/v1/session/org', { orgId: v.orgId })
+        : api.post('/v1/session/demo-role', { role: v.role }),
     onSuccess: async () => {
       dropAllButMe(qc);
       const me = await api.get<MeDTO>('/v1/me');
@@ -167,34 +170,57 @@ export const useTicket = (id: string | null | undefined) =>
     enabled: !!id,
   });
 
-export const useActivity = () => useQuery({ queryKey: keys.activity, queryFn: () => api.get<ActivityDTO[]>('/v1/activity') });
-export const useShift = () => useQuery({ queryKey: keys.shift, queryFn: () => api.get<ShiftDTO>('/v1/shift') });
+export const useActivity = () =>
+  useQuery({ queryKey: keys.activity, queryFn: () => api.get<ActivityDTO[]>('/v1/activity') });
+export const useShift = () =>
+  useQuery({ queryKey: keys.shift, queryFn: () => api.get<ShiftDTO>('/v1/shift') });
 
 export const useCall = (id: string | null) =>
   useQuery({
     queryKey: keys.call(id ?? ''),
     queryFn: () => api.get<CallDTO>(`/v1/calls/${id}`),
     enabled: !!id,
-    refetchInterval: (q) => (q.state.data && (q.state.data.state === 'live' || q.state.data.state === 'dialing') ? 900 : false),
+    refetchInterval: (q) =>
+      q.state.data && (q.state.data.state === 'live' || q.state.data.state === 'dialing') ? 900 : false,
   });
 
-export const useNlFilter = () => useMutation({ mutationFn: (query: string) => api.post<NlFilterDTO>('/v1/tickets/nl-filter', { query }) });
+export const useNlFilter = () =>
+  useMutation({ mutationFn: (query: string) => api.post<NlFilterDTO>('/v1/tickets/nl-filter', { query }) });
 
 // ── Workspace ─────────────────────────────────────────────────────────────────
-export const usePeople = () => useQuery({ queryKey: keys.people, queryFn: () => api.get<PeopleDTO>('/v1/people') });
-export const usePerformance = () => useQuery({ queryKey: keys.performance, queryFn: () => api.get<PerformanceDTO>('/v1/insights/performance') });
-export const useResults = () => useQuery({ queryKey: keys.results, queryFn: () => api.get<ResultsDTO>('/v1/insights/results') });
-export const useLearning = () => useQuery({ queryKey: keys.learning, queryFn: () => api.get<LearningDTO>('/v1/learning') });
-export const useBoards = () => useQuery({ queryKey: keys.boards, queryFn: () => api.get<BoardDTO[]>('/v1/boards') });
-export const useAgents = () => useQuery({ queryKey: keys.agents, queryFn: () => api.get<AgentsOverviewDTO>('/v1/agents') });
-export const useActions = () => useQuery({ queryKey: keys.actions, queryFn: () => api.get<ActionsDTO>('/v1/actions') });
-export const usePolicies = () => useQuery({ queryKey: keys.policies, queryFn: () => api.get<PoliciesDTO>('/v1/policies') });
-export const useKnowledge = () => useQuery({ queryKey: keys.knowledge, queryFn: () => api.get<KnowledgeDTO>('/v1/knowledge') });
-export const useTaxonomy = () => useQuery({ queryKey: keys.taxonomy, queryFn: () => api.get<TaxonomyDTO>('/v1/taxonomy') });
-export const useAdmin = () => useQuery({ queryKey: keys.admin, queryFn: () => api.get<AdminDTO>('/v1/admin') });
-export const useSessions = () => useQuery({ queryKey: keys.sessions, queryFn: () => api.get<SessionDTO[]>('/v1/sessions') });
+export const usePeople = () =>
+  useQuery({ queryKey: keys.people, queryFn: () => api.get<PeopleDTO>('/v1/people') });
+export const usePerformance = () =>
+  useQuery({
+    queryKey: keys.performance,
+    queryFn: () => api.get<PerformanceDTO>('/v1/insights/performance'),
+  });
+export const useResults = () =>
+  useQuery({ queryKey: keys.results, queryFn: () => api.get<ResultsDTO>('/v1/insights/results') });
+export const useLearning = () =>
+  useQuery({ queryKey: keys.learning, queryFn: () => api.get<LearningDTO>('/v1/learning') });
+export const useBoards = () =>
+  useQuery({ queryKey: keys.boards, queryFn: () => api.get<BoardDTO[]>('/v1/boards') });
+export const useAgents = () =>
+  useQuery({ queryKey: keys.agents, queryFn: () => api.get<AgentsOverviewDTO>('/v1/agents') });
+export const useActions = () =>
+  useQuery({ queryKey: keys.actions, queryFn: () => api.get<ActionsDTO>('/v1/actions') });
+export const usePolicies = () =>
+  useQuery({ queryKey: keys.policies, queryFn: () => api.get<PoliciesDTO>('/v1/policies') });
+export const useKnowledge = () =>
+  useQuery({ queryKey: keys.knowledge, queryFn: () => api.get<KnowledgeDTO>('/v1/knowledge') });
+export const useTaxonomy = () =>
+  useQuery({ queryKey: keys.taxonomy, queryFn: () => api.get<TaxonomyDTO>('/v1/taxonomy') });
+export const useAdmin = () =>
+  useQuery({ queryKey: keys.admin, queryFn: () => api.get<AdminDTO>('/v1/admin') });
+export const useSessions = () =>
+  useQuery({ queryKey: keys.sessions, queryFn: () => api.get<SessionDTO[]>('/v1/sessions') });
 export const useAuditVerify = (enabled: boolean) =>
-  useQuery({ queryKey: ['audit', 'verify'], queryFn: () => api.get<AuditVerifyDTO>('/v1/audit/verify'), enabled });
+  useQuery({
+    queryKey: ['audit', 'verify'],
+    queryFn: () => api.get<AuditVerifyDTO>('/v1/audit/verify'),
+    enabled,
+  });
 
 export const useSearch = (q: string) =>
   useQuery({
@@ -204,12 +230,16 @@ export const useSearch = (q: string) =>
     placeholderData: (prev) => prev,
   });
 
-export const useAsk = () => useMutation({ mutationFn: (question: string) => api.post<CopilotAnswerDTO>('/v1/copilot/ask', { question }) });
+export const useAsk = () =>
+  useMutation({
+    mutationFn: (question: string) => api.post<CopilotAnswerDTO>('/v1/copilot/ask', { question }),
+  });
 export const useAutoAssign = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<AutoAssignResultDTO>('/v1/assignments/auto'),
-    onSuccess: () => invalidate(qc, [keys.ticketsAll, keys.inboxAll, keys.people, keys.performance, keys.activity]),
+    onSuccess: () =>
+      invalidate(qc, [keys.ticketsAll, keys.inboxAll, keys.people, keys.performance, keys.activity]),
   });
 };
 

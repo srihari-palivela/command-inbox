@@ -20,7 +20,10 @@ export default function AgentsScreen() {
   if (isForbidden(q.error))
     return (
       <Page>
-        <PageHeader title="AI agents" subtitle="Built from templates, given your own names, and attached to one or more boards." />
+        <PageHeader
+          title="AI agents"
+          subtitle="Built from templates, given your own names, and attached to one or more boards."
+        />
         <NoAccess error={q.error} what="AI agents" />
       </Page>
     );
@@ -30,7 +33,10 @@ export default function AgentsScreen() {
         query={q}
         skeleton={
           <div style={{ display: 'grid', gap: 12 }}>
-            <PageHeader title="AI agents" subtitle="Built from templates, given your own names, and attached to one or more boards." />
+            <PageHeader
+              title="AI agents"
+              subtitle="Built from templates, given your own names, and attached to one or more boards."
+            />
             <Skeleton h={26} w="50%" />
             <Skeleton h={380} />
           </div>
@@ -61,7 +67,9 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
     );
 
   const label = (k: string) => data.templates.find((t) => t.key === k)?.label ?? k;
-  const counts = data.templates.map((t) => ({ key: t.key, label: t.label, n: data.agents.filter((a) => a.template === t.key).length })).filter((c) => c.n > 0);
+  const counts = data.templates
+    .map((t) => ({ key: t.key, label: t.label, n: data.agents.filter((a) => a.template === t.key).length }))
+    .filter((c) => c.n > 0);
 
   return (
     <>
@@ -75,7 +83,13 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
                 <div className={s.spendVal}>{lakhs(data.spendMonthMinor)}</div>
                 <div className={s.spendLbl}>spend this month</div>
               </div>
-              <Button variant="dark" onClick={() => setWizard(true)} disabled={!canEdit} title={canEdit ? undefined : 'Only an Admin can add an agent.'} style={{ marginLeft: 8 }}>
+              <Button
+                variant="dark"
+                onClick={() => setWizard(true)}
+                disabled={!canEdit}
+                title={canEdit ? undefined : 'Only an Admin can add an agent.'}
+                style={{ marginLeft: 8 }}
+              >
                 + New agent
               </Button>
             </>
@@ -102,10 +116,20 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
           <span>EVAL SCORE</span>
         </div>
         {data.agents.length === 0 ? (
-          <EmptyState title="No agents yet" text="Start from a template — bucketing, extraction, drafting, summarisation or a policy guard." />
+          <EmptyState
+            title="No agents yet"
+            text="Start from a template — bucketing, extraction, drafting, summarisation or a policy guard."
+          />
         ) : (
           data.agents.map((a, i) => (
-            <button key={a.id} type="button" className={cx(s.grid, s.row)} style={{ animationDelay: `${i * 0.04}s` }} onClick={() => setOpen(a.id)} aria-label={`${a.name}, ${label(a.template)}. Open details`}>
+            <button
+              key={a.id}
+              type="button"
+              className={cx(s.grid, s.row)}
+              style={{ animationDelay: `${i * 0.04}s` }}
+              onClick={() => setOpen(a.id)}
+              aria-label={`${a.name}, ${label(a.template)}. Open details`}
+            >
               <span className={s.agentCell}>
                 <span className={cx(s.icon, isGuard(a) && s.iconGuard)} aria-hidden>
                   {a.abbr}
@@ -119,20 +143,22 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
                   </span>
                 </span>
               </span>
-              <span className={cx(s.tpl, s.ellipsis)}>
-                {label(a.template)}
-              </span>
+              <span className={cx(s.tpl, s.ellipsis)}>{label(a.template)}</span>
               <span className={cx(s.model, s.ellipsis)} title={a.model}>
                 {a.model}
               </span>
               <span className={cx(s.boards, s.ellipsis)} title={a.boards.map((b) => b.name).join(', ')}>
                 {boardList(a.boards)}
               </span>
-              <span className={s.cost}>
-                {inr(a.costPer1kMinor)}
-              </span>
+              <span className={s.cost}>{inr(a.costPer1kMinor)}</span>
               <span className={s.evalCell}>
-                <Meter pct={a.evalScore ?? 0} color={evalColor(a.evalScore)} height={4} label={`Eval score ${a.evalScore ?? 'pending'}`} delay={i * 0.04} />
+                <Meter
+                  pct={a.evalScore ?? 0}
+                  color={evalColor(a.evalScore)}
+                  height={4}
+                  label={`Eval score ${a.evalScore ?? 'pending'}`}
+                  delay={i * 0.04}
+                />
                 <span className={s.evalPct} style={{ color: evalColor(a.evalScore) }}>
                   {a.evalScore === null ? 'pending' : `${a.evalScore}%`}
                 </span>

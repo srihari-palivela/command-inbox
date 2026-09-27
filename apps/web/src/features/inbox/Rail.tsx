@@ -12,14 +12,30 @@ const TONE: Record<ActivityDTO['tone'], string> = {
   muted: 'var(--dot-idle)',
 };
 
-export function Rail({ open, onToggle, live, onOpenTicket }: { open: boolean; onToggle: () => void; live: boolean; onOpenTicket: (number: string) => void }) {
+export function Rail({
+  open,
+  onToggle,
+  live,
+  onOpenTicket,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  live: boolean;
+  onOpenTicket: (number: string) => void;
+}) {
   const act = useActivity();
   const shift = useShift();
   if (!open) {
     return (
       <aside className={s.rail} aria-label="AI activity (collapsed)">
         <div style={{ padding: '14px 8px' }}>
-          <button type="button" className={s.railToggle} onClick={onToggle} aria-label="Show AI activity" aria-expanded={false}>
+          <button
+            type="button"
+            className={s.railToggle}
+            onClick={onToggle}
+            aria-label="Show AI activity"
+            aria-expanded={false}
+          >
             ‹
           </button>
         </div>
@@ -30,10 +46,28 @@ export function Rail({ open, onToggle, live, onOpenTicket }: { open: boolean; on
     <aside className={s.rail} aria-label="AI activity">
       <div className={s.railHead}>
         AI activity
-        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 400, color: 'var(--muted)' }}>
-          <Dot color={live ? 'var(--ok-dot)' : 'var(--warn-dot)'} pulse={live} size={6} /> {live ? 'live' : 'reconnecting'}
+        <span
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            fontSize: 11,
+            fontWeight: 400,
+            color: 'var(--muted)',
+          }}
+        >
+          <Dot color={live ? 'var(--ok-dot)' : 'var(--warn-dot)'} pulse={live} size={6} />{' '}
+          {live ? 'live' : 'reconnecting'}
         </span>
-        <button type="button" className={s.railToggle} style={{ marginLeft: 6 }} onClick={onToggle} aria-label="Hide AI activity" aria-expanded>
+        <button
+          type="button"
+          className={s.railToggle}
+          style={{ marginLeft: 6 }}
+          onClick={onToggle}
+          aria-label="Hide AI activity"
+          aria-expanded
+        >
           ›
         </button>
       </div>
@@ -56,7 +90,18 @@ export function Rail({ open, onToggle, live, onOpenTicket }: { open: boolean; on
                 <div>{a.text}</div>
                 <div className={s.actMeta}>
                   {a.ticketNumber ? (
-                    <button type="button" onClick={() => onOpenTicket(a.ticketNumber!)} className="mono" style={{ border: 0, background: 'none', padding: 0, color: 'var(--accent)', fontSize: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenTicket(a.ticketNumber!)}
+                      className="mono"
+                      style={{
+                        border: 0,
+                        background: 'none',
+                        padding: 0,
+                        color: 'var(--accent)',
+                        fontSize: 10,
+                      }}
+                    >
                       {a.ticketNumber}
                     </button>
                   ) : null}
@@ -93,7 +138,10 @@ export function Rail({ open, onToggle, live, onOpenTicket }: { open: boolean; on
               </div>
             </div>
             <div>
-              <div className={s.shiftNum} style={{ color: shift.data.missedDeadlines ? 'var(--bad)' : 'var(--ok)' }}>
+              <div
+                className={s.shiftNum}
+                style={{ color: shift.data.missedDeadlines ? 'var(--bad)' : 'var(--ok)' }}
+              >
                 {shift.data.missedDeadlines}
               </div>
               <div className={s.small} style={{ marginTop: 0 }}>

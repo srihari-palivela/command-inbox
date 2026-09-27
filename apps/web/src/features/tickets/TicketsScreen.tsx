@@ -1,4 +1,12 @@
-import { DEFAULT_CONFIDENCE_BAR, type BoardState, type FilterKey, type NlFilterDTO, type TicketFilters, type TicketListDTO, type TicketSummaryDTO } from '@ci/contracts';
+import {
+  DEFAULT_CONFIDENCE_BAR,
+  type BoardState,
+  type FilterKey,
+  type NlFilterDTO,
+  type TicketFilters,
+  type TicketListDTO,
+  type TicketSummaryDTO,
+} from '@ci/contracts';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useBoards, useMe, useNlFilter, useTickets } from '../../lib/queries';
@@ -14,7 +22,18 @@ import s from './Tickets.module.css';
 type View = 'board' | 'list';
 type GroupBy = 'status' | 'bucket';
 
-const FILTER_KEYS: FilterKey[] = ['board', 'status', 'lane', 'team', 'owner', 'due', 'conf', 'pri', 'bucket', 'q'];
+const FILTER_KEYS: FilterKey[] = [
+  'board',
+  'status',
+  'lane',
+  'team',
+  'owner',
+  'due',
+  'conf',
+  'pri',
+  'bucket',
+  'q',
+];
 
 const OWNER_CHIPS: { key: '' | 'mine' | 'ai' | 'unassigned'; label: string }[] = [
   { key: '', label: 'Everyone' },
@@ -23,7 +42,12 @@ const OWNER_CHIPS: { key: '' | 'mine' | 'ai' | 'unassigned'; label: string }[] =
   { key: 'unassigned', label: 'Unowned' },
 ];
 
-const BOARD_STATE_WORD: Record<BoardState, string> = { live: 'Live', triage_only: 'Triage only', observe: 'Observe', paused: 'Paused' };
+const BOARD_STATE_WORD: Record<BoardState, string> = {
+  live: 'Live',
+  triage_only: 'Triage only',
+  observe: 'Observe',
+  paused: 'Paused',
+};
 
 /**
  * Every ticket across the workspace's boards, as a status board or a filterable list. All filters,
@@ -87,7 +111,11 @@ export default function TicketsScreen() {
         if (groupBy === 'bucket') search.set('group', 'bucket');
         setSp(search);
         setChips(r.chips);
-        toast.show(r.chips.length ? `Read that as ${r.chips.length} filter${r.chips.length > 1 ? 's' : ''}.` : 'Could not turn that into filters — try naming a team, a status or a deadline.');
+        toast.show(
+          r.chips.length
+            ? `Read that as ${r.chips.length} filter${r.chips.length > 1 ? 's' : ''}.`
+            : 'Could not turn that into filters — try naming a team, a status or a deadline.',
+        );
       },
     });
 
@@ -126,9 +154,19 @@ export default function TicketsScreen() {
             <label className={s.search}>
               <span className={s.searchIcon} aria-hidden />
               <span className="sr-only">Search tickets</span>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tickets, customers, IDs" maxLength={200} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tickets, customers, IDs"
+                maxLength={200}
+              />
               {search && (
-                <button type="button" className={s.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
+                <button
+                  type="button"
+                  className={s.searchClear}
+                  onClick={() => setSearch('')}
+                  aria-label="Clear search"
+                >
                   ×
                 </button>
               )}
@@ -160,7 +198,11 @@ export default function TicketsScreen() {
             )}
             <div className={s.ownerChips} role="group" aria-label="Owner">
               {OWNER_CHIPS.map((o) => (
-                <Chip key={o.key || 'all'} on={(filters.owner ?? '') === o.key} onClick={() => setFilter('owner', o.key || null)}>
+                <Chip
+                  key={o.key || 'all'}
+                  on={(filters.owner ?? '') === o.key}
+                  onClick={() => setFilter('owner', o.key || null)}
+                >
                   {o.label}
                 </Chip>
               ))}
@@ -170,7 +212,11 @@ export default function TicketsScreen() {
 
         {data ? (
           <>
-            <BoardTabs data={data} active={filters.board ?? ''} onPick={(k) => setFilter('board', k || null)} />
+            <BoardTabs
+              data={data}
+              active={filters.board ?? ''}
+              onPick={(k) => setFilter('board', k || null)}
+            />
             <Stats stats={data.stats} />
           </>
         ) : (
@@ -182,31 +228,43 @@ export default function TicketsScreen() {
       </div>
 
       <div className={s.body}>
-      <Loadable query={tickets} skeleton={<BodySkeleton view={view} />}>
-        {(d) =>
-          view === 'list' ? (
-            <div className={s.listWrap}>
-              <FilterPanel
-                data={d}
-                filters={filters}
-                chips={liveChips}
-                nlText={nlText}
-                nlPending={nl.isPending}
-                onNl={runNl}
-                onSet={setFilter}
-                onRemoveChip={(c) => patch({ [c.key]: null })}
-                onClearAll={clearAll}
-              />
-              <TicketList items={d.items} bar={bar} caps={caps} onOpen={openTicket} activeNumber={openNumber} />
-            </div>
-          ) : (
-            <>
-              <ActiveFilterStrip data={d} filters={filters} onClear={setFilter} onClearAll={clearAll} onEdit={() => patch({ view: 'list' })} />
-              <TicketBoard items={d.items} groupBy={groupBy} bar={bar} onOpen={openTicket} />
-            </>
-          )
-        }
-      </Loadable>
+        <Loadable query={tickets} skeleton={<BodySkeleton view={view} />}>
+          {(d) =>
+            view === 'list' ? (
+              <div className={s.listWrap}>
+                <FilterPanel
+                  data={d}
+                  filters={filters}
+                  chips={liveChips}
+                  nlText={nlText}
+                  nlPending={nl.isPending}
+                  onNl={runNl}
+                  onSet={setFilter}
+                  onRemoveChip={(c) => patch({ [c.key]: null })}
+                  onClearAll={clearAll}
+                />
+                <TicketList
+                  items={d.items}
+                  bar={bar}
+                  caps={caps}
+                  onOpen={openTicket}
+                  activeNumber={openNumber}
+                />
+              </div>
+            ) : (
+              <>
+                <ActiveFilterStrip
+                  data={d}
+                  filters={filters}
+                  onClear={setFilter}
+                  onClearAll={clearAll}
+                  onEdit={() => patch({ view: 'list' })}
+                />
+                <TicketBoard items={d.items} groupBy={groupBy} bar={bar} onOpen={openTicket} />
+              </>
+            )
+          }
+        </Loadable>
       </div>
 
       <TicketDrawer number={openNumber} summary={summary} bar={bar} onClose={() => patch({ ticket: null })} />
@@ -214,14 +272,31 @@ export default function TicketsScreen() {
   );
 }
 
-function BoardTabs({ data, active, onPick }: { data: TicketListDTO; active: string; onPick: (key: string) => void }) {
+function BoardTabs({
+  data,
+  active,
+  onPick,
+}: {
+  data: TicketListDTO;
+  active: string;
+  onPick: (key: string) => void;
+}) {
   // Tab counts ignore the board filter; "All boards" is the same pool summed.
   const all = active ? data.boards.reduce((n, b) => n + b.count, 0) : data.total;
-  const tabs = [{ key: '', name: 'All boards', count: all }, ...data.boards.map((b) => ({ key: b.key, name: b.name, count: b.count }))];
+  const tabs = [
+    { key: '', name: 'All boards', count: all },
+    ...data.boards.map((b) => ({ key: b.key, name: b.name, count: b.count })),
+  ];
   return (
     <div className={s.tabs} role="group" aria-label="Boards">
       {tabs.map((b) => (
-        <button key={b.key || 'all'} type="button" className={s.tabBtn} aria-pressed={active === b.key} onClick={() => onPick(b.key)}>
+        <button
+          key={b.key || 'all'}
+          type="button"
+          className={s.tabBtn}
+          aria-pressed={active === b.key}
+          onClick={() => onPick(b.key)}
+        >
           {b.name}
           <span className={`${s.tabN} mono`}>{b.count}</span>
         </button>
@@ -253,14 +328,34 @@ function Stats({ stats }: { stats: TicketListDTO['stats'] }) {
 }
 
 /** On the board, filters set from the list stay visible so the columns never look mysteriously short. */
-function ActiveFilterStrip({ data, filters, onClear, onClearAll, onEdit }: { data: TicketListDTO; filters: TicketFilters; onClear: (k: FilterKey, v: null) => void; onClearAll: () => void; onEdit: () => void }) {
-  const active = (Object.entries(filters) as [FilterKey, string][]).filter(([k, v]) => v && k !== 'board' && k !== 'owner' && k !== 'q');
+function ActiveFilterStrip({
+  data,
+  filters,
+  onClear,
+  onClearAll,
+  onEdit,
+}: {
+  data: TicketListDTO;
+  filters: TicketFilters;
+  onClear: (k: FilterKey, v: null) => void;
+  onClearAll: () => void;
+  onEdit: () => void;
+}) {
+  const active = (Object.entries(filters) as [FilterKey, string][]).filter(
+    ([k, v]) => v && k !== 'board' && k !== 'owner' && k !== 'q',
+  );
   if (!active.length) return null;
   return (
     <div className={s.strip}>
       <span className={s.hint}>Filtered by</span>
       {active.map(([k, v]) => (
-        <button key={k} type="button" className={s.nlChip} onClick={() => onClear(k, null)} aria-label={`Remove filter ${filterValueLabel(data, k, v)}`}>
+        <button
+          key={k}
+          type="button"
+          className={s.nlChip}
+          onClick={() => onClear(k, null)}
+          aria-label={`Remove filter ${filterValueLabel(data, k, v)}`}
+        >
           {filterValueLabel(data, k, v)} <span aria-hidden>×</span>
         </button>
       ))}
@@ -287,7 +382,11 @@ function BodySkeleton({ view }: { view: View }) {
   return (
     <div className={s.board}>
       {Array.from({ length: 5 }, (_, i) => (
-        <div key={i} className={s.col} style={{ padding: 10, gap: 8, display: 'flex', flexDirection: 'column' }}>
+        <div
+          key={i}
+          className={s.col}
+          style={{ padding: 10, gap: 8, display: 'flex', flexDirection: 'column' }}
+        >
           <Skeleton h={18} w="70%" />
           <Skeleton h={96} />
           <Skeleton h={96} />

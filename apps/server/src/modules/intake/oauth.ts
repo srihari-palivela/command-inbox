@@ -42,9 +42,11 @@ const sign = (st: State) => {
 
 function verify(raw: string): State {
   const [body, sig] = raw.split('.');
-  if (!body || !sig || !safeEqual(sig, hmac(env.ENCRYPTION_KEY, body))) throw badRequest('bad_state', 'Invalid OAuth state.');
+  if (!body || !sig || !safeEqual(sig, hmac(env.ENCRYPTION_KEY, body)))
+    throw badRequest('bad_state', 'Invalid OAuth state.');
   const st = JSON.parse(Buffer.from(body, 'base64url').toString()) as State;
-  if (st.exp < clock.now().getTime()) throw badRequest('expired_state', 'The connection attempt expired. Start again.');
+  if (st.exp < clock.now().getTime())
+    throw badRequest('expired_state', 'The connection attempt expired. Start again.');
   return st;
 }
 
@@ -54,7 +56,8 @@ export function isConfigured(p: OAuthProvider): boolean {
 
 export function authorizeUrl(p: OAuthProvider, orgId: string, mailboxId: string): string {
   const cfg = PROVIDERS[p];
-  if (!isConfigured(p)) throw unprocessable('oauth_not_configured', `${p} OAuth is not configured for this deployment.`);
+  if (!isConfigured(p))
+    throw unprocessable('oauth_not_configured', `${p} OAuth is not configured for this deployment.`);
   const url = new URL(cfg.authorize);
   url.searchParams.set('client_id', cfg.clientId()!);
   url.searchParams.set('response_type', 'code');

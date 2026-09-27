@@ -30,11 +30,21 @@ function useSecondsLeft(until: string | null): number {
 export function primaryLabel(t: TicketDetailDTO, me: MeDTO): string {
   const g = t.gate;
   if (g.mode === 'manual') return 'Take it on';
-  if (g.state === 'awaiting_checker') return g.maker?.id === me.user.id ? 'Waiting on checker' : 'Counter-approve';
+  if (g.state === 'awaiting_checker')
+    return g.maker?.id === me.user.id ? 'Waiting on checker' : 'Counter-approve';
   return g.mode === 'draft' ? 'Approve & send' : 'Approve & execute';
 }
 
-export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply, onNext }: {
+export function Gateway({
+  t,
+  me,
+  actions,
+  onApprove,
+  approving,
+  onEdit,
+  onReply,
+  onNext,
+}: {
   t: TicketDetailDTO;
   me: MeDTO;
   actions: TicketActions;
@@ -48,9 +58,11 @@ export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply,
   const [rejecting, setRejecting] = useState(false);
   const secs = useSecondsLeft(g.canUndo ? g.undoUntil : null);
   const wait = g.customerWaitingMinutes;
-  const waitColor = wait === null ? 'var(--muted)' : wait > 600 ? 'var(--bad)' : wait > 60 ? 'var(--warn)' : 'var(--text-2)';
+  const waitColor =
+    wait === null ? 'var(--muted)' : wait > 600 ? 'var(--bad)' : wait > 60 ? 'var(--warn)' : 'var(--text-2)';
   const closed = g.state === 'done' || g.state === 'rejected' || g.state === 'taken';
-  const who = (u: { id: string; name: string } | null) => (u ? (u.id === me.user.id ? `You · ${u.name}` : u.name) : '—');
+  const who = (u: { id: string; name: string } | null) =>
+    u ? (u.id === me.user.id ? `You · ${u.name}` : u.name) : '—';
 
   let line1: React.ReactNode;
   if (g.mode === 'manual') {
@@ -70,7 +82,8 @@ export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply,
     line1 =
       g.state === 'awaiting_checker' ? (
         <span>
-          Maker <b>{who(g.maker)}</b> approved · waiting on <b>{checker ? `${who(checker)} (Checker)` : 'an eligible checker'}</b>
+          Maker <b>{who(g.maker)}</b> approved · waiting on{' '}
+          <b>{checker ? `${who(checker)} (Checker)` : 'an eligible checker'}</b>
         </span>
       ) : (
         <span>
@@ -89,7 +102,9 @@ export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply,
     g.mode === 'draft' ? (
       <span style={{ color: 'var(--ok)' }}>Recallable for 60s after send</span>
     ) : g.mode === 'action' && g.reversible !== null ? (
-      <span style={{ color: g.reversible ? 'var(--ok)' : 'var(--bad)' }}>{g.reversible ? 'Can be undone for 30s after approval' : 'Cannot be undone'}</span>
+      <span style={{ color: g.reversible ? 'var(--ok)' : 'var(--bad)' }}>
+        {g.reversible ? 'Can be undone for 30s after approval' : 'Cannot be undone'}
+      </span>
     ) : null;
 
   return (
@@ -98,20 +113,32 @@ export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply,
         <div className={s.gateInfo}>
           <div className={s.gateLine}>
             <Eyebrow>Approval gateway</Eyebrow>
-            <Pill fg={g.mode === 'manual' ? 'var(--muted)' : 'var(--accent)'} bg={g.mode === 'manual' ? 'var(--surface-4)' : 'var(--accent-bg-2)'} line={g.mode === 'manual' ? 'var(--line)' : 'var(--accent-line)'}>
-              {g.mode !== 'manual' ? CHAIN_NOTE[g.chain ?? 'single'] : t.lane === 'manual' ? 'The AI has stepped back' : 'Nothing prepared yet'}
+            <Pill
+              fg={g.mode === 'manual' ? 'var(--muted)' : 'var(--accent)'}
+              bg={g.mode === 'manual' ? 'var(--surface-4)' : 'var(--accent-bg-2)'}
+              line={g.mode === 'manual' ? 'var(--line)' : 'var(--accent-line)'}
+            >
+              {g.mode !== 'manual'
+                ? CHAIN_NOTE[g.chain ?? 'single']
+                : t.lane === 'manual'
+                  ? 'The AI has stepped back'
+                  : 'Nothing prepared yet'}
             </Pill>
           </div>
           <div className={s.gateLine}>
             {line1}
-            {wait !== null && !closed && <span style={{ color: waitColor }}>Customer waiting {formatMinutes(wait)}</span>}
+            {wait !== null && !closed && (
+              <span style={{ color: waitColor }}>Customer waiting {formatMinutes(wait)}</span>
+            )}
             {reversibility}
           </div>
           {(g.duplicateClear !== null || g.blockedReason || g.note) && (
             <div className={s.gateLine} style={{ fontSize: 12 }}>
               {g.duplicateClear !== null && (
                 <span style={{ color: g.duplicateClear ? 'var(--ok)' : 'var(--warn)' }}>
-                  {g.duplicateClear ? '✓ No similar action on this account in 90 days' : `⚠ ${t.action?.duplicate.text ?? 'A similar action ran recently'}`}
+                  {g.duplicateClear
+                    ? '✓ No similar action on this account in 90 days'
+                    : `⚠ ${t.action?.duplicate.text ?? 'A similar action ran recently'}`}
                 </span>
               )}
               {g.note && <span style={{ color: 'var(--muted)' }}>{g.note}</span>}
@@ -131,14 +158,31 @@ export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply,
                   <span style={{ width: `${(secs / (g.mode === 'draft' ? 60 : 30)) * 100}%` }} />
                 </div>
               </div>
-              <Button size="lg" onClick={() => actions.undo.mutate(undefined)} loading={actions.undo.isPending} kbd="U">
+              <Button
+                size="lg"
+                onClick={() => actions.undo.mutate(undefined)}
+                loading={actions.undo.isPending}
+                kbd="U"
+              >
                 {g.mode === 'draft' ? 'Recall' : 'Undo'}
               </Button>
             </>
           ) : closed ? (
             <>
-              <span style={{ fontSize: 12.5, color: g.state === 'rejected' ? 'var(--warn)' : 'var(--ok)', fontWeight: 600 }}>
-                {g.state === 'done' ? (g.mode === 'draft' ? 'Sent and logged' : 'Done and audited') : g.state === 'rejected' ? 'Sent back to the AI' : 'Yours now'}
+              <span
+                style={{
+                  fontSize: 12.5,
+                  color: g.state === 'rejected' ? 'var(--warn)' : 'var(--ok)',
+                  fontWeight: 600,
+                }}
+              >
+                {g.state === 'done'
+                  ? g.mode === 'draft'
+                    ? 'Sent and logged'
+                    : 'Done and audited'
+                  : g.state === 'rejected'
+                    ? 'Sent back to the AI'
+                    : 'Yours now'}
               </span>
               <Button size="lg" variant="dark" onClick={onNext} kbd="J">
                 Next ticket
@@ -147,7 +191,11 @@ export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply,
           ) : (
             <>
               {g.mode !== 'manual' && (
-                <Button size="lg" onClick={() => setRejecting(true)} disabled={!t.permissions.canWork || g.state !== 'open'}>
+                <Button
+                  size="lg"
+                  onClick={() => setRejecting(true)}
+                  disabled={!t.permissions.canWork || g.state !== 'open'}
+                >
                   Reject
                 </Button>
               )}
@@ -188,13 +236,33 @@ export function Gateway({ t, me, actions, onApprove, approving, onEdit, onReply,
 
 // ── Reject ────────────────────────────────────────────────────────────────────
 const REASONS: { k: RejectReason; label: string; note: string }[] = [
-  { k: 'wrong_type', label: 'Wrong query type', note: 'It picked the wrong bucket, so the whole routing is off.' },
-  { k: 'bad_field', label: 'A field is wrong', note: 'The extracted values do not match the customer’s email.' },
+  {
+    k: 'wrong_type',
+    label: 'Wrong query type',
+    note: 'It picked the wrong bucket, so the whole routing is off.',
+  },
+  {
+    k: 'bad_field',
+    label: 'A field is wrong',
+    note: 'The extracted values do not match the customer’s email.',
+  },
   { k: 'tone', label: 'Wrong tone for this customer', note: 'Accurate, but not how we would say it.' },
-  { k: 'needs_human', label: 'This should never be automated', note: 'Proposes a hard stop rule for this pattern. Risk & Compliance approves it.' },
+  {
+    k: 'needs_human',
+    label: 'This should never be automated',
+    note: 'Proposes a hard stop rule for this pattern. Risk & Compliance approves it.',
+  },
 ];
 
-function RejectModal({ open, onClose, actions }: { open: boolean; onClose: () => void; actions: TicketActions }) {
+function RejectModal({
+  open,
+  onClose,
+  actions,
+}: {
+  open: boolean;
+  onClose: () => void;
+  actions: TicketActions;
+}) {
   const [pick, setPick] = useState<RejectReason | null>(null);
   useEffect(() => {
     if (open) setPick(null);
@@ -209,7 +277,12 @@ function RejectModal({ open, onClose, actions }: { open: boolean; onClose: () =>
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="dark" disabled={!pick} loading={actions.reject.isPending} onClick={() => pick && actions.reject.mutate(pick, { onSuccess: onClose })}>
+          <Button
+            variant="dark"
+            disabled={!pick}
+            loading={actions.reject.isPending}
+            onClick={() => pick && actions.reject.mutate(pick, { onSuccess: onClose })}
+          >
             Send back &amp; reassign to me
           </Button>
         </>
@@ -217,11 +290,20 @@ function RejectModal({ open, onClose, actions }: { open: boolean; onClose: () =>
     >
       <div role="radiogroup" aria-label="What was wrong">
         {REASONS.map((r) => (
-          <button key={r.k} type="button" role="radio" aria-checked={pick === r.k} className={s.rejectOpt} onClick={() => setPick(r.k)}>
+          <button
+            key={r.k}
+            type="button"
+            role="radio"
+            aria-checked={pick === r.k}
+            className={s.rejectOpt}
+            onClick={() => setPick(r.k)}
+          >
             <span className={s.radio} aria-hidden />
             <span>
               <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>{r.label}</span>
-              <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{r.note}</span>
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                {r.note}
+              </span>
             </span>
           </button>
         ))}
@@ -231,7 +313,17 @@ function RejectModal({ open, onClose, actions }: { open: boolean; onClose: () =>
 }
 
 // ── Amend fields ──────────────────────────────────────────────────────────────
-export function AmendModal({ t, open, onClose, actions }: { t: TicketDetailDTO; open: boolean; onClose: () => void; actions: TicketActions }) {
+export function AmendModal({
+  t,
+  open,
+  onClose,
+  actions,
+}: {
+  t: TicketDetailDTO;
+  open: boolean;
+  onClose: () => void;
+  actions: TicketActions;
+}) {
   const a = t.action;
   const [vals, setVals] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -253,7 +345,12 @@ export function AmendModal({ t, open, onClose, actions }: { t: TicketDetailDTO; 
             variant="primary"
             disabled={!changed.length}
             loading={actions.amend.isPending}
-            onClick={() => actions.amend.mutate(changed.map((f) => ({ label: f.label, value: vals[f.label]!.trim() })), { onSuccess: onClose })}
+            onClick={() =>
+              actions.amend.mutate(
+                changed.map((f) => ({ label: f.label, value: vals[f.label]!.trim() })),
+                { onSuccess: onClose },
+              )
+            }
           >
             Save {changed.length ? `${changed.length} change${changed.length > 1 ? 's' : ''}` : 'changes'}
           </Button>
@@ -262,8 +359,16 @@ export function AmendModal({ t, open, onClose, actions }: { t: TicketDetailDTO; 
     >
       <div style={{ display: 'grid', gap: 12 }}>
         {a.fields.map((f) => (
-          <Field key={f.label} label={f.label} hint={`${f.inferred ? 'Inferred' : 'Verified'} · from ${f.source}`}>
-            <Input className="mono" value={vals[f.label] ?? f.value} onChange={(e) => setVals((v) => ({ ...v, [f.label]: e.target.value }))} />
+          <Field
+            key={f.label}
+            label={f.label}
+            hint={`${f.inferred ? 'Inferred' : 'Verified'} · from ${f.source}`}
+          >
+            <Input
+              className="mono"
+              value={vals[f.label] ?? f.value}
+              onChange={(e) => setVals((v) => ({ ...v, [f.label]: e.target.value }))}
+            />
           </Field>
         ))}
       </div>

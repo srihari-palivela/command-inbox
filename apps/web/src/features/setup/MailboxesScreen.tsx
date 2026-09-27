@@ -10,7 +10,10 @@ export default function MailboxesScreen() {
 
   return (
     <Page>
-      <PageHeader title="Where mail arrives" subtitle="Which mailboxes the AI reads, which systems it may touch, and what it is forbidden to do." />
+      <PageHeader
+        title="Where mail arrives"
+        subtitle="Which mailboxes the AI reads, which systems it may touch, and what it is forbidden to do."
+      />
       <Loadable
         query={q}
         skeleton={

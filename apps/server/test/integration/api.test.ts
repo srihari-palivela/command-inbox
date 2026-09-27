@@ -39,7 +39,12 @@ describe('authentication and CSRF', () => {
   });
 
   it('rejects a state-changing call without the CSRF token', async () => {
-    const r = await app.inject({ method: 'POST', url: '/v1/tickets/QRY-48199/watch', headers: { cookie: staff.cookie }, payload: { watching: true } });
+    const r = await app.inject({
+      method: 'POST',
+      url: '/v1/tickets/QRY-48199/watch',
+      headers: { cookie: staff.cookie },
+      payload: { watching: true },
+    });
     expect(r.statusCode).toBe(403);
     expect(r.json().code).toBe('csrf');
   });
@@ -57,7 +62,11 @@ describe('tenant isolation', () => {
   });
 
   it('scopes reads to the tenant set on the transaction', async () => {
-    const apex = await withTenant(staff.me.org.id, (tx) => tx.execute<{ n: number; orgs: number }>(sql`select count(*)::int as n, count(distinct org_id)::int as orgs from tickets`));
+    const apex = await withTenant(staff.me.org.id, (tx) =>
+      tx.execute<{ n: number; orgs: number }>(
+        sql`select count(*)::int as n, count(distinct org_id)::int as orgs from tickets`,
+      ),
+    );
     expect(apex.rows[0]!.n).toBeGreaterThan(10);
     expect(apex.rows[0]!.orgs).toBe(1);
   });
@@ -75,27 +84,50 @@ describe('tenant isolation', () => {
 
 describe('audit log', () => {
   it('cannot be rewritten by the application role', async () => {
-    await expect(withTenant(staff.me.org.id, (tx) => tx.execute(sql`update audit_events set summary = 'tampered'`))).rejects.toThrow();
-    await expect(withTenant(staff.me.org.id, (tx) => tx.execute(sql`delete from audit_events`))).rejects.toThrow();
+    await expect(
+      withTenant(staff.me.org.id, (tx) => tx.execute(sql`update audit_events set summary = 'tampered'`)),
+    ).rejects.toThrow();
+    await expect(
+      withTenant(staff.me.org.id, (tx) => tx.execute(sql`delete from audit_events`)),
+    ).rejects.toThrow();
   });
 });
 
 describe('approval gateway — irreversible money movement (maker + checker)', () => {
   it('records the maker, replays an idempotent retry, and waits for a checker', async () => {
     const t = await staff.ticket('QRY-48211');
-    expect(t.gate).toMatchObject({ mode: 'action', chain: 'dual', reversible: false, moneyMoves: true, canApprove: true, canUndo: false });
+    expect(t.gate).toMatchObject({
+      mode: 'action',
+      chain: 'dual',
+      reversible: false,
+      moneyMoves: true,
+      canApprove: true,
+      canUndo: false,
+    });
     expect(t.gate.proposedChecker?.name).toBe('R. Menon');
 
     const key = 'it-48211-maker';
-    const first = await staff.req('POST', `/v1/tickets/${t.id}/gate/approve`, { openedEvidence: true }, { 'idempotency-key': key });
+    const first = await staff.req(
+      'POST',
+      `/v1/tickets/${t.id}/gate/approve`,
+      { openedEvidence: true },
+      { 'idempotency-key': key },
+    );
     expect(first.statusCode).toBe(200);
     expect(first.json()).toEqual({ outcome: 'awaiting_checker' });
-    const replay = await staff.req('POST', `/v1/tickets/${t.id}/gate/approve`, { openedEvidence: true }, { 'idempotency-key': key });
+    const replay = await staff.req(
+      'POST',
+      `/v1/tickets/${t.id}/gate/approve`,
+      { openedEvidence: true },
+      { 'idempotency-key': key },
+    );
     expect(replay.statusCode).toBe(200);
     expect(replay.json()).toEqual({ outcome: 'awaiting_checker' });
 
     const approvals = await withTenant(staff.me.org.id, (tx) =>
-      tx.execute<{ n: number }>(sql`select count(*)::int as n from approvals where subject_id = ${t.action!.id} and step = 'maker'`),
+      tx.execute<{ n: number }>(
+        sql`select count(*)::int as n from approvals where subject_id = ${t.action!.id} and step = 'maker'`,
+      ),
     );
     expect(approvals.rows[0]!.n).toBe(1);
   });
@@ -104,7 +136,12 @@ describe('approval gateway — irreversible money movement (maker + checker)', (
     const t = await staff.ticket('QRY-48211');
     expect(t.gate.state).toBe('awaiting_checker');
     expect(t.gate.canApprove).toBe(false);
-    const r = await staff.req('POST', `/v1/tickets/${t.id}/gate/approve`, { openedEvidence: true }, { 'idempotency-key': 'it-48211-self-check' });
+    const r = await staff.req(
+      'POST',
+      `/v1/tickets/${t.id}/gate/approve`,
+      { openedEvidence: true },
+      { 'idempotency-key': 'it-48211-self-check' },
+    );
     expect(r.statusCode).toBeGreaterThanOrEqual(400);
     expect((await staff.ticket('QRY-48211')).gate.state).toBe('awaiting_checker');
   });
@@ -112,7 +149,12 @@ describe('approval gateway — irreversible money movement (maker + checker)', (
   it('executes after the checker approves, with no undo, and writes the audit trail', async () => {
     const t = await lead.ticket('QRY-48211');
     expect(t.gate.canApprove).toBe(true);
-    const r = await lead.req('POST', `/v1/tickets/${t.id}/gate/approve`, { openedEvidence: true }, { 'idempotency-key': 'it-48211-checker' });
+    const r = await lead.req(
+      'POST',
+      `/v1/tickets/${t.id}/gate/approve`,
+      { openedEvidence: true },
+      { 'idempotency-key': 'it-48211-checker' },
+    );
     expect(r.statusCode).toBe(200);
     await worker.drain();
     const done = await lead.ticket('QRY-48211');
@@ -134,7 +176,12 @@ describe('approval gateway — replies are recallable inside the window only', (
   it('recalls a queued reply, then sends once the window passes', async () => {
     const t = await staff.ticket('QRY-48207');
     expect(t.gate).toMatchObject({ mode: 'draft', state: 'open' });
-    const approve = await staff.req('POST', `/v1/tickets/${t.id}/gate/approve`, { openedEvidence: true }, { 'idempotency-key': 'it-48207-send-1' });
+    const approve = await staff.req(
+      'POST',
+      `/v1/tickets/${t.id}/gate/approve`,
+      { openedEvidence: true },
+      { 'idempotency-key': 'it-48207-send-1' },
+    );
     expect(approve.json()).toEqual({ outcome: 'sending' });
     const queued = await staff.ticket('QRY-48207');
     expect(queued.gate).toMatchObject({ state: 'scheduled', canUndo: true });
@@ -144,7 +191,12 @@ describe('approval gateway — replies are recallable inside the window only', (
     await worker.drain();
     expect((await staff.ticket('QRY-48207')).draft?.state).toBe('draft');
 
-    await staff.req('POST', `/v1/tickets/${t.id}/gate/approve`, { openedEvidence: true }, { 'idempotency-key': 'it-48207-send-2' });
+    await staff.req(
+      'POST',
+      `/v1/tickets/${t.id}/gate/approve`,
+      { openedEvidence: true },
+      { 'idempotency-key': 'it-48207-send-2' },
+    );
     clock.advance(61_000);
     try {
       expect((await staff.req('POST', `/v1/tickets/${t.id}/gate/undo`)).statusCode).toBe(409);
@@ -162,7 +214,10 @@ describe('roles and permissions', () => {
   it('staff cannot widen autonomy or change clearances', async () => {
     expect((await staff.req('PUT', '/v1/actions/dial', { cell: '0-0', level: 2 })).statusCode).toBe(403);
     const dept = (await lead.req('GET', '/v1/people')).json().departments[0].id as string;
-    expect((await staff.req('PUT', '/v1/clearances', { userId: staff.me.user.id, departmentId: dept, level: 3 })).statusCode).toBe(403);
+    expect(
+      (await staff.req('PUT', '/v1/clearances', { userId: staff.me.user.id, departmentId: dept, level: 3 }))
+        .statusCode,
+    ).toBe(403);
   });
 
   it('the irreversible + money cell cannot be dialled up, even by an admin', async () => {
@@ -172,7 +227,11 @@ describe('roles and permissions', () => {
 
   it('a lead cannot write a clearance for someone outside the workspace', async () => {
     const dept = (await lead.req('GET', '/v1/people')).json().departments[0].id as string;
-    const r = await lead.req('PUT', '/v1/clearances', { userId: '00000000-0000-4000-8000-000000000000', departmentId: dept, level: 1 });
+    const r = await lead.req('PUT', '/v1/clearances', {
+      userId: '00000000-0000-4000-8000-000000000000',
+      departmentId: dept,
+      level: 1,
+    });
     expect(r.statusCode).toBe(404);
   });
 
@@ -183,12 +242,16 @@ describe('roles and permissions', () => {
   });
 
   it('batch approvals count as approving without opening the evidence', async () => {
-    const before = await withTenant(staff.me.org.id, (tx) => tx.execute<{ n: number }>(sql`select count(*)::int as n from approvals where not opened_evidence`));
+    const before = await withTenant(staff.me.org.id, (tx) =>
+      tx.execute<{ n: number }>(sql`select count(*)::int as n from approvals where not opened_evidence`),
+    );
     const t = await staff.ticket('QRY-48188');
     const r = await staff.req('POST', '/v1/gate/batch-approve', { ticketIds: [t.id] });
     expect(r.statusCode).toBe(200);
     expect(r.json().results[0]).toMatchObject({ ok: true });
-    const after = await withTenant(staff.me.org.id, (tx) => tx.execute<{ n: number }>(sql`select count(*)::int as n from approvals where not opened_evidence`));
+    const after = await withTenant(staff.me.org.id, (tx) =>
+      tx.execute<{ n: number }>(sql`select count(*)::int as n from approvals where not opened_evidence`),
+    );
     expect(after.rows[0]!.n).toBe(before.rows[0]!.n + 1);
   });
 });

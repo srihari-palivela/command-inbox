@@ -16,7 +16,12 @@ function Gate() {
         <Skeleton h={200} />
       </div>
     );
-  if (me.error) return <div style={{ padding: 40 }}><ErrorState error={me.error} onRetry={() => void me.refetch()} /></div>;
+  if (me.error)
+    return (
+      <div style={{ padding: 40 }}>
+        <ErrorState error={me.error} onRetry={() => void me.refetch()} />
+      </div>
+    );
   if (!me.data) return <SignIn />;
   return <Shell me={me.data} />;
 }
@@ -25,7 +30,10 @@ function RouteError() {
   const err = useRouteError();
   return (
     <div style={{ padding: 40 }}>
-      <ErrorState error={err instanceof Error ? err : new Error('This page failed to load.')} onRetry={() => window.location.reload()} />
+      <ErrorState
+        error={err instanceof Error ? err : new Error('This page failed to load.')}
+        onRetry={() => window.location.reload()}
+      />
     </div>
   );
 }
@@ -43,7 +51,13 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/inbox" replace /> },
       ...screenRoutes,
-      { path: 'inbox/:ticket', element: (() => { const C = SCREENS.inbox.component; return <C />; })() },
+      {
+        path: 'inbox/:ticket',
+        element: (() => {
+          const C = SCREENS.inbox.component;
+          return <C />;
+        })(),
+      },
       { path: '*', element: <Navigate to="/inbox" replace /> },
     ],
   },

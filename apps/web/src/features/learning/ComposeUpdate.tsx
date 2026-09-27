@@ -36,7 +36,8 @@ export function ComposeUpdate({ open, onClose }: { open: boolean; onClose: () =>
 
   const send = useAction((b: NotificationBody) => api.post<{ recipients: number }>('/v1/notifications', b), {
     invalidate: [keys.learning, keys.me],
-    success: (r, b) => `Update sent to ${r.recipients} people${b.kind === 'learning' ? ' — completion will be tracked on the Learning screen.' : '.'}`,
+    success: (r, b) =>
+      `Update sent to ${r.recipients} people${b.kind === 'learning' ? ' — completion will be tracked on the Learning screen.' : '.'}`,
   });
 
   const titleError = tried && !title.trim() ? 'Give the update a title.' : null;
@@ -90,7 +91,13 @@ export function ComposeUpdate({ open, onClose }: { open: boolean; onClose: () =>
           </div>
           <div className={s.kinds} role="group" aria-labelledby={`${selectId}-fmt`}>
             {KINDS.map((k) => (
-              <button key={k.key} type="button" className={s.kindBtn} aria-pressed={kind === k.key} onClick={() => setKind(k.key)}>
+              <button
+                key={k.key}
+                type="button"
+                className={s.kindBtn}
+                aria-pressed={kind === k.key}
+                onClick={() => setKind(k.key)}
+              >
                 {k.label}
               </button>
             ))}
@@ -101,7 +108,12 @@ export function ComposeUpdate({ open, onClose }: { open: boolean; onClose: () =>
             <label className={s.groupLabel} htmlFor={selectId} style={{ display: 'block' }}>
               Course to attach
             </label>
-            <select id={selectId} className={s.select} value={courseId} onChange={(e) => setCourseId(e.target.value)}>
+            <select
+              id={selectId}
+              className={s.select}
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+            >
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.title}
@@ -111,7 +123,13 @@ export function ComposeUpdate({ open, onClose }: { open: boolean; onClose: () =>
           </div>
         )}
         <Field label="Message (optional)">
-          <TextArea value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} rows={3} placeholder="What changed, and what people should do differently." />
+          <TextArea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder="What changed, and what people should do differently."
+          />
         </Field>
       </form>
     </Modal>

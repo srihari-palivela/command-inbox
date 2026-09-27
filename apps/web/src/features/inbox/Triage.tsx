@@ -6,7 +6,8 @@ import { Button, Card, Dot, Eyebrow, MenuItem, Pill, Popover } from '../../ui';
 import type { TicketActions } from './actions';
 import s from './Inbox.module.css';
 
-const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const reducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /** Reveal the reasoning as it would stream from the model; instant when the user prefers it or motion is reduced. */
 function useStreamed(text: string, key: string, enabled: boolean): { shown: string; typing: boolean } {
@@ -40,7 +41,14 @@ function laneSub(t: TicketDetailDTO): string {
   return t.laneNote;
 }
 
-export function Triage({ t, actions, stream, showWhy, onToggleWhy, confidenceBar }: {
+export function Triage({
+  t,
+  actions,
+  stream,
+  showWhy,
+  onToggleWhy,
+  confidenceBar,
+}: {
   t: TicketDetailDTO;
   actions: TicketActions;
   stream: boolean;
@@ -67,14 +75,27 @@ export function Triage({ t, actions, stream, showWhy, onToggleWhy, confidenceBar
           <Dot color="var(--accent)" pulse={typing} /> Agent triage
         </span>
       }
-      meta={tri ? `classified in ${(tri.latencyMs / 1000).toFixed(1)}s · ${tri.provider}` : 'not classified yet'}
+      meta={
+        tri ? `classified in ${(tri.latencyMs / 1000).toFixed(1)}s · ${tri.provider}` : 'not classified yet'
+      }
       actions={
         <>
           <div style={{ position: 'relative' }}>
-            <Button size="sm" onClick={() => setOvOpen((v) => !v)} aria-haspopup="menu" aria-expanded={ovOpen} disabled={!t.permissions.canWork}>
+            <Button
+              size="sm"
+              onClick={() => setOvOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={ovOpen}
+              disabled={!t.permissions.canWork}
+            >
               Override
             </Button>
-            <Popover open={ovOpen} onClose={() => setOvOpen(false)} label="Change how this is handled" style={{ top: 32, right: 0, width: 290 }}>
+            <Popover
+              open={ovOpen}
+              onClose={() => setOvOpen(false)}
+              label="Change how this is handled"
+              style={{ top: 32, right: 0, width: 290 }}
+            >
               <div style={{ padding: '10px 12px 6px' }}>
                 <Eyebrow>Change how it's handled</Eyebrow>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4, lineHeight: 1.45 }}>
@@ -89,7 +110,12 @@ export function Triage({ t, actions, stream, showWhy, onToggleWhy, confidenceBar
                     const blocked = up && !t.permissions.canOverrideUp;
                     const tone = LANE_TONE[l];
                     return blocked ? (
-                      <div key={l} className="mono" style={{ padding: '8px 10px', fontSize: 11.5, color: 'var(--muted)' }} title="Only a team lead can give the AI more autonomy on a ticket.">
+                      <div
+                        key={l}
+                        className="mono"
+                        style={{ padding: '8px 10px', fontSize: 11.5, color: 'var(--muted)' }}
+                        title="Only a team lead can give the AI more autonomy on a ticket."
+                      >
                         <Pill fg={tone.fg} bg={tone.bg}>
                           {tone.word}
                         </Pill>{' '}
@@ -133,15 +159,37 @@ export function Triage({ t, actions, stream, showWhy, onToggleWhy, confidenceBar
         <div className={s.triCell}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <span className={s.label}>Confidence</span>
-            <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: confTone(conf, confidenceBar) }}>
+            <span
+              className="mono"
+              style={{ fontSize: 15, fontWeight: 600, color: confTone(conf, confidenceBar) }}
+            >
               {conf.toFixed(2)}
             </span>
           </div>
-          <div className={s.confTrack} role="meter" aria-valuenow={Math.round(conf * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`Confidence ${confWord(conf, confidenceBar)}, ${conf.toFixed(2)}; bar ${confidenceBar}`}>
-            <div className={s.confFill} style={{ width: `${conf * 100}%`, background: confTone(conf, confidenceBar) }} />
+          <div
+            className={s.confTrack}
+            role="meter"
+            aria-valuenow={Math.round(conf * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Confidence ${confWord(conf, confidenceBar)}, ${conf.toFixed(2)}; bar ${confidenceBar}`}
+          >
+            <div
+              className={s.confFill}
+              style={{ width: `${conf * 100}%`, background: confTone(conf, confidenceBar) }}
+            />
             <div className={s.confBar} style={{ left: `${confidenceBar * 100}%` }} />
           </div>
-          <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--muted)', gap: 8 }}>
+          <div
+            className="mono"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 10,
+              color: 'var(--muted)',
+              gap: 8,
+            }}
+          >
             <span>bar for acting alone · {confidenceBar.toFixed(2)}</span>
             <span>{above ? 'above the bar' : 'below — a person must handle it'}</span>
           </div>

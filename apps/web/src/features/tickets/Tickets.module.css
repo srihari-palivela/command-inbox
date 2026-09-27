@@ -259,7 +259,10 @@
   border-radius: 9px;
   padding: 10px 11px;
   box-shadow: 0 1px 1px rgba(25, 26, 29, 0.03);
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
   animation: fadeIn 0.3s ease both;
 }
 .card:hover {
@@ -625,7 +628,9 @@
 }
 .rowGrid {
   display: grid;
-  grid-template-columns: 90px 44px 62px minmax(160px, 1fr) minmax(120px, 184px) 140px minmax(96px, 128px) 72px 48px;
+  grid-template-columns:
+    90px 44px 62px minmax(160px, 1fr) minmax(120px, 184px) 140px minmax(96px, 128px)
+    72px 48px;
   gap: 9px;
   align-items: center;
   min-width: 0;

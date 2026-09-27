@@ -4,12 +4,14 @@
  */
 import pg from 'pg';
 
-const adminUrl = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@localhost:5432/command_inbox_test';
+const adminUrl =
+  process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@localhost:5432/command_inbox_test';
 
 export default async function setup() {
   const target = new URL(adminUrl);
   const dbName = target.pathname.slice(1);
-  if (!dbName.endsWith('_test')) throw new Error(`refusing to reset "${dbName}": integration tests only run against a *_test database`);
+  if (!dbName.endsWith('_test'))
+    throw new Error(`refusing to reset "${dbName}": integration tests only run against a *_test database`);
 
   const server = new URL(adminUrl);
   server.pathname = '/postgres';
@@ -29,7 +31,8 @@ export default async function setup() {
 
   // The app's env module reads process.env at import time, so point it at the test database first.
   process.env.DATABASE_ADMIN_URL = adminUrl;
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://ci_app:ci_app@localhost:5432/command_inbox_test';
+  process.env.DATABASE_URL =
+    process.env.TEST_DATABASE_URL ?? 'postgres://ci_app:ci_app@localhost:5432/command_inbox_test';
   process.env.NODE_ENV = 'test';
   const { runMigrations } = await import('../../src/db/migrate.js');
   const { seed } = await import('../../src/db/seed/index.js');

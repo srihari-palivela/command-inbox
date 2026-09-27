@@ -24,7 +24,14 @@ export function deviceLabel(ua: string): string {
 }
 
 export function locationLabel(ip: string): string {
-  if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('::ffff:127.')) {
+  if (
+    !ip ||
+    ip === '::1' ||
+    ip.startsWith('127.') ||
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    ip.startsWith('::ffff:127.')
+  ) {
     return 'Local network';
   }
   return 'Unknown location';

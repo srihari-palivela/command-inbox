@@ -1,4 +1,10 @@
-import type { CopilotAnswerDTO, NlFilterDTO, SearchResultDTO, TicketFilters, TicketSummaryDTO } from '@ci/contracts';
+import type {
+  CopilotAnswerDTO,
+  NlFilterDTO,
+  SearchResultDTO,
+  TicketFilters,
+  TicketSummaryDTO,
+} from '@ci/contracts';
 import { ticketNumber } from '@ci/contracts';
 import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import type { Tx } from '../../db/client.js';
@@ -20,10 +26,26 @@ export async function search(tx: Tx, ctx: Ctx, q: string): Promise<SearchResultD
   const tickets = await tx
     .select({ id: s.tickets.id, number: s.tickets.number, subject: s.tickets.subject, lane: s.tickets.lane })
     .from(s.tickets)
-    .where(and(eq(s.tickets.orgId, ctx.orgId), or(ilike(s.tickets.subject, like), ilike(s.tickets.fromName, like), ilike(s.tickets.bucket, like), num ? eq(s.tickets.number, Number(num[1])) : sql`false`)))
+    .where(
+      and(
+        eq(s.tickets.orgId, ctx.orgId),
+        or(
+          ilike(s.tickets.subject, like),
+          ilike(s.tickets.fromName, like),
+          ilike(s.tickets.bucket, like),
+          num ? eq(s.tickets.number, Number(num[1])) : sql`false`,
+        ),
+      ),
+    )
     .orderBy(desc(s.tickets.receivedAt))
     .limit(6);
-  const customers = await tx.execute<{ id: string; cif: string; name: string; tickets: number; latest: string | null }>(sql`
+  const customers = await tx.execute<{
+    id: string;
+    cif: string;
+    name: string;
+    tickets: number;
+    latest: string | null;
+  }>(sql`
     select c.id, c.cif, c.name,
            (select count(*) from tickets t where t.org_id = c.org_id and t.customer_id = c.id)::int as tickets,
            (select t.id from tickets t where t.org_id = c.org_id and t.customer_id = c.id order by t.received_at desc limit 1) as latest
@@ -32,9 +54,23 @@ export async function search(tx: Tx, ctx: Ctx, q: string): Promise<SearchResultD
      order by c.name limit 5`);
   const knowledge = ctx.capabilities.has('ticket.work')
     ? await tx
-        .select({ id: s.knowledgeDocs.id, title: s.knowledgeDocs.title, section: s.knowledgeDocs.section, status: s.knowledgeDocs.status })
+        .select({
+          id: s.knowledgeDocs.id,
+          title: s.knowledgeDocs.title,
+          section: s.knowledgeDocs.section,
+          status: s.knowledgeDocs.status,
+        })
         .from(s.knowledgeDocs)
-        .where(and(eq(s.knowledgeDocs.orgId, ctx.orgId), or(ilike(s.knowledgeDocs.title, like), ilike(s.knowledgeDocs.section, like), ilike(s.knowledgeDocs.body, like))))
+        .where(
+          and(
+            eq(s.knowledgeDocs.orgId, ctx.orgId),
+            or(
+              ilike(s.knowledgeDocs.title, like),
+              ilike(s.knowledgeDocs.section, like),
+              ilike(s.knowledgeDocs.body, like),
+            ),
+          ),
+        )
         .orderBy(asc(s.knowledgeDocs.title))
         .limit(5)
     : [];
@@ -51,11 +87,27 @@ export async function search(tx: Tx, ctx: Ctx, q: string): Promise<SearchResultD
   const tpl = await tx
     .select({ id: s.actionTemplates.id, text: s.actionTemplates.name, code: s.actionTemplates.code })
     .from(s.actionTemplates)
-    .where(and(eq(s.actionTemplates.orgId, ctx.orgId), or(ilike(s.actionTemplates.name, like), ilike(s.actionTemplates.code, like))))
+    .where(
+      and(
+        eq(s.actionTemplates.orgId, ctx.orgId),
+        or(ilike(s.actionTemplates.name, like), ilike(s.actionTemplates.code, like)),
+      ),
+    )
     .limit(3);
   return {
-    tickets: tickets.map((t) => ({ id: t.id, number: ticketNumber(t.number), subject: t.subject, lane: t.lane as 'auto' })),
-    customers: customers.rows.map((c) => ({ id: c.id, cif: c.cif, name: c.name, tickets: c.tickets, latestTicketId: c.latest })),
+    tickets: tickets.map((t) => ({
+      id: t.id,
+      number: ticketNumber(t.number),
+      subject: t.subject,
+      lane: t.lane as 'auto',
+    })),
+    customers: customers.rows.map((c) => ({
+      id: c.id,
+      cif: c.cif,
+      name: c.name,
+      tickets: c.tickets,
+      latestTicketId: c.latest,
+    })),
     knowledge,
     policies: [
       ...rules.map((r) => ({ id: r.id, text: r.text, kind: 'Bucketing rule' })),
@@ -66,10 +118,20 @@ export async function search(tx: Tx, ctx: Ctx, q: string): Promise<SearchResultD
 }
 
 const CHIP_TEXT: Record<string, (v: string, depts: { id: string; name: string }[]) => string> = {
-  status: (v) => ({ triage: 'Agent triaging', approval: 'Awaiting approval', executing: 'Executing', human: 'With a human', customer: 'Waiting on customer', resolved: 'Resolved' })[v] ?? v,
-  lane: (v) => `Handled: ${({ auto: 'Auto', draft: 'Draft', manual: 'You' } as Record<string, string>)[v] ?? v}`,
+  status: (v) =>
+    ({
+      triage: 'Agent triaging',
+      approval: 'Awaiting approval',
+      executing: 'Executing',
+      human: 'With a human',
+      customer: 'Waiting on customer',
+      resolved: 'Resolved',
+    })[v] ?? v,
+  lane: (v) =>
+    `Handled: ${({ auto: 'Auto', draft: 'Draft', manual: 'You' } as Record<string, string>)[v] ?? v}`,
   team: (v, d) => `Team: ${d.find((x) => x.id === v)?.name ?? v}`,
-  owner: (v) => `Owner: ${({ mine: 'me', ai: 'the AI', unassigned: 'nobody' } as Record<string, string>)[v] ?? v}`,
+  owner: (v) =>
+    `Owner: ${({ mine: 'me', ai: 'the AI', unassigned: 'nobody' } as Record<string, string>)[v] ?? v}`,
   due: (v) => ({ risk: 'Running late', open: 'Open only', closed: 'Closed only' })[v] ?? v,
   conf: (v) => (v === 'low' ? 'Below the bar' : 'High confidence'),
   pri: (v) => `Priority: ${v}`,
@@ -80,7 +142,10 @@ const CHIP_TEXT: Record<string, (v: string, depts: { id: string; name: string }[
 
 /** Natural-language → filters. The model maps language to the filter schema; the parser is the fallback. */
 export async function nlFilter(tx: Tx, ctx: Ctx, query: string): Promise<NlFilterDTO> {
-  const departments = await tx.select({ id: s.departments.id, name: s.departments.name }).from(s.departments).where(eq(s.departments.orgId, ctx.orgId));
+  const departments = await tx
+    .select({ id: s.departments.id, name: s.departments.name })
+    .from(s.departments)
+    .where(eq(s.departments.orgId, ctx.orgId));
   const p = provider();
   let filters: TicketFilters | null = null;
   let used = 'heuristic';
@@ -94,7 +159,11 @@ export async function nlFilter(tx: Tx, ctx: Ctx, query: string): Promise<NlFilte
   if (!filters) filters = parseNaturalFilters(query, departments).filters;
   const chips: Chip[] = (Object.entries(filters) as [keyof TicketFilters, string | undefined][])
     .filter(([, v]) => v)
-    .map(([key, value]) => ({ key, value: String(value), text: CHIP_TEXT[key]!(String(value), departments) }));
+    .map(([key, value]) => ({
+      key,
+      value: String(value),
+      text: CHIP_TEXT[key]!(String(value), departments),
+    }));
   return { filters, chips, understood: chips.length > 0, provider: used };
 }
 
@@ -129,7 +198,9 @@ export async function ask(tx: Tx, ctx: Ctx, question: string): Promise<CopilotAn
         ? [
             `The tightest is ${worst.number} — ${worst.subject}`,
             `It sits with ${worst.assignee?.name ?? (worst.ownerKind === 'ai' ? 'the AI' : 'nobody')} and has ${worst.sla.minutesLeft ?? 0} minutes left.`,
-            team ? `${team[0]} accounts for most of the risk (${team[1]} ticket${team[1] === 1 ? '' : 's'}).` : '',
+            team
+              ? `${team[0]} accounts for most of the risk (${team[1]} ticket${team[1] === 1 ? '' : 's'}).`
+              : '',
           ].filter(Boolean)
         : ['Nothing is close to its deadline right now.'],
       actions: [{ label: `Show the ${late.length} at-risk tickets`, filters: { due: 'risk' } }],
@@ -138,7 +209,10 @@ export async function ask(tx: Tx, ctx: Ctx, question: string): Promise<CopilotAn
     base = {
       headline: `${approvals.length} ticket${approvals.length === 1 ? ' is' : 's are'} waiting for a human decision.`,
       lines: [
-        approvals.slice(0, 3).map((t) => t.number).join(', ') + (approvals.length ? ' are the oldest.' : ''),
+        approvals
+          .slice(0, 3)
+          .map((t) => t.number)
+          .join(', ') + (approvals.length ? ' are the oldest.' : ''),
         `${dual.length} carry a filled action; the rest are drafts waiting to be sent.`,
       ].filter((l) => l.trim() && l !== ' are the oldest.'),
       actions: [{ label: 'Show what needs approving', filters: { status: 'approval' } }],
@@ -160,18 +234,33 @@ export async function ask(tx: Tx, ctx: Ctx, question: string): Promise<CopilotAn
       const draft = r.coverage.find((c) => c.lane === 'draft')?.pct ?? 0;
       base = {
         headline: `Time to resolve is down ${Math.abs(r.deltaPct)}%, from ${r.baselineHours}h to ${r.nowHours}h.`,
-        lines: [`The AI carries ${auto}% of volume end to end and drafts another ${draft}%.`, `That is ${r.capacityMultiple}× the queries per person against the baseline.`],
+        lines: [
+          `The AI carries ${auto}% of volume end to end and drafts another ${draft}%.`,
+          `That is ${r.capacityMultiple}× the queries per person against the baseline.`,
+        ],
         actions: [{ label: 'Open Results', to: '/results' }],
       };
     } else {
-      base = { headline: 'Results are visible to team leads and admins.', lines: ['Ask your team lead for this week’s numbers.'], actions: [] };
+      base = {
+        headline: 'Results are visible to team leads and admins.',
+        lines: ['Ask your team lead for this week’s numbers.'],
+        actions: [],
+      };
     }
   } else if (has('unowned', 'unassigned', 'no owner')) {
     const un = open.filter((t) => t.ownerKind === 'unassigned');
     base = {
       headline: `${un.length} open ticket${un.length === 1 ? ' has' : 's have'} no owner.`,
-      lines: ['Nothing unowned can be automated — those queries route to a person every time.', ...un.slice(0, 2).map((t) => `${t.number} · ${t.bucket}`)],
-      actions: [{ label: 'Show unowned tickets', filters: { owner: 'unassigned' } }, ...(ctx.capabilities.has('setup.view') ? [{ label: 'Open Who owns what', to: '/setup/ownership' }] : [])],
+      lines: [
+        'Nothing unowned can be automated — those queries route to a person every time.',
+        ...un.slice(0, 2).map((t) => `${t.number} · ${t.bucket}`),
+      ],
+      actions: [
+        { label: 'Show unowned tickets', filters: { owner: 'unassigned' } },
+        ...(ctx.capabilities.has('setup.view')
+          ? [{ label: 'Open Who owns what', to: '/setup/ownership' }]
+          : []),
+      ],
     };
   } else {
     base = {
@@ -188,7 +277,8 @@ export async function ask(tx: Tx, ctx: Ctx, question: string): Promise<CopilotAn
   if (provider().name === 'claude') {
     const facts = [base.headline, ...base.lines].join('\n');
     const r = await withFallback((p) => p.answer(question, facts));
-    if (r.value && !r.degraded) return { ...base, headline: r.value.headline, lines: r.value.lines, provider: 'claude' };
+    if (r.value && !r.degraded)
+      return { ...base, headline: r.value.headline, lines: r.value.lines, provider: 'claude' };
   }
   return { ...base, provider: 'heuristic' };
 }

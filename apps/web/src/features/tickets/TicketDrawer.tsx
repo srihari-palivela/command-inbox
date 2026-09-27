@@ -9,11 +9,16 @@ import s from './Tickets.module.css';
 const ORDER: StatusGroup[] = ['triage', 'approval', 'executing', 'human', 'customer', 'resolved'];
 
 const AGENT_NOTES: Record<StatusGroup, string> = {
-  triage: 'Still working. It has classified the query and is pulling the fields it needs — nothing is sent until it is done and, where required, a person approves.',
-  approval: 'It has done everything it can without a person. The draft or the filled action is ready and waiting on a named approver.',
-  executing: 'Approved. It is writing to the core system now and will log the result whether it succeeds or fails.',
-  human: 'It has stood down on purpose. It will not generate customer-facing text here, but it has assembled the context so you are not starting cold.',
-  customer: 'Paused. It is watching the thread and will pick the work back up the moment the customer replies.',
+  triage:
+    'Still working. It has classified the query and is pulling the fields it needs — nothing is sent until it is done and, where required, a person approves.',
+  approval:
+    'It has done everything it can without a person. The draft or the filled action is ready and waiting on a named approver.',
+  executing:
+    'Approved. It is writing to the core system now and will log the result whether it succeeds or fails.',
+  human:
+    'It has stood down on purpose. It will not generate customer-facing text here, but it has assembled the context so you are not starting cold.',
+  customer:
+    'Paused. It is watching the thread and will pick the work back up the moment the customer replies.',
   resolved: 'Finished and logged, with the actor, the timestamp and the source recorded against the thread.',
 };
 
@@ -26,7 +31,8 @@ function pathFor(g: StatusGroup): StatusGroup[] {
 
 function approvalNote(t: TicketDetailDTO): string {
   const g = t.gate;
-  if (g.state === 'awaiting_checker' && g.maker) return `${g.maker.name} approved as maker · waiting for a checker${g.proposedChecker ? ` (${g.proposedChecker.name})` : ''}`;
+  if (g.state === 'awaiting_checker' && g.maker)
+    return `${g.maker.name} approved as maker · waiting for a checker${g.proposedChecker ? ` (${g.proposedChecker.name})` : ''}`;
   if (t.assignee) return `${t.assignee.name} holds this`;
   return 'Unassigned approver';
 }
@@ -34,7 +40,10 @@ function approvalNote(t: TicketDetailDTO): string {
 function timeline(t: TicketDetailDTO, bar: number) {
   const g = statusGroup(t.status);
   const copy: Record<StatusGroup, { label: string; note: string }> = {
-    triage: { label: 'The AI read and classified it', note: `Sorted into ${t.bucket.toLowerCase()} with ${confWord(t.confidence, bar).toLowerCase()} confidence (${t.confidence.toFixed(2)})` },
+    triage: {
+      label: 'The AI read and classified it',
+      note: `Sorted into ${t.bucket.toLowerCase()} with ${confWord(t.confidence, bar).toLowerCase()} confidence (${t.confidence.toFixed(2)})`,
+    },
     approval: { label: 'Waiting for a person to approve', note: approvalNote(t) },
     executing: { label: 'Being carried out', note: 'Writing to core banking, then the audit log' },
     human: { label: 'Handed to a person', note: `The AI stepped back — ${t.nextMove.toLowerCase()}` },
@@ -55,8 +64,17 @@ function DrawerBody({ t, bar }: { t: TicketDetailDTO; bar: number }) {
   const steps = timeline(t, bar);
   const facts = [
     { l: 'Owner', v: own.name, color: t.ownerKind === 'unassigned' ? 'var(--warn)' : 'var(--ink)' },
-    { l: 'Confidence', v: `${confWord(t.confidence, bar)} · ${t.confidence.toFixed(2)}`, color: confTone(t.confidence, bar), mono: true },
-    { l: 'How it is handled', v: t.lane === 'auto' ? 'AI acts' : t.lane === 'draft' ? 'AI drafts, you send' : 'You handle it', color: 'var(--ink)' },
+    {
+      l: 'Confidence',
+      v: `${confWord(t.confidence, bar)} · ${t.confidence.toFixed(2)}`,
+      color: confTone(t.confidence, bar),
+      mono: true,
+    },
+    {
+      l: 'How it is handled',
+      v: t.lane === 'auto' ? 'AI acts' : t.lane === 'draft' ? 'AI drafts, you send' : 'You handle it',
+      color: 'var(--ink)',
+    },
     { l: 'Department', v: t.department, color: 'var(--ink)' },
   ];
   return (
@@ -102,7 +120,17 @@ function DrawerBody({ t, bar }: { t: TicketDetailDTO; bar: number }) {
   );
 }
 
-export function TicketDrawer({ number, summary, bar, onClose }: { number: string | null; summary: TicketSummaryDTO | undefined; bar: number; onClose: () => void }) {
+export function TicketDrawer({
+  number,
+  summary,
+  bar,
+  onClose,
+}: {
+  number: string | null;
+  summary: TicketSummaryDTO | undefined;
+  bar: number;
+  onClose: () => void;
+}) {
   const navigate = useNavigate();
   const q = useTicket(number);
   const t = q.data ?? summary;

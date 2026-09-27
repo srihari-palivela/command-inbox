@@ -8,24 +8,33 @@ import s from './Ownership.module.css';
 type Dept = TaxonomyDTO['departments'][number];
 
 export function DepartmentColumn({ d, index, canEdit }: { d: Dept; index: number; canEdit: boolean }) {
-  const change = useAction((v: { id: string; name: string }) => api.put<{ owner: string }>(`/v1/taxonomy/departments/${v.id}/owner`, {}), {
-    invalidate: [keys.taxonomy],
-    success: (r, v) => `${v.name} now owned by ${r.owner} — cleared to approve here.`,
-  });
+  const change = useAction(
+    (v: { id: string; name: string }) =>
+      api.put<{ owner: string }>(`/v1/taxonomy/departments/${v.id}/owner`, {}),
+    {
+      invalidate: [keys.taxonomy],
+      success: (r, v) => `${v.name} now owned by ${r.owner} — cleared to approve here.`,
+    },
+  );
   return (
     <section className={s.col} style={{ animationDelay: `${index * 0.06}s` }} aria-label={d.name}>
       <header className={cx(s.head, d.tone === 'risk' && s.headRisk)}>
         <div style={{ minWidth: 0 }}>
           <h3 className={s.dept}>{d.name}</h3>
           <div className={s.owner}>
-            {d.owner ? d.owner.name : 'No owner'} · <span className="mono">{d.queryTypes.length}</span> query types
+            {d.owner ? d.owner.name : 'No owner'} · <span className="mono">{d.queryTypes.length}</span> query
+            types
           </div>
         </div>
         <Button
           size="sm"
           className={s.change}
           disabled={!canEdit}
-          title={canEdit ? 'Hand ownership to the next person with approve clearance for this team' : 'Only an Admin can change who owns a query type.'}
+          title={
+            canEdit
+              ? 'Hand ownership to the next person with approve clearance for this team'
+              : 'Only an Admin can change who owns a query type.'
+          }
           loading={change.isPending}
           onClick={() => change.mutate({ id: d.id, name: d.name })}
         >
@@ -44,7 +53,9 @@ export function DepartmentColumn({ d, index, canEdit }: { d: Dept; index: number
             </div>
             <div className={s.itemMeta}>
               <span className={s.vol}>{q.volume}/mo</span>
-              <span style={{ color: q.live ? 'var(--ok)' : 'var(--warn)' }}>{q.live ? 'live' : 'blocked'}</span>
+              <span style={{ color: q.live ? 'var(--ok)' : 'var(--warn)' }}>
+                {q.live ? 'live' : 'blocked'}
+              </span>
             </div>
           </div>
         );

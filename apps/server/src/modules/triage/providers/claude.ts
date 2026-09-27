@@ -47,7 +47,10 @@ export function apiModel(model: string): string {
 export class RefusalError extends Error {}
 
 const threadText = (t: ThreadInput) =>
-  [`Subject: ${t.subject}`, ...t.messages.map((m, i) => `--- Message ${i + 1} from ${m.from}\n${m.body}`)].join('\n\n') +
+  [
+    `Subject: ${t.subject}`,
+    ...t.messages.map((m, i) => `--- Message ${i + 1} from ${m.from}\n${m.body}`),
+  ].join('\n\n') +
   `\n\nCustomer segment: ${t.customer.segment}. Prior contacts: ${t.customer.priorContacts} (${t.customer.priorSameTopic} on the same topic).`;
 
 const Guard = z.object({
@@ -63,7 +66,9 @@ const Classify = z.object({
   query_type: z.string().describe('Exactly one name from the taxonomy, or "ambiguous"'),
   confidence: z.number().min(0).max(1),
   phrases: z.array(z.string()).max(3).describe('Verbatim phrases that drove the choice'),
-  multi_intent: z.boolean().describe('True if the email asks for two or more things owned by different teams'),
+  multi_intent: z
+    .boolean()
+    .describe('True if the email asks for two or more things owned by different teams'),
   informational: z.boolean().describe('True if the customer asks for information rather than an action'),
   intents: z.array(z.string()),
 });
@@ -81,7 +86,9 @@ const Extract = z.object({
 });
 
 const Draft = z.object({
-  body: z.string().describe('The reply, citing sources as [n]. Plain text paragraphs separated by blank lines.'),
+  body: z
+    .string()
+    .describe('The reply, citing sources as [n]. Plain text paragraphs separated by blank lines.'),
   citations: z.array(z.number().int()),
   flagged: z.array(z.string()).describe('Verbatim sentences from the body that state a gap or need checking'),
   coverage: z.enum(['full', 'partial', 'none']),
@@ -128,17 +135,28 @@ export class ClaudeProvider implements LlmProvider {
       ...(isOpus5 ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
     });
     if (response.stop_reason === 'refusal') throw new RefusalError(`${id} declined the request`);
-    if (!response.parsed_output) throw new Error(`${id} returned no parseable output (stop: ${response.stop_reason})`);
+    if (!response.parsed_output)
+      throw new Error(`${id} returned no parseable output (stop: ${response.stop_reason})`);
     const input = response.usage.input_tokens + (response.usage.cache_read_input_tokens ?? 0);
     const output = response.usage.output_tokens;
     return {
       result: response.parsed_output as z.infer<T>,
-      usage: { model: id, tokens: input + output, costMinor: costMinor(id, input, output), latencyMs: Date.now() - started },
+      usage: {
+        model: id,
+        tokens: input + output,
+        costMinor: costMinor(id, input, output),
+        latencyMs: Date.now() - started,
+      },
     };
   }
 
   async guard(t: ThreadInput, agent: AgentConfig): Promise<Staged<GuardResult>> {
-    const r = await this.call(agent.model, agent.prompt, `Screen this thread for hard stops.\n\n${threadText(t)}`, Guard);
+    const r = await this.call(
+      agent.model,
+      agent.prompt,
+      `Screen this thread for hard stops.\n\n${threadText(t)}`,
+      Guard,
+    );
     const stop = [
       r.result.regulator_named && 'regulator named',
       r.result.legal_or_fraud && 'legal notice or suspected fraud',
@@ -158,7 +176,11 @@ export class ClaudeProvider implements LlmProvider {
     };
   }
 
-  async classify(t: ThreadInput, taxonomy: TaxonomyEntry[], agent: AgentConfig): Promise<Staged<ClassifyResult>> {
+  async classify(
+    t: ThreadInput,
+    taxonomy: TaxonomyEntry[],
+    agent: AgentConfig,
+  ): Promise<Staged<ClassifyResult>> {
     const system = `${agent.prompt}\n\nApproved taxonomy (query type — owning team):\n${taxonomy
       .map((q) => `- ${q.name} — ${q.department ?? 'no owner'}`)
       .join('\n')}`;
@@ -191,7 +213,12 @@ export class ClaudeProvider implements LlmProvider {
     };
   }
 
-  async draft(t: ThreadInput, docs: GroundingDoc[], agent: AgentConfig, customerName: string): Promise<Staged<DraftResult>> {
+  async draft(
+    t: ThreadInput,
+    docs: GroundingDoc[],
+    agent: AgentConfig,
+    customerName: string,
+  ): Promise<Staged<DraftResult>> {
     const sources = docs.map((d) => `[${d.n}] ${d.title} ${d.section}\n${d.body}`).join('\n\n');
     const user = `Approved sources (the only material you may state as fact):\n\n${sources || '(none)'}\n\nWrite the reply to ${customerName}.\n\n${threadText(t)}`;
     const r = await this.call(agent.model, agent.prompt, user, Draft, { effort: 'medium', maxTokens: 6000 });
@@ -210,7 +237,9 @@ export class ClaudeProvider implements LlmProvider {
   }
 
   async brief(t: ThreadInput, facts: string, agent: AgentConfig): Promise<Staged<BriefResult>> {
-    const r = await this.call(agent.model, agent.prompt, `Records:\n${facts}\n\n${threadText(t)}`, Brief, { effort: 'medium' });
+    const r = await this.call(agent.model, agent.prompt, `Records:\n${facts}\n\n${threadText(t)}`, Brief, {
+      effort: 'medium',
+    });
     return { usage: r.usage, result: r.result };
   }
 
@@ -225,7 +254,10 @@ conf: low | high
 pri: P1 | P2 | P3 | P4
 q: free text search, only if nothing else fits.
 Omit keys the request does not mention.`;
-    const r = await this.call(env.COPILOT_MODEL, system, query, TicketFilters, { effort: 'low', maxTokens: 1000 });
+    const r = await this.call(env.COPILOT_MODEL, system, query, TicketFilters, {
+      effort: 'low',
+      maxTokens: 1000,
+    });
     const filters = TicketFilters.parse(r.result);
     return { filters, understood: Object.keys(filters).length > 0 };
   }
@@ -233,10 +265,16 @@ Omit keys the request does not mention.`;
   async answer(question: string, facts: string) {
     const system =
       'You answer questions from a bank support team about their live queue. Use only the facts given; never invent numbers. Lead with a one-sentence headline, then up to three short supporting lines.';
-    const r = await this.call(env.COPILOT_MODEL, system, `Facts:\n${facts}\n\nQuestion: ${question}`, Answer, {
-      effort: 'medium',
-      maxTokens: 2000,
-    });
+    const r = await this.call(
+      env.COPILOT_MODEL,
+      system,
+      `Facts:\n${facts}\n\nQuestion: ${question}`,
+      Answer,
+      {
+        effort: 'medium',
+        maxTokens: 2000,
+      },
+    );
     return r.result;
   }
 }

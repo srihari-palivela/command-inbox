@@ -8,9 +8,30 @@ import s from './Boards.module.css';
 type Provider = 'microsoft' | 'google' | 'imap';
 
 const PROVIDERS: { key: Provider; mark: string; name: string; note: string; fg: string; bg: string }[] = [
-  { key: 'microsoft', mark: 'M365', name: 'Microsoft 365', note: 'OAuth via Entra ID · recommended for your tenant', fg: 'var(--accent)', bg: 'var(--accent-bg)' },
-  { key: 'google', mark: 'GW', name: 'Google Workspace', note: 'OAuth with a domain-wide delegation', fg: 'var(--ok)', bg: 'var(--ok-bg)' },
-  { key: 'imap', mark: 'IMAP', name: 'IMAP / Exchange on-premise', note: 'Service account with an app password', fg: 'var(--text-2)', bg: 'var(--surface-3)' },
+  {
+    key: 'microsoft',
+    mark: 'M365',
+    name: 'Microsoft 365',
+    note: 'OAuth via Entra ID · recommended for your tenant',
+    fg: 'var(--accent)',
+    bg: 'var(--accent-bg)',
+  },
+  {
+    key: 'google',
+    mark: 'GW',
+    name: 'Google Workspace',
+    note: 'OAuth with a domain-wide delegation',
+    fg: 'var(--ok)',
+    bg: 'var(--ok-bg)',
+  },
+  {
+    key: 'imap',
+    mark: 'IMAP',
+    name: 'IMAP / Exchange on-premise',
+    note: 'Service account with an app password',
+    fg: 'var(--text-2)',
+    bg: 'var(--surface-3)',
+  },
 ];
 
 const STEPS = ['Choose a provider', 'Grant read access', 'Name the board'];
@@ -31,11 +52,14 @@ export function NewBoardWizard({ open, onClose }: { open: boolean; onClose: () =
   };
 
   const create = useAction(
-    (body: { name: string; provider: Provider; mailbox: string }) => api.post<{ board: BoardDTO; authorizeUrl: string | null }>('/v1/boards', body),
+    (body: { name: string; provider: Provider; mailbox: string }) =>
+      api.post<{ board: BoardDTO; authorizeUrl: string | null }>('/v1/boards', body),
     {
       invalidate: [keys.boards, keys.ticketsAll, keys.me],
       success: (r, v) =>
-        r.authorizeUrl ? null : `${v.name} created · reading mail over ${PROVIDERS.find((x) => x.key === v.provider)!.name} (observe mode — the AI scores nothing until an admin promotes the board)`,
+        r.authorizeUrl
+          ? null
+          : `${v.name} created · reading mail over ${PROVIDERS.find((x) => x.key === v.provider)!.name} (observe mode — the AI scores nothing until an admin promotes the board)`,
     },
   );
 
@@ -97,7 +121,9 @@ export function NewBoardWizard({ open, onClose }: { open: boolean; onClose: () =
       {step === 1 && (
         <div>
           <div className={s.grant}>
-            <div className={s.grantHead}>{p.key === 'imap' ? 'The service account will be able to' : `${p.name} will ask you to grant`}</div>
+            <div className={s.grantHead}>
+              {p.key === 'imap' ? 'The service account will be able to' : `${p.name} will ask you to grant`}
+            </div>
             <ul className={s.scopes}>
               <li>
                 <span className={s.yes} aria-hidden>
@@ -120,7 +146,8 @@ export function NewBoardWizard({ open, onClose }: { open: boolean; onClose: () =
                   ×
                 </span>
                 <span>
-                  <b>Send mail</b> — not requested. The AI holds no send scope; replies always go out under a named approver's account.
+                  <b>Send mail</b> — not requested. The AI holds no send scope; replies always go out under a
+                  named approver's account.
                 </span>
               </li>
             </ul>
@@ -153,18 +180,41 @@ export function NewBoardWizard({ open, onClose }: { open: boolean; onClose: () =
           </div>
           <div className={s.fields}>
             <Field label="Board name">
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Cards support" maxLength={80} data-autofocus required />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Cards support"
+                maxLength={80}
+                data-autofocus
+                required
+              />
             </Field>
             <Field label="Mailbox address">
-              <Input type="email" value={mailbox} onChange={(e) => setMailbox(e.target.value)} placeholder="cards.support@bank.example" className="mono" required />
+              <Input
+                type="email"
+                value={mailbox}
+                onChange={(e) => setMailbox(e.target.value)}
+                placeholder="cards.support@bank.example"
+                className="mono"
+                required
+              />
             </Field>
           </div>
-          <p className={s.observe}>New boards start in observe mode: the AI reads and sorts, but nothing reaches a customer until an admin promotes the board.</p>
+          <p className={s.observe}>
+            New boards start in observe mode: the AI reads and sorts, but nothing reaches a customer until an
+            admin promotes the board.
+          </p>
           <div className={s.actions}>
             <Button type="button" onClick={() => setStep(1)}>
               Back
             </Button>
-            <Button type="submit" variant="dark" style={{ marginLeft: 'auto' }} disabled={!valid} loading={create.isPending}>
+            <Button
+              type="submit"
+              variant="dark"
+              style={{ marginLeft: 'auto' }}
+              disabled={!valid}
+              loading={create.isPending}
+            >
               Create board
             </Button>
           </div>

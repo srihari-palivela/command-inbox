@@ -28,7 +28,11 @@ export async function updateTicket(
   expectVersion?: number,
 ): Promise<TicketRow> {
   if (expectVersion !== undefined && expectVersion !== t.version) {
-    throw conflict('stale_version', 'This ticket changed since you opened it.', 'Reload to see the latest version, then try again.');
+    throw conflict(
+      'stale_version',
+      'This ticket changed since you opened it.',
+      'Reload to see the latest version, then try again.',
+    );
   }
   const [row] = await tx
     .update(s.tickets)
@@ -39,10 +43,25 @@ export async function updateTicket(
 }
 
 export async function systemNote(tx: Tx, orgId: string, ticketId: string, body: string): Promise<void> {
-  await tx.insert(s.comments).values({ orgId, ticketId, kind: 'system', authorName: 'Command Inbox', authorInitials: 'AI', body, createdAt: clock.now() });
+  await tx.insert(s.comments).values({
+    orgId,
+    ticketId,
+    kind: 'system',
+    authorName: 'Command Inbox',
+    authorInitials: 'AI',
+    body,
+    createdAt: clock.now(),
+  });
 }
 
-export async function addComment(tx: Tx, orgId: string, ticketId: string, actor: Actor, kind: 'note' | 'public' | 'call' | 'system', body: string): Promise<void> {
+export async function addComment(
+  tx: Tx,
+  orgId: string,
+  ticketId: string,
+  actor: Actor,
+  kind: 'note' | 'public' | 'call' | 'system',
+  body: string,
+): Promise<void> {
   await tx.insert(s.comments).values({
     orgId,
     ticketId,
@@ -55,7 +74,14 @@ export async function addComment(tx: Tx, orgId: string, ticketId: string, actor:
   });
 }
 
-export async function setSubtask(tx: Tx, orgId: string, ticketId: string, key: string, done: boolean, userId: string | null): Promise<void> {
+export async function setSubtask(
+  tx: Tx,
+  orgId: string,
+  ticketId: string,
+  key: string,
+  done: boolean,
+  userId: string | null,
+): Promise<void> {
   await tx
     .update(s.subtasks)
     .set({ done, doneBy: done ? userId : null, doneAt: done ? clock.now() : null })
@@ -63,7 +89,11 @@ export async function setSubtask(tx: Tx, orgId: string, ticketId: string, key: s
 }
 
 /** Audit + outbox for a ticket change, in one call. */
-export async function recordTicketEvent(tx: Tx, t: Pick<TicketRow, 'orgId' | 'id' | 'number'>, e: Omit<AuditInput, 'entity' | 'entityId' | 'ticketId'>): Promise<void> {
+export async function recordTicketEvent(
+  tx: Tx,
+  t: Pick<TicketRow, 'orgId' | 'id' | 'number'>,
+  e: Omit<AuditInput, 'entity' | 'entityId' | 'ticketId'>,
+): Promise<void> {
   await audit(tx, t.orgId, { ...e, entity: 'ticket', entityId: t.id, ticketId: t.id });
   await publish(tx, t.orgId, 'ticket.updated', { ticketId: t.id, number: ticketNumber(t.number) });
   if (e.feed) await publish(tx, t.orgId, 'activity.created', { ticketId: t.id });
@@ -76,6 +106,9 @@ export async function nextNumber(tx: Tx, orgId: string, counter: 'ticket' | 'gap
     .where(and(eq(s.counters.orgId, orgId), eq(s.counters.name, counter)))
     .returning({ value: s.counters.value });
   if (row) return row.value;
-  const [created] = await tx.insert(s.counters).values({ orgId, name: counter, value: counter === 'ticket' ? 1000 : 1 }).returning();
+  const [created] = await tx
+    .insert(s.counters)
+    .values({ orgId, name: counter, value: counter === 'ticket' ? 1000 : 1 })
+    .returning();
   return created!.value;
 }

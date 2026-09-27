@@ -7,7 +7,12 @@ export type App = Awaited<ReturnType<typeof buildApp>>;
 export interface Session {
   me: MeDTO;
   cookie: string;
-  req: (method: InjectOptions['method'], url: string, body?: unknown, headers?: Record<string, string>) => Promise<LightMyRequestResponse>;
+  req: (
+    method: InjectOptions['method'],
+    url: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ) => Promise<LightMyRequestResponse>;
   ticket: (idOrNumber: string) => Promise<TicketDetailDTO>;
 }
 

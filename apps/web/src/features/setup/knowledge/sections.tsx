@@ -10,11 +10,26 @@ const NO_EDIT = 'Only an Admin can change knowledge sources and gap tickets.';
 const messageToast = (r: { message: string }) => r.message;
 
 export function SourcesCard({ sources, canEdit }: { sources: KnowledgeSourceDTO[]; canEdit: boolean }) {
-  const sync = useAction((id: string) => api.post<{ message: string }>(`/v1/knowledge/sources/${id}/sync`), { invalidate: [keys.knowledge], success: messageToast });
+  const sync = useAction((id: string) => api.post<{ message: string }>(`/v1/knowledge/sources/${id}/sync`), {
+    invalidate: [keys.knowledge],
+    success: messageToast,
+  });
   return (
-    <Card title="Connected sources" actions={<span className={s.gapHint}>Watched for changes — an edited document drops back to pending until re-approved</span>} flush className={s.rise}>
+    <Card
+      title="Connected sources"
+      actions={
+        <span className={s.gapHint}>
+          Watched for changes — an edited document drops back to pending until re-approved
+        </span>
+      }
+      flush
+      className={s.rise}
+    >
       {sources.length === 0 ? (
-        <EmptyState title="No sources connected" text="Connect SharePoint, Confluence, a drive or an upload folder. Nothing is citable until it is approved." />
+        <EmptyState
+          title="No sources connected"
+          text="Connect SharePoint, Confluence, a drive or an upload folder. Nothing is citable until it is approved."
+        />
       ) : (
         <div className={s.sources}>
           {sources.map((k, i) => {
@@ -105,14 +120,21 @@ export function HonestCard({ honest }: { honest: KnowledgeDTO['honest'] }) {
           ? 'customer-facing sentences have ever been generated from un-approved sources. The agent flags instead of filling.'
           : 'sent replies cite content that is not approved. Review them now — this should never happen.',
     },
-    { n: String(honest.openGaps), color: 'var(--warn)', text: 'open gap tickets, each traceable to the specific queries it is blocking and a named owner.' },
+    {
+      n: String(honest.openGaps),
+      color: 'var(--warn)',
+      text: 'open gap tickets, each traceable to the specific queries it is blocking and a named owner.',
+    },
   ];
   return (
     <Card className={s.rise} bodyClassName={s.plainBody} style={{ animationDelay: '.1s' }}>
       <h3 className={s.plainTitle} style={{ marginBottom: 4 }}>
         The honest position
       </h3>
-      <p className={s.lede}>Knowledge readiness, not model quality, is what limits how much the AI can draft. The agent will not fill a gap with recall.</p>
+      <p className={s.lede}>
+        Knowledge readiness, not model quality, is what limits how much the AI can draft. The agent will not
+        fill a gap with recall.
+      </p>
       <div className={s.honest}>
         {rows.map((h) => (
           <div key={h.text} className={s.honestRow}>
@@ -128,18 +150,26 @@ export function HonestCard({ honest }: { honest: KnowledgeDTO['honest'] }) {
 }
 
 export function GapsCard({ gaps, open, canEdit }: { gaps: GapDTO[]; open: number; canEdit: boolean }) {
-  const act = useAction((id: string) => api.post<{ message: string }>(`/v1/knowledge/gaps/${id}/act`), { invalidate: [keys.knowledge, keys.me], success: messageToast });
+  const act = useAction((id: string) => api.post<{ message: string }>(`/v1/knowledge/gaps/${id}/act`), {
+    invalidate: [keys.knowledge, keys.me],
+    success: messageToast,
+  });
   return (
     <Card
       title="Gap tickets"
       meta={<span className={s.gapCount}>{open} open</span>}
-      actions={<span className={s.gapHint}>Raised automatically when the agent hits an answer it cannot ground</span>}
+      actions={
+        <span className={s.gapHint}>Raised automatically when the agent hits an answer it cannot ground</span>
+      }
       flush
       className={s.rise}
       style={{ animationDelay: '.14s' }}
     >
       {gaps.length === 0 ? (
-        <EmptyState title="No gaps" text="Every query type the agent has met is grounded in approved content." />
+        <EmptyState
+          title="No gaps"
+          text="Every query type the agent has met is grounded in approved content."
+        />
       ) : (
         gaps.map((g, i) => {
           const t = GAP_TONE[g.severity];

@@ -18,7 +18,11 @@ export function wordDiff(before: string, after: string): DiffPart[] {
   const n = a.length;
   const m = b.length;
   // Guard against pathological sizes: fall back to "all replaced".
-  if (n * m > 4_000_000) return [{ text: before, op: 'del' }, { text: after, op: 'add' }];
+  if (n * m > 4_000_000)
+    return [
+      { text: before, op: 'del' },
+      { text: after, op: 'add' },
+    ];
   const dp: Uint32Array[] = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
   for (let i = n - 1; i >= 0; i--) {
     for (let j = m - 1; j >= 0; j--) {

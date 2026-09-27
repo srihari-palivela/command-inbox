@@ -12,7 +12,17 @@ import { Calibration } from './Calibration';
 import { boardList, evalColor, evalToneColor, isGuard, stateLine } from './model';
 import s from './agents.module.css';
 
-export function AgentDrawer({ agent, overview, canEdit, onClose }: { agent: AgentDTO | null; overview: AgentsOverviewDTO; canEdit: boolean; onClose: () => void }) {
+export function AgentDrawer({
+  agent,
+  overview,
+  canEdit,
+  onClose,
+}: {
+  agent: AgentDTO | null;
+  overview: AgentsOverviewDTO;
+  canEdit: boolean;
+  onClose: () => void;
+}) {
   return (
     <Drawer
       open={!!agent}
@@ -28,14 +38,25 @@ export function AgentDrawer({ agent, overview, canEdit, onClose }: { agent: Agen
           </span>
         )
       }
-      subtitle={agent && `${overview.templates.find((t) => t.key === agent.template)?.label ?? agent.template} · ${agent.model} · ${stateLine(agent)}`}
+      subtitle={
+        agent &&
+        `${overview.templates.find((t) => t.key === agent.template)?.label ?? agent.template} · ${agent.model} · ${stateLine(agent)}`
+      }
     >
       {agent && <AgentBody key={agent.id} agent={agent} overview={overview} canEdit={canEdit} />}
     </Drawer>
   );
 }
 
-function AgentBody({ agent, overview, canEdit }: { agent: AgentDTO; overview: AgentsOverviewDTO; canEdit: boolean }) {
+function AgentBody({
+  agent,
+  overview,
+  canEdit,
+}: {
+  agent: AgentDTO;
+  overview: AgentsOverviewDTO;
+  canEdit: boolean;
+}) {
   const noEdit = canEdit ? undefined : 'Only an Admin can change an agent.';
   return (
     <>
@@ -108,25 +129,49 @@ function AgentBody({ agent, overview, canEdit }: { agent: AgentDTO; overview: Ag
 }
 
 function VersionStatus({ live, status }: { live: boolean; status: string }) {
-  if (live) return <Pill fg="var(--ok)" bg="var(--ok-bg)">Running</Pill>;
+  if (live)
+    return (
+      <Pill fg="var(--ok)" bg="var(--ok-bg)">
+        Running
+      </Pill>
+    );
   const passed = status === 'passed';
   const failed = status === 'failed';
   return (
-    <Pill fg={passed ? 'var(--text-2)' : failed ? 'var(--bad-text)' : 'var(--warn)'} bg={passed ? 'var(--surface-3)' : failed ? 'var(--bad-bg)' : 'var(--warn-bg)'}>
+    <Pill
+      fg={passed ? 'var(--text-2)' : failed ? 'var(--bad-text)' : 'var(--warn)'}
+      bg={passed ? 'var(--surface-3)' : failed ? 'var(--bad-bg)' : 'var(--warn-bg)'}
+    >
       {passed ? 'Evals passed' : status.charAt(0).toUpperCase() + status.slice(1)}
     </Pill>
   );
 }
 
-function PromptSection({ agent, models, canEdit, noEdit }: { agent: AgentDTO; models: AgentsOverviewDTO['models']; canEdit: boolean; noEdit?: string }) {
+function PromptSection({
+  agent,
+  models,
+  canEdit,
+  noEdit,
+}: {
+  agent: AgentDTO;
+  models: AgentsOverviewDTO['models'];
+  canEdit: boolean;
+  noEdit?: string;
+}) {
   const [editing, setEditing] = useState(false);
   const [prompt, setPrompt] = useState(agent.prompt);
   const [model, setModel] = useState(agent.model);
-  const create = useAction((v: { prompt: string; model?: string }) => api.post<{ version: number }>(`/v1/agents/${agent.id}/versions`, v), {
-    invalidate: [keys.agents],
-    success: (r) => `v${r.version} created — pending golden-set evals; v${agent.version} keeps running`,
-  });
-  const modelOptions = models.some((m) => m.id === agent.model) ? models : [{ id: agent.model, note: 'current' }, ...models];
+  const create = useAction(
+    (v: { prompt: string; model?: string }) =>
+      api.post<{ version: number }>(`/v1/agents/${agent.id}/versions`, v),
+    {
+      invalidate: [keys.agents],
+      success: (r) => `v${r.version} created — pending golden-set evals; v${agent.version} keeps running`,
+    },
+  );
+  const modelOptions = models.some((m) => m.id === agent.model)
+    ? models
+    : [{ id: agent.model, note: 'current' }, ...models];
   const changed = prompt.trim() !== agent.prompt.trim() || model !== agent.model;
 
   const start = () => {
@@ -154,7 +199,13 @@ function PromptSection({ agent, models, canEdit, noEdit }: { agent: AgentDTO; mo
         <div className={s.editGrid}>
           <label>
             <span className="sr-only">System prompt</span>
-            <TextArea className={s.promptEdit} value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={8000} data-autofocus />
+            <TextArea
+              className={s.promptEdit}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              maxLength={8000}
+              data-autofocus
+            />
           </label>
           <label>
             <span className={s.wizLabel}>Model</span>
@@ -167,11 +218,19 @@ function PromptSection({ agent, models, canEdit, noEdit }: { agent: AgentDTO; mo
             </select>
           </label>
           <div className={s.editActions}>
-            <span className={s.hint}>Ships as a new version after golden-set evals; v{agent.version} keeps running meanwhile.</span>
+            <span className={s.hint}>
+              Ships as a new version after golden-set evals; v{agent.version} keeps running meanwhile.
+            </span>
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
               Cancel
             </Button>
-            <Button size="sm" variant="primary" onClick={save} loading={create.isPending} disabled={!changed || prompt.trim().length < 20}>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={save}
+              loading={create.isPending}
+              disabled={!changed || prompt.trim().length < 20}
+            >
               Create new version
             </Button>
           </div>
@@ -192,7 +251,8 @@ function BoardsSection({ agent, canEdit, noEdit }: { agent: AgentDTO; canEdit: b
   }, [agent.boards, editing]);
   const save = useAction((boardIds: string[]) => api.put(`/v1/agents/${agent.id}/boards`, { boardIds }), {
     invalidate: [keys.agents, keys.boards],
-    success: (_r, ids) => `${agent.name} now on ${boardList((boards.data ?? []).filter((b) => ids.includes(b.id)))}`,
+    success: (_r, ids) =>
+      `${agent.name} now on ${boardList((boards.data ?? []).filter((b) => ids.includes(b.id)))}`,
   });
   const same = sel.length === agent.boards.length && agent.boards.every((b) => sel.includes(b.id));
 
@@ -215,7 +275,13 @@ function BoardsSection({ agent, canEdit, noEdit }: { agent: AgentDTO; canEdit: b
               <legend className="sr-only">Boards this agent works on</legend>
               {(boards.data ?? []).map((b) => (
                 <label key={b.id} className={s.check}>
-                  <input type="checkbox" checked={sel.includes(b.id)} onChange={(e) => setSel((cur) => (e.target.checked ? [...cur, b.id] : cur.filter((x) => x !== b.id)))} />
+                  <input
+                    type="checkbox"
+                    checked={sel.includes(b.id)}
+                    onChange={(e) =>
+                      setSel((cur) => (e.target.checked ? [...cur, b.id] : cur.filter((x) => x !== b.id)))
+                    }
+                  />
                   <span className={s.checkName}>{b.name}</span>
                   <span className={s.checkSrc}>{b.source}</span>
                 </label>
@@ -223,11 +289,21 @@ function BoardsSection({ agent, canEdit, noEdit }: { agent: AgentDTO; canEdit: b
             </fieldset>
           )}
           <div className={s.editActions}>
-            <span className={s.hint}>{sel.length === 0 ? 'With no boards the agent sees no mail.' : `${sel.length} board${sel.length === 1 ? '' : 's'} selected`}</span>
+            <span className={s.hint}>
+              {sel.length === 0
+                ? 'With no boards the agent sees no mail.'
+                : `${sel.length} board${sel.length === 1 ? '' : 's'} selected`}
+            </span>
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
               Cancel
             </Button>
-            <Button size="sm" variant="primary" disabled={same} loading={save.isPending} onClick={() => save.mutate(sel, { onSuccess: () => setEditing(false) })}>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={same}
+              loading={save.isPending}
+              onClick={() => save.mutate(sel, { onSuccess: () => setEditing(false) })}
+            >
               Save boards
             </Button>
           </div>

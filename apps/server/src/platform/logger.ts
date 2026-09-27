@@ -16,5 +16,6 @@ export const logger = pino({
     ],
     censor: '[redacted]',
   },
-  transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty', options: { singleLine: true } } : undefined,
+  transport:
+    env.NODE_ENV === 'development' ? { target: 'pino-pretty', options: { singleLine: true } } : undefined,
 });

@@ -16,7 +16,8 @@ export const GAP_TONE: Record<GapSeverity, Tone & { label: string }> = {
 };
 
 /** Readiness bar colour: ≥75 ready, ≥55 getting there, below that a blocker. */
-export const readinessTone = (pct: number) => (pct >= 75 ? 'var(--ok)' : pct >= 55 ? 'var(--accent)' : 'var(--warn)');
+export const readinessTone = (pct: number) =>
+  pct >= 75 ? 'var(--ok)' : pct >= 55 ? 'var(--accent)' : 'var(--warn)';
 
 export const SOURCE_KINDS = [
   { kind: 'SharePoint', abbr: 'SP', name: 'SharePoint', note: 'OAuth · watch chosen libraries for changes' },

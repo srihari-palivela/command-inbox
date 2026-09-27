@@ -143,7 +143,10 @@ export const NotificationBody = z.object({
 });
 export type NotificationBody = z.infer<typeof NotificationBody>;
 
-export const MarkReadBody = z.object({ ids: z.array(z.string().uuid()).optional(), all: z.boolean().optional() });
+export const MarkReadBody = z.object({
+  ids: z.array(z.string().uuid()).optional(),
+  all: z.boolean().optional(),
+});
 export type MarkReadBody = z.infer<typeof MarkReadBody>;
 
 export const CourseCompleteBody = z.object({ answers: z.array(z.number().int().min(0)).max(50) });
@@ -167,7 +170,10 @@ export const AgentBody = z.object({
 });
 export type AgentBody = z.infer<typeof AgentBody>;
 
-export const AgentVersionBody = z.object({ prompt: trimmed(8000), model: z.string().min(3).max(80).optional() });
+export const AgentVersionBody = z.object({
+  prompt: trimmed(8000),
+  model: z.string().min(3).max(80).optional(),
+});
 export type AgentVersionBody = z.infer<typeof AgentVersionBody>;
 
 export const AgentBoardsBody = z.object({ boardIds: z.array(z.string().uuid()) });

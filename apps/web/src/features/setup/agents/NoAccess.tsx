@@ -6,5 +6,12 @@ export const isForbidden = (err: unknown) => err instanceof ApiError && err.stat
 
 export function NoAccess({ error, what }: { error: unknown; what: string }) {
   const detail = error instanceof ApiError ? error.problem.title : undefined;
-  return <EmptyState title={`You can’t view ${what}`} text={detail ?? 'Setup screens are for Admin · Risk & Compliance. Ask an Admin if you need a change here.'} />;
+  return (
+    <EmptyState
+      title={`You can’t view ${what}`}
+      text={
+        detail ?? 'Setup screens are for Admin · Risk & Compliance. Ask an Admin if you need a change here.'
+      }
+    />
+  );
 }

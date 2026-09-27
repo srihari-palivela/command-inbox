@@ -22,7 +22,13 @@ function nextWord(t: TicketSummaryDTO): { text: string; color: string } {
   return { text: 'ready', color: 'var(--ok)' };
 }
 
-export function Queue({ query, filter, onFilter, selectedId, onSelect }: {
+export function Queue({
+  query,
+  filter,
+  onFilter,
+  selectedId,
+  onSelect,
+}: {
   query: { data: InboxDTO | undefined; isLoading: boolean; error: unknown; refetch: () => unknown };
   filter: InboxFilter;
   onFilter: (f: InboxFilter) => void;
@@ -38,10 +44,20 @@ export function Queue({ query, filter, onFilter, selectedId, onSelect }: {
         </h1>
         <div className={s.filters} role="group" aria-label="Filter the queue">
           {FILTERS.map((f) => (
-            <button key={f.key} type="button" className={s.filter} aria-pressed={filter === f.key} onClick={() => onFilter(f.key)}>
+            <button
+              key={f.key}
+              type="button"
+              className={s.filter}
+              aria-pressed={filter === f.key}
+              onClick={() => onFilter(f.key)}
+            >
               {f.label}
               {f.key === 'all' && d ? ` ${d.counts.all}` : ''}
-              {f.key !== 'all' && d && d.counts[f.count] ? <span className="mono" style={{ marginLeft: 4, opacity: 0.7 }}>{d.counts[f.count]}</span> : null}
+              {f.key !== 'all' && d && d.counts[f.count] ? (
+                <span className="mono" style={{ marginLeft: 4, opacity: 0.7 }}>
+                  {d.counts[f.count]}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -64,7 +80,11 @@ export function Queue({ query, filter, onFilter, selectedId, onSelect }: {
         ) : d.items.length === 0 ? (
           <EmptyState
             title={filter === 'all' ? 'Nothing waiting on you' : 'Nothing in this view'}
-            text={filter === 'all' ? 'The AI is handling everything that came in. New mail lands here as soon as it needs a person.' : 'Try another filter.'}
+            text={
+              filter === 'all'
+                ? 'The AI is handling everything that came in. New mail lands here as soon as it needs a person.'
+                : 'Try another filter.'
+            }
           />
         ) : (
           d.items.map((t, i) => {

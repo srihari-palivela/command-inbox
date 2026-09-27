@@ -29,26 +29,38 @@ export function FeedbackStore({ feedback, canQueue }: { feedback: FeedbackDTO[];
 
   const queue = useAction((f: FeedbackDTO) => api.post(`/v1/feedback/${f.id}/queue`), {
     invalidate: [keys.agents],
-    success: (_r, f) => `${FIX[f.fix].label} queued for ${f.agentName} — ships as a new version after evals, with this case added to the golden set.`,
+    success: (_r, f) =>
+      `${FIX[f.fix].label} queued for ${f.agentName} — ships as a new version after evals, with this case added to the golden set.`,
   });
 
   return (
     <Card className={s.fbCard} flush title="Feedback store" meta={`${feedback.length} stored`}>
-      <p className={s.fbIntro}>Every override, draft edit and rejection is kept against the agent that made the call. Queue one for tuning and the case joins that agent’s golden set.</p>
+      <p className={s.fbIntro}>
+        Every override, draft edit and rejection is kept against the agent that made the call. Queue one for
+        tuning and the case joins that agent’s golden set.
+      </p>
       {counts.size > 0 && (
         <div className={s.fbChips} role="group" aria-label="Filter by agent">
           <Chip on={agent === null} count={feedback.length} onClick={() => setAgent(null)}>
             All agents
           </Chip>
           {[...counts].map(([name, n]) => (
-            <Chip key={name} on={agent === name} count={n} onClick={() => setAgent(agent === name ? null : name)}>
+            <Chip
+              key={name}
+              on={agent === name}
+              count={n}
+              onClick={() => setAgent(agent === name ? null : name)}
+            >
               {name}
             </Chip>
           ))}
         </div>
       )}
       {rows.length === 0 ? (
-        <EmptyState title="Nothing stored yet" text="When staff override a route, edit a draft or reject a suggestion, it lands here as tuning material." />
+        <EmptyState
+          title="Nothing stored yet"
+          text="When staff override a route, edit a draft or reject a suggestion, it lands here as tuning material."
+        />
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {rows.map((f, i) => {
@@ -83,7 +95,11 @@ export function FeedbackStore({ feedback, canQueue }: { feedback: FeedbackDTO[];
                     className={s.fbAction}
                     loading={busy}
                     disabled={!canQueue}
-                    title={canQueue ? `Queue ${fix.label.toLowerCase()} for ${f.agentName}` : 'Only team leads and admins can queue tuning.'}
+                    title={
+                      canQueue
+                        ? `Queue ${fix.label.toLowerCase()} for ${f.agentName}`
+                        : 'Only team leads and admins can queue tuning.'
+                    }
                     onClick={() => queue.mutate(f)}
                   >
                     Queue tuning

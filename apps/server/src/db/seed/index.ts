@@ -15,9 +15,30 @@ import { cellOf, chainFor } from '../../domain/risk.js';
 import { createPool, type Tx } from '../client.js';
 import * as s from '../schema.js';
 import {
-  ACTION_TEMPLATES, AGENTS, ALERTS, BACKGROUND_LOAD, BOARDS, BUCKET_RULES, CELL_COUNTS, CONNECTORS, COURSES,
-  DEPARTMENTS, DIAL, EXTRA_GAPS, FEEDBACK, GAPS, KDOCS, KSOURCES, MAILBOXES, NOTIFS, ORGS, PEOPLE, PRIORITY_RULES,
-  QUERY_TYPES, SERIES, type PersonName,
+  ACTION_TEMPLATES,
+  AGENTS,
+  ALERTS,
+  BACKGROUND_LOAD,
+  BOARDS,
+  BUCKET_RULES,
+  CELL_COUNTS,
+  CONNECTORS,
+  COURSES,
+  DEPARTMENTS,
+  DIAL,
+  EXTRA_GAPS,
+  FEEDBACK,
+  GAPS,
+  KDOCS,
+  KSOURCES,
+  MAILBOXES,
+  NOTIFS,
+  ORGS,
+  PEOPLE,
+  PRIORITY_RULES,
+  QUERY_TYPES,
+  SERIES,
+  type PersonName,
 } from './data.js';
 import { DETAILED, HISTORY, LIGHT, type SeedTicket } from './tickets.js';
 
@@ -35,9 +56,14 @@ export async function seed(url = env.DATABASE_ADMIN_URL, now = new Date()): Prom
       // ── Orgs & people ─────────────────────────────────────────────────────
       const orgRows = await tx
         .insert(s.orgs)
-        .values(ORGS.map((o) => ({ ...o, headcount: o.slug === 'apex' ? 34 : o.slug === 'meridian' ? 11 : 6 })))
+        .values(
+          ORGS.map((o) => ({ ...o, headcount: o.slug === 'apex' ? 34 : o.slug === 'meridian' ? 11 : 6 })),
+        )
         .returning();
-      const org = Object.fromEntries(orgRows.map((o) => [o.slug, o])) as Record<string, (typeof orgRows)[number]>;
+      const org = Object.fromEntries(orgRows.map((o) => [o.slug, o])) as Record<
+        string,
+        (typeof orgRows)[number]
+      >;
       const apex = org.apex!.id;
 
       const userRows = await tx
@@ -61,10 +87,38 @@ export async function seed(url = env.DATABASE_ADMIN_URL, now = new Date()): Prom
       );
       // P. Sharma has a different role in each workspace — the org switcher shows it.
       await tx.insert(s.memberships).values([
-        { orgId: org.meridian!.id, userId: uid['P. Sharma'], role: 'admin', title: 'Workspace admin', pod: 'Pilot team', capacity: 10 },
-        { orgId: org.meridian!.id, userId: uid['R. Menon'], role: 'lead', title: 'Pilot lead', pod: 'Pilot team', capacity: 8 },
-        { orgId: org.northwind!.id, userId: uid['P. Sharma'], role: 'staff', title: 'Support staff', pod: 'Members desk', capacity: 12 },
-        { orgId: org.northwind!.id, userId: uid['A. Kapoor'], role: 'admin', title: 'Admin', pod: 'Members desk', capacity: 6 },
+        {
+          orgId: org.meridian!.id,
+          userId: uid['P. Sharma'],
+          role: 'admin',
+          title: 'Workspace admin',
+          pod: 'Pilot team',
+          capacity: 10,
+        },
+        {
+          orgId: org.meridian!.id,
+          userId: uid['R. Menon'],
+          role: 'lead',
+          title: 'Pilot lead',
+          pod: 'Pilot team',
+          capacity: 8,
+        },
+        {
+          orgId: org.northwind!.id,
+          userId: uid['P. Sharma'],
+          role: 'staff',
+          title: 'Support staff',
+          pod: 'Members desk',
+          capacity: 12,
+        },
+        {
+          orgId: org.northwind!.id,
+          userId: uid['A. Kapoor'],
+          role: 'admin',
+          title: 'Admin',
+          pod: 'Members desk',
+          capacity: 6,
+        },
       ]);
 
       await seedApex(tx, apex, uid, now, ago, inMin);
@@ -86,7 +140,12 @@ async function seedApex(
   ago: (m: number) => Date,
   inMin: (m: number) => Date,
 ): Promise<void> {
-  const person = (name: PersonName): Actor => ({ kind: 'user', id: uid[name], name, initials: initialsOf(name) });
+  const person = (name: PersonName): Actor => ({
+    kind: 'user',
+    id: uid[name],
+    name,
+    initials: initialsOf(name),
+  });
 
   await tx.insert(s.userSettings).values(
     Object.values(uid).map((userId) => ({
@@ -98,7 +157,9 @@ async function seedApex(
   );
   await tx
     .update(s.userSettings)
-    .set({ signature: 'Priyanka Sharma\nCustomer Service · Apex Bank\nThis mailbox is monitored 08:00–20:00 IST.' })
+    .set({
+      signature: 'Priyanka Sharma\nCustomer Service · Apex Bank\nThis mailbox is monitored 08:00–20:00 IST.',
+    })
     .where(and(eq(s.userSettings.orgId, orgId), eq(s.userSettings.userId, uid['P. Sharma'])));
 
   // ── Departments, taxonomy, clearance, availability ──────────────────────
@@ -145,11 +206,22 @@ async function seedApex(
 
   await tx.insert(s.clearances).values(
     PEOPLE.flatMap((p) =>
-      Object.entries(p.clear).map(([d, level]) => ({ orgId, userId: uid[p.name], departmentId: dept[d]!, level })),
+      Object.entries(p.clear).map(([d, level]) => ({
+        orgId,
+        userId: uid[p.name],
+        departmentId: dept[d]!,
+        level,
+      })),
     ),
   );
   await tx.insert(s.staffAvailability).values(
-    PEOPLE.map((p) => ({ orgId, userId: uid[p.name], status: p.avail, checkin: p.checkin, calendar: p.cal })),
+    PEOPLE.map((p) => ({
+      orgId,
+      userId: uid[p.name],
+      status: p.avail,
+      checkin: p.checkin,
+      calendar: p.cal,
+    })),
   );
 
   // ── Mailboxes & boards ──────────────────────────────────────────────────
@@ -170,7 +242,10 @@ async function seedApex(
       })),
     )
     .returning();
-  const mailbox = Object.fromEntries(mbRows.map((m) => [m.address, m])) as Record<string, (typeof mbRows)[number]>;
+  const mailbox = Object.fromEntries(mbRows.map((m) => [m.address, m])) as Record<
+    string,
+    (typeof mbRows)[number]
+  >;
 
   const boardRows = await tx
     .insert(s.boards)
@@ -187,7 +262,10 @@ async function seedApex(
       })),
     )
     .returning();
-  const board = Object.fromEntries(boardRows.map((b) => [b.key, b])) as Record<string, (typeof boardRows)[number]>;
+  const board = Object.fromEntries(boardRows.map((b) => [b.key, b])) as Record<
+    string,
+    (typeof boardRows)[number]
+  >;
 
   // ── Agents ──────────────────────────────────────────────────────────────
   const agentRows = await tx
@@ -233,7 +311,9 @@ async function seedApex(
       .values(a.boards.map((b) => ({ orgId, agentId: id, boardId: board[b]!.id })));
     await tx
       .insert(s.agentEvals)
-      .values(a.evals.map(([label, value, tone], i) => ({ orgId, agentId: id, label, value, tone, sort: i })));
+      .values(
+        a.evals.map(([label, value, tone], i) => ({ orgId, agentId: id, label, value, tone, sort: i })),
+      );
   }
   // Calibration history: observed accuracy by confidence band. Trade Bucketer is slightly overconfident.
   const outcomes: (typeof s.predictionOutcomes.$inferInsert)[] = [];
@@ -242,7 +322,9 @@ async function seedApex(
     seedN = (seedN * 16807) % 2147483647;
     return seedN / 2147483647;
   };
-  for (const a of AGENTS.filter((x) => x.role === 'bucketer' || x.role === 'extractor' || x.role === 'drafter')) {
+  for (const a of AGENTS.filter(
+    (x) => x.role === 'bucketer' || x.role === 'extractor' || x.role === 'drafter',
+  )) {
     const skew = a.name === 'Trade Bucketer' ? 0.08 : 0.01;
     for (let i = 0; i < 240; i++) {
       const conf = 0.4 + rand() * 0.6;
@@ -305,9 +387,26 @@ async function seedApex(
 
   // ── Rules ───────────────────────────────────────────────────────────────
   await tx.insert(s.bucketRules).values(
-    BUCKET_RULES.map((r, i) => ({ orgId, sort: i, description: r.description, target: r.target, kind: r.kind, hits: r.hits, pattern: r.pattern ? structuredClone(r.pattern) as unknown as { any?: string[]; all?: string[]; regex?: string; queryType?: string } : null })),
+    BUCKET_RULES.map((r, i) => ({
+      orgId,
+      sort: i,
+      description: r.description,
+      target: r.target,
+      kind: r.kind,
+      hits: r.hits,
+      pattern: r.pattern
+        ? (structuredClone(r.pattern) as unknown as {
+            any?: string[];
+            all?: string[];
+            regex?: string;
+            queryType?: string;
+          })
+        : null,
+    })),
   );
-  await tx.insert(s.priorityRules).values(PRIORITY_RULES.map((r, i) => ({ orgId, sort: i, ...r, enabled: true })));
+  await tx
+    .insert(s.priorityRules)
+    .values(PRIORITY_RULES.map((r, i) => ({ orgId, sort: i, ...r, enabled: true })));
 
   // ── Knowledge ───────────────────────────────────────────────────────────
   const srcRows = await tx
@@ -346,7 +445,10 @@ async function seedApex(
       })),
     )
     .returning();
-  const doc = Object.fromEntries(KDOCS.map((d, i) => [d.key, docRows[i]!])) as Record<string, (typeof docRows)[number]>;
+  const doc = Object.fromEntries(KDOCS.map((d, i) => [d.key, docRows[i]!])) as Record<
+    string,
+    (typeof docRows)[number]
+  >;
 
   await tx.insert(s.gapTickets).values([
     ...GAPS.map((g) => ({
@@ -425,14 +527,29 @@ async function seedApex(
   const dayStr = (d: Date) => d.toISOString().slice(0, 10);
   for (const key of ['fr', 'tat', 'missed', 'reopen', 'accept', 'auto', 'csat', 'cost', 'awo'] as const) {
     SERIES[key].forEach((value, i) => {
-      metricRows.push({ orgId, metric: `weekly.${key}`, day: dayStr(new Date(now.getTime() - (11 - i) * 7 * DAY)), value });
+      metricRows.push({
+        orgId,
+        metric: `weekly.${key}`,
+        day: dayStr(new Date(now.getTime() - (11 - i) * 7 * DAY)),
+        value,
+      });
     });
   }
   SERIES.execBaseline.forEach((value, i) =>
-    metricRows.push({ orgId, metric: 'exec.baseline', day: dayStr(new Date(now.getTime() - (13 - i) * DAY)), value }),
+    metricRows.push({
+      orgId,
+      metric: 'exec.baseline',
+      day: dayStr(new Date(now.getTime() - (13 - i) * DAY)),
+      value,
+    }),
   );
   SERIES.execActual.forEach((value, i) =>
-    metricRows.push({ orgId, metric: 'exec.actual', day: dayStr(new Date(now.getTime() - (13 - i) * DAY)), value }),
+    metricRows.push({
+      orgId,
+      metric: 'exec.actual',
+      day: dayStr(new Date(now.getTime() - (13 - i) * DAY)),
+      value,
+    }),
   );
   metricRows.push({ orgId, metric: 'spend.imported_minor', day: dayStr(now), value: 214_000_00 });
   metricRows.push({ orgId, metric: 'shift.closed_imported', day: dayStr(now), value: 25 });
@@ -539,7 +656,8 @@ async function seedApex(
         product: t.product,
         splitProposed: t.splitProposed ?? false,
         loggedMinutes: t.loggedMinutes ?? 0,
-        resolution: t.status === 'resolved' ? (t.owner === 'AI' ? 'Resolved by the AI' : 'Resolved by staff') : null,
+        resolution:
+          t.status === 'resolved' ? (t.owner === 'AI' ? 'Resolved by the AI' : 'Resolved by staff') : null,
         createdAt: received,
         updatedAt: received,
       })
@@ -601,7 +719,9 @@ async function seedApex(
         validation: t.action.validation,
         state: t.action.state,
         chain: chainFor(cell, template.approval as 'auto' | 'single' | 'dual', DIAL[cell]),
-        idempotencyKey: sha256(canonicalJson({ orgId, code: template.code, fields: fields.map((f) => [f.label, f.value]) })),
+        idempotencyKey: sha256(
+          canonicalJson({ orgId, code: template.code, fields: fields.map((f) => [f.label, f.value]) }),
+        ),
         executedAt: t.action.state === 'executed' ? received : null,
         externalRef: t.action.state === 'executed' ? `STM-${t.number}-OK` : null,
       });
@@ -655,19 +775,48 @@ async function seedApex(
             ]
           : [
               ['c1', 'Pull the history and records for the brief', 'AI', true],
-              ['c2', t.number === 48199 ? 'Decide on provisional credit' : 'Decide the next step', 'You', false],
+              [
+                'c2',
+                t.number === 48199 ? 'Decide on provisional credit' : 'Decide the next step',
+                'You',
+                false,
+              ],
               ['c3', 'Give the customer a dated commitment', 'You', false],
-              ['c4', t.regulatoryFlag ? 'Notify Compliance' : 'Close the loop with the customer', 'You', false],
+              [
+                'c4',
+                t.regulatoryFlag ? 'Notify Compliance' : 'Close the loop with the customer',
+                'You',
+                false,
+              ],
             ];
     await tx.insert(s.subtasks).values(
-      subs.map(([key, label, owner, done], i) => ({ orgId, ticketId, key: key as string, label: label as string, owner: owner as string, sort: i, done: done as boolean })),
+      subs.map(([key, label, owner, done], i) => ({
+        orgId,
+        ticketId,
+        key: key as string,
+        label: label as string,
+        owner: owner as string,
+        sort: i,
+        done: done as boolean,
+      })),
     );
 
     // History (system) + seeded human log
     const assigneeName = t.owner === 'AI' ? 'the AI' : t.owner === 'Unassigned' ? 'nobody yet' : t.owner;
     const sys = (min: number, body: string) =>
-      tx.insert(s.comments).values({ orgId, ticketId, kind: 'system', authorName: 'Command Inbox', authorInitials: 'AI', body, createdAt: ago(min) });
-    await sys(t.receivedMinAgo, `Read the email and classified it as ${(t.bucketLabel ?? t.queryType).toLowerCase()} with ${t.confidence >= 0.9 ? 'high' : t.confidence >= 0.78 ? 'moderate' : 'low'} confidence (${t.confidence.toFixed(2)}).`);
+      tx.insert(s.comments).values({
+        orgId,
+        ticketId,
+        kind: 'system',
+        authorName: 'Command Inbox',
+        authorInitials: 'AI',
+        body,
+        createdAt: ago(min),
+      });
+    await sys(
+      t.receivedMinAgo,
+      `Read the email and classified it as ${(t.bucketLabel ?? t.queryType).toLowerCase()} with ${t.confidence >= 0.9 ? 'high' : t.confidence >= 0.78 ? 'moderate' : 'low'} confidence (${t.confidence.toFixed(2)}).`,
+    );
     await sys(
       t.receivedMinAgo - 0.02,
       t.lane === 'manual'
@@ -696,15 +845,25 @@ async function seedApex(
       });
     }
     for (const [ext, name, size] of t.attachments ?? []) {
-      await tx.insert(s.attachments).values({ orgId, ticketId, ext, name, size, storageKey: `seed/${t.number}/${name}` });
+      await tx
+        .insert(s.attachments)
+        .values({ orgId, ticketId, ext, name, size, storageKey: `seed/${t.number}/${name}` });
     }
 
     // Linked objects
     const links: { kind: string; label: string; ref: string | null }[] = [];
-    if (t.action) links.push({ kind: 'ACTION', label: `${t.action.code} · ${tpl[t.action.code]!.name}`, ref: t.action.code });
-    if (t.draft) for (const k of t.draft.cites) links.push({ kind: 'SOURCE', label: `${doc[k]!.title} ${doc[k]!.section}`, ref: doc[k]!.id });
+    if (t.action)
+      links.push({
+        kind: 'ACTION',
+        label: `${t.action.code} · ${tpl[t.action.code]!.name}`,
+        ref: t.action.code,
+      });
+    if (t.draft)
+      for (const k of t.draft.cites)
+        links.push({ kind: 'SOURCE', label: `${doc[k]!.title} ${doc[k]!.section}`, ref: doc[k]!.id });
     if (t.brief) links.push({ kind: 'POLICY', label: t.brief.why, ref: null });
-    if (t.gap) links.push({ kind: 'GAP', label: `GAP-0${t.gap} · receivables as margin`, ref: `GAP-0${t.gap}` });
+    if (t.gap)
+      links.push({ kind: 'GAP', label: `GAP-0${t.gap} · receivables as margin`, ref: `GAP-0${t.gap}` });
     if (t.dispute) links.push({ kind: 'DISPUTE', label: t.dispute, ref: t.dispute.split(' ')[0]! });
     links.push({ kind: 'AUDIT', label: `AUD-${t.number}`, ref: null });
     await tx.insert(s.ticketLinks).values(links.map((l, i) => ({ orgId, ticketId, ...l, sort: i })));
@@ -725,21 +884,74 @@ async function seedApex(
   }
 
   // The AI activity rail from the design, as real audit events.
-  const byNumber = async (n: number) => (await tx.query.tickets.findFirst({ where: (tk, { and, eq }) => and(eq(tk.orgId, orgId), eq(tk.number, n)) }))!.id;
+  const byNumber = async (n: number) =>
+    (await tx.query.tickets.findFirst({
+      where: (tk, { and, eq }) => and(eq(tk.orgId, orgId), eq(tk.number, n)),
+    }))!.id;
   const feed: [number, number | null, string, 'ok' | 'stop' | 'flag' | 'info' | 'muted', string, Actor][] = [
-    [1101, 48199, 'Held QRY-48199 from all customer-facing output — ombudsman keyword', 'stop', 'policy 7.1', AI_ACTOR],
-    [340, 48188, 'Raised knowledge gap GAP-0412 · receivables as margin under DA terms', 'flag', 'QRY-48188', AI_ACTOR],
-    [264, 48195, 'Executed ACT-STM-002 · statement Apr–Jun emailed to registered address', 'ok', 'QRY-48195 · auto', AI_ACTOR],
-    [182, null, 'Re-prioritised 14 threads after an ageing sweep; 3 moved up the queue', 'info', 'queue', AI_ACTOR],
+    [
+      1101,
+      48199,
+      'Held QRY-48199 from all customer-facing output — ombudsman keyword',
+      'stop',
+      'policy 7.1',
+      AI_ACTOR,
+    ],
+    [
+      340,
+      48188,
+      'Raised knowledge gap GAP-0412 · receivables as margin under DA terms',
+      'flag',
+      'QRY-48188',
+      AI_ACTOR,
+    ],
+    [
+      264,
+      48195,
+      'Executed ACT-STM-002 · statement Apr–Jun emailed to registered address',
+      'ok',
+      'QRY-48195 · auto',
+      AI_ACTOR,
+    ],
+    [
+      182,
+      null,
+      'Re-prioritised 14 threads after an ageing sweep; 3 moved up the queue',
+      'info',
+      'queue',
+      AI_ACTOR,
+    ],
     [167, 48211, 'Mandate check passed for M. Raghavan on CIF 8830412', 'info', 'QRY-48211', AI_ACTOR],
-    [149, 48199, 'Notified team lead R. Menon — QRY-48199 is 26 minutes from its deadline', 'stop', 'escalation', AI_ACTOR],
-    [120, null, 'Learned correction: reason code CONTRACT_TERMINATED preferred over DISPUTE', 'muted', 'from your edit', person('P. Sharma')],
+    [
+      149,
+      48199,
+      'Notified team lead R. Menon — QRY-48199 is 26 minutes from its deadline',
+      'stop',
+      'escalation',
+      AI_ACTOR,
+    ],
+    [
+      120,
+      null,
+      'Learned correction: reason code CONTRACT_TERMINATED preferred over DISPUTE',
+      'muted',
+      'from your edit',
+      person('P. Sharma'),
+    ],
   ];
   for (const [min, n, text, tone, meta, actor] of feed) {
     const ticketId = n ? await byNumber(n) : null;
     feedEvents.push({
       at: ago(min),
-      input: { actor, action: 'ai.activity', entity: n ? 'ticket' : 'queue', entityId: ticketId, ticketId, summary: text, feed: { tone, meta } },
+      input: {
+        actor,
+        action: 'ai.activity',
+        entity: n ? 'ticket' : 'queue',
+        entityId: ticketId,
+        ticketId,
+        summary: text,
+        feed: { tone, meta },
+      },
     });
   }
   feedEvents.sort((a, b) => a.at.getTime() - b.at.getTime());
@@ -767,41 +979,166 @@ function buildSpans(t: SeedTicket, dept: string) {
     costMinor: number | null;
     status: 'ok' | 'flag' | 'stop';
   }[] = [];
-  const push = (offsetMs: number, agent: string, model: string, action: string, output: string, latencyMs: number, tokens: number | null, costMinor: number | null, status: 'ok' | 'flag' | 'stop') =>
-    spans.push({ seq: spans.length + 1, offsetMs, agent, model, action, output, latencyMs, tokens, costMinor, status });
+  const push = (
+    offsetMs: number,
+    agent: string,
+    model: string,
+    action: string,
+    output: string,
+    latencyMs: number,
+    tokens: number | null,
+    costMinor: number | null,
+    status: 'ok' | 'flag' | 'stop',
+  ) =>
+    spans.push({
+      seq: spans.length + 1,
+      offsetMs,
+      agent,
+      model,
+      action,
+      output,
+      latencyMs,
+      tokens,
+      costMinor,
+      status,
+    });
   const n = (t.thread ?? []).length || 1;
-  push(0, 'Mail intake', '—', 'Fetched the thread over Graph API, masked PII before any model call', `${n} message${n > 1 ? 's' : ''} · sender matched to ${t.customer.cif}`, 128, null, null, 'ok');
-  push(128, 'Guardrail Sentinel', 'claude-haiku-4-5', 'Screened for hard stop rules before anything else ran',
-    stop ? 'STOP · ombudsman named + third contact — customer-facing generation suspended' : t.sentiment === 'vulnerable' ? 'STOP · vulnerable-customer signal — drafting suspended' : 'Clear · no hard stop fired',
-    212, 1100, 4, stop || t.sentiment === 'vulnerable' ? 'stop' : 'ok');
+  push(
+    0,
+    'Mail intake',
+    '—',
+    'Fetched the thread over Graph API, masked PII before any model call',
+    `${n} message${n > 1 ? 's' : ''} · sender matched to ${t.customer.cif}`,
+    128,
+    null,
+    null,
+    'ok',
+  );
+  push(
+    128,
+    'Guardrail Sentinel',
+    'claude-haiku-4-5',
+    'Screened for hard stop rules before anything else ran',
+    stop
+      ? 'STOP · ombudsman named + third contact — customer-facing generation suspended'
+      : t.sentiment === 'vulnerable'
+        ? 'STOP · vulnerable-customer signal — drafting suspended'
+        : 'Clear · no hard stop fired',
+    212,
+    1100,
+    4,
+    stop || t.sentiment === 'vulnerable' ? 'stop' : 'ok',
+  );
   const bar = t.confidence >= 0.78;
-  push(340, bucketer, 'claude-sonnet-5', 'Classified the query against the taxonomy',
-    `${t.bucketLabel ?? t.queryType} · confidence ${t.confidence.toFixed(2)} · ${bar ? 'above the bar' : 'below the bar, human required'}`, 798, 3400, 19, bar ? 'ok' : 'flag');
+  push(
+    340,
+    bucketer,
+    'claude-sonnet-5',
+    'Classified the query against the taxonomy',
+    `${t.bucketLabel ?? t.queryType} · confidence ${t.confidence.toFixed(2)} · ${bar ? 'above the bar' : 'below the bar, human required'}`,
+    798,
+    3400,
+    19,
+    bar ? 'ok' : 'flag',
+  );
   if (t.brief && t.number === 48199) {
-    push(1100, 'Dispute Summariser', 'claude-sonnet-5', 'Assembled dispute history, merchant record and the chargeback clock for the human',
-      'Brief attached · 5 context items · no customer-facing text generated', 1900, 6200, 28, 'ok');
+    push(
+      1100,
+      'Dispute Summariser',
+      'claude-sonnet-5',
+      'Assembled dispute history, merchant record and the chargeback clock for the human',
+      'Brief attached · 5 context items · no customer-facing text generated',
+      1900,
+      6200,
+      28,
+      'ok',
+    );
   } else if (t.action) {
     const inferred = t.action.fields.filter((f) => f.source.startsWith('inferred')).length;
-    push(1100, 'Field Extractor', 'claude-sonnet-5', `Filled ${t.action.code} from the thread and system records`,
-      `${t.action.fields.length} fields · ${inferred} inferred, rest verified against core`, 644, 4100, 31, 'ok');
+    push(
+      1100,
+      'Field Extractor',
+      'claude-sonnet-5',
+      `Filled ${t.action.code} from the thread and system records`,
+      `${t.action.fields.length} fields · ${inferred} inferred, rest verified against core`,
+      644,
+      4100,
+      31,
+      'ok',
+    );
     const irreversible = ACTION_TEMPLATES.find((a) => a.code === t.action!.code)!;
-    push(1800, 'Policy engine', 'rules', 'Looked up the action’s risk cell and approval route',
+    push(
+      1800,
+      'Policy engine',
+      'rules',
+      'Looked up the action’s risk cell and approval route',
       `${irreversible.rev ? 'Can be undone' : 'Cannot be undone'} · ${irreversible.money ? 'Money moves' : 'No money moves'} → ${irreversible.rev && !irreversible.money ? 'the AI may act alone' : 'needs you and a second approver'}`,
-      31, null, null, irreversible.rev ? 'ok' : 'flag');
+      31,
+      null,
+      null,
+      irreversible.rev ? 'ok' : 'flag',
+    );
   } else if (t.draft) {
     const gap = t.gap ? ` · 1 gap flagged, GAP-0${t.gap} raised` : ' · full coverage';
-    push(1100, 'Reply Drafter', 'claude-sonnet-5', 'Drafted the reply from approved sources only',
-      `${t.draft.cites.length} citation${t.draft.cites.length > 1 ? 's' : ''}${gap}`, 1200, 5800, 42, t.gap ? 'flag' : 'ok');
+    push(
+      1100,
+      'Reply Drafter',
+      'claude-sonnet-5',
+      'Drafted the reply from approved sources only',
+      `${t.draft.cites.length} citation${t.draft.cites.length > 1 ? 's' : ''}${gap}`,
+      1200,
+      5800,
+      42,
+      t.gap ? 'flag' : 'ok',
+    );
   } else if (t.splitProposed) {
-    push(1100, 'Split proposer', 'claude-sonnet-5', 'Detected two intents owned by two departments',
-      'Proposed split into two child tickets · held for your decision', 905, 3900, 22, 'flag');
+    push(
+      1100,
+      'Split proposer',
+      'claude-sonnet-5',
+      'Detected two intents owned by two departments',
+      'Proposed split into two child tickets · held for your decision',
+      905,
+      3900,
+      22,
+      'flag',
+    );
   } else if (t.lane === 'manual') {
-    push(1100, 'Summariser', 'claude-sonnet-5', 'Assembled the history and records for the person taking over',
-      'Brief attached · no customer-facing text generated', 1100, 3600, 24, 'ok');
+    push(
+      1100,
+      'Summariser',
+      'claude-sonnet-5',
+      'Assembled the history and records for the person taking over',
+      'Brief attached · no customer-facing text generated',
+      1100,
+      3600,
+      24,
+      'ok',
+    );
   } else if (t.lane === 'draft') {
-    push(1100, 'Reply Drafter', 'claude-sonnet-5', 'Drafting from approved sources only', 'In progress', 900, 2100, 18, 'ok');
+    push(
+      1100,
+      'Reply Drafter',
+      'claude-sonnet-5',
+      'Drafting from approved sources only',
+      'In progress',
+      900,
+      2100,
+      18,
+      'ok',
+    );
   } else {
-    push(1100, 'Field Extractor', 'claude-sonnet-5', 'Filling the action template from the thread', 'In progress', 600, 2400, 18, 'ok');
+    push(
+      1100,
+      'Field Extractor',
+      'claude-sonnet-5',
+      'Filling the action template from the thread',
+      'In progress',
+      600,
+      2400,
+      18,
+      'ok',
+    );
   }
   const priNote: Record<string, string> = {
     P1: 'P1 · Critical · regulator, fraud, or money at risk today',
@@ -809,66 +1146,199 @@ function buildSpans(t: SeedTicket, dept: string) {
     P3: 'P3 · Normal · standard servicing, inside the day',
     P4: 'P4 · Low · informational, no deadline pressure',
   };
-  push(2100, 'Priority Ranker', 'rules + claude-haiku-4-5', 'Scored urgency from deadline, sentiment, amount and repeat contacts', priNote[t.priority]!, 96, 800, 2, t.priority === 'P1' ? 'flag' : 'ok');
-  push(2200, 'Router', 'rules', 'Placed the ticket with the right person at the right position', `Queued for ${dept} · clearance-checked · position by ${t.priority}`, 18, null, null, 'ok');
+  push(
+    2100,
+    'Priority Ranker',
+    'rules + claude-haiku-4-5',
+    'Scored urgency from deadline, sentiment, amount and repeat contacts',
+    priNote[t.priority]!,
+    96,
+    800,
+    2,
+    t.priority === 'P1' ? 'flag' : 'ok',
+  );
+  push(
+    2200,
+    'Router',
+    'rules',
+    'Placed the ticket with the right person at the right position',
+    `Queued for ${dept} · clearance-checked · position by ${t.priority}`,
+    18,
+    null,
+    null,
+    'ok',
+  );
   return spans;
 }
 
 /** Small tenants: enough to show a different workspace, and to prove isolation. */
 async function seedSmallOrg(tx: Tx, orgId: string, uid: Uid, now: Date, kind: 'meridian' | 'northwind') {
-  const members = kind === 'meridian' ? (['P. Sharma', 'R. Menon'] as const) : (['P. Sharma', 'A. Kapoor'] as const);
-  await tx.insert(s.userSettings).values(members.map((m) => ({ orgId, userId: uid[m], prefs: {}, signature: '' })));
+  const members =
+    kind === 'meridian' ? (['P. Sharma', 'R. Menon'] as const) : (['P. Sharma', 'A. Kapoor'] as const);
+  await tx
+    .insert(s.userSettings)
+    .values(members.map((m) => ({ orgId, userId: uid[m], prefs: {}, signature: '' })));
   const [d] = await tx
     .insert(s.departments)
-    .values({ orgId, name: kind === 'meridian' ? 'Wealth Desk' : 'Member Services', ownerId: uid[members[0]], readinessPct: 40, readinessNote: 'pilot content only' })
+    .values({
+      orgId,
+      name: kind === 'meridian' ? 'Wealth Desk' : 'Member Services',
+      ownerId: uid[members[0]],
+      readinessPct: 40,
+      readinessNote: 'pilot content only',
+    })
     .returning();
-  await tx.insert(s.clearances).values(members.map((m) => ({ orgId, userId: uid[m], departmentId: d!.id, level: 3 })));
-  await tx.insert(s.staffAvailability).values(members.map((m) => ({ orgId, userId: uid[m], status: 'available', checkin: 'Checked in 09:00', calendar: 'Free' })));
+  await tx
+    .insert(s.clearances)
+    .values(members.map((m) => ({ orgId, userId: uid[m], departmentId: d!.id, level: 3 })));
+  await tx.insert(s.staffAvailability).values(
+    members.map((m) => ({
+      orgId,
+      userId: uid[m],
+      status: 'available',
+      checkin: 'Checked in 09:00',
+      calendar: 'Free',
+    })),
+  );
   const [q] = await tx
     .insert(s.queryTypes)
-    .values({ orgId, name: 'General enquiry', departmentId: d!.id, defaultLane: 'draft', monthlyVolume: 40, ownerLabel: d!.name })
+    .values({
+      orgId,
+      name: 'General enquiry',
+      departmentId: d!.id,
+      defaultLane: 'draft',
+      monthlyVolume: 40,
+      ownerLabel: d!.name,
+    })
     .returning();
   const address = kind === 'meridian' ? 'wealth@meridian.example' : 'members@northwind.example';
   const [mb] = await tx
     .insert(s.mailboxes)
-    .values({ orgId, address, provider: 'google', departmentId: d!.id, teamLabel: d!.name, permissions: ['read', 'label', 'draft'], state: 'streaming', volume24h: kind === 'meridian' ? 64 : 21 })
+    .values({
+      orgId,
+      address,
+      provider: 'google',
+      departmentId: d!.id,
+      teamLabel: d!.name,
+      permissions: ['read', 'label', 'draft'],
+      state: 'streaming',
+      volume24h: kind === 'meridian' ? 64 : 21,
+    })
     .returning();
   const [b] = await tx
     .insert(s.boards)
-    .values({ orgId, key: 'main', name: kind === 'meridian' ? 'Wealth mail' : 'Member mail', mailboxId: mb!.id, team: d!.name, state: 'observe', autoRatePct: 0 })
+    .values({
+      orgId,
+      key: 'main',
+      name: kind === 'meridian' ? 'Wealth mail' : 'Member mail',
+      mailboxId: mb!.id,
+      team: d!.name,
+      state: 'observe',
+      autoRatePct: 0,
+    })
     .returning();
-  await tx.insert(s.priorityRules).values(PRIORITY_RULES.map((r, i) => ({ orgId, sort: i, ...r, enabled: true })));
+  await tx
+    .insert(s.priorityRules)
+    .values(PRIORITY_RULES.map((r, i) => ({ orgId, sort: i, ...r, enabled: true })));
   for (const [dial, lvl] of Object.entries(DIAL)) {
-    await tx.insert(s.autonomyDial).values({ orgId, cell: dial, level: Math.min(lvl, 1), locked: dial === '1-1' });
+    await tx
+      .insert(s.autonomyDial)
+      .values({ orgId, cell: dial, level: Math.min(lvl, 1), locked: dial === '1-1' });
   }
   const [cust] = await tx
     .insert(s.customers)
-    .values({ orgId, cif: 'CIF 100001', name: kind === 'meridian' ? 'Harini Balaji' : 'Tom Okafor', email: kind === 'meridian' ? 'harini.b@gmail.com' : 'tom.okafor@mail.example', segment: 'Retail', sinceYear: 2021, account: 'A/C ••0001' })
+    .values({
+      orgId,
+      cif: 'CIF 100001',
+      name: kind === 'meridian' ? 'Harini Balaji' : 'Tom Okafor',
+      email: kind === 'meridian' ? 'harini.b@gmail.com' : 'tom.okafor@mail.example',
+      segment: 'Retail',
+      sinceYear: 2021,
+      account: 'A/C ••0001',
+    })
     .returning();
   const received = new Date(now.getTime() - 95 * MIN);
   const [t] = await tx
     .insert(s.tickets)
     .values({
-      orgId, number: kind === 'meridian' ? 1201 : 3301, boardId: b!.id, mailboxId: mb!.id, customerId: cust!.id,
-      subject: kind === 'meridian' ? 'Portfolio statement for Q2 not received' : 'How do I update my address on the membership?',
-      fromName: cust!.name, fromEmail: cust!.email, receivedAt: received, lane: 'draft', originalLane: 'draft', laneNote: 'Observe mode — AI drafts are shadowed only',
-      status: 'with_human', priority: 'P3', segment: 'Retail', departmentId: d!.id, queryTypeId: q!.id, bucket: 'General enquiry', confidence: 0.7,
-      assigneeId: uid['P. Sharma'], ownerKind: 'user', slaMinutes: 1440, dueAt: new Date(received.getTime() + 1440 * MIN), nextMove: 'Reply to the customer',
-      category: 'Servicing', subcategory: 'Information request', product: 'Savings account',
+      orgId,
+      number: kind === 'meridian' ? 1201 : 3301,
+      boardId: b!.id,
+      mailboxId: mb!.id,
+      customerId: cust!.id,
+      subject:
+        kind === 'meridian'
+          ? 'Portfolio statement for Q2 not received'
+          : 'How do I update my address on the membership?',
+      fromName: cust!.name,
+      fromEmail: cust!.email,
+      receivedAt: received,
+      lane: 'draft',
+      originalLane: 'draft',
+      laneNote: 'Observe mode — AI drafts are shadowed only',
+      status: 'with_human',
+      priority: 'P3',
+      segment: 'Retail',
+      departmentId: d!.id,
+      queryTypeId: q!.id,
+      bucket: 'General enquiry',
+      confidence: 0.7,
+      assigneeId: uid['P. Sharma'],
+      ownerKind: 'user',
+      slaMinutes: 1440,
+      dueAt: new Date(received.getTime() + 1440 * MIN),
+      nextMove: 'Reply to the customer',
+      category: 'Servicing',
+      subcategory: 'Information request',
+      product: 'Savings account',
     })
     .returning();
   await tx.insert(s.messages).values({
-    orgId, ticketId: t!.id, direction: 'inbound', fromName: cust!.name, fromAddr: cust!.email, toAddr: address,
-    body: kind === 'meridian' ? 'I have not received my portfolio statement for the quarter ending June. Could you resend it?' : 'I moved house last month. What do I need to send you to update my address?',
+    orgId,
+    ticketId: t!.id,
+    direction: 'inbound',
+    fromName: cust!.name,
+    fromAddr: cust!.email,
+    toAddr: address,
+    body:
+      kind === 'meridian'
+        ? 'I have not received my portfolio statement for the quarter ending June. Could you resend it?'
+        : 'I moved house last month. What do I need to send you to update my address?',
     sentAt: received,
   });
-  await tx.insert(s.counters).values([{ orgId, name: 'ticket', value: kind === 'meridian' ? 1201 : 3301 }, { orgId, name: 'gap', value: 1 }]);
-  await audit(tx, orgId, { actor: AI_ACTOR, action: 'workspace.created', entity: 'org', entityId: orgId, summary: `Workspace ${kind} seeded`, at: received });
+  await tx.insert(s.counters).values([
+    { orgId, name: 'ticket', value: kind === 'meridian' ? 1201 : 3301 },
+    { orgId, name: 'gap', value: 1 },
+  ]);
+  await audit(tx, orgId, {
+    actor: AI_ACTOR,
+    action: 'workspace.created',
+    entity: 'org',
+    entityId: orgId,
+    summary: `Workspace ${kind} seeded`,
+    at: received,
+  });
+}
+
+/** True when the database already holds a workspace (used by `--if-empty` so restarts keep data). */
+async function hasData(url = env.DATABASE_ADMIN_URL): Promise<boolean> {
+  const pool = createPool(url, 1);
+  try {
+    const r = await pool.query<{ n: number }>('select count(*)::int as n from orgs');
+    return (r.rows[0]?.n ?? 0) > 0;
+  } finally {
+    await pool.end();
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  seed()
-    .then(() => console.log('seeded'))
+  const ifEmpty = process.argv.includes('--if-empty');
+  (ifEmpty ? hasData() : Promise.resolve(false))
+    .then(async (skip) => {
+      if (skip) return console.log('database already seeded; leaving it alone');
+      await seed();
+      console.log('seeded');
+    })
     .catch((e) => {
       console.error(e);
       process.exit(1);

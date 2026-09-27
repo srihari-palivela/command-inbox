@@ -118,7 +118,10 @@ export class Worker {
       const message = err instanceof Error ? err.message : String(err);
       const final = job.attempts >= job.maxAttempts;
       const backoffMs = Math.min(300_000, 1000 * 2 ** job.attempts) * (0.75 + Math.random() * 0.5);
-      logger.warn({ jobId: job.id, kind: job.kind, attempt: job.attempts, final, err: message }, 'job failed');
+      logger.warn(
+        { jobId: job.id, kind: job.kind, attempt: job.attempts, final, err: message },
+        'job failed',
+      );
       await db
         .update(jobs)
         .set({

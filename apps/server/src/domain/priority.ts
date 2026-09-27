@@ -22,7 +22,10 @@ const atLeast = (cur: Priority, floor: Priority): Priority => (RANK[cur] > RANK[
  * Deterministic priority rules (Rules & policies → Priority rules). Hard rules always fire — they are
  * policy, not preference — even if a stale row says disabled. Weighted rules can be switched off.
  */
-export function rankPriority(s: PrioritySignals, rules: PriorityRuleRow[]): { priority: Priority; fired: string[] } {
+export function rankPriority(
+  s: PrioritySignals,
+  rules: PriorityRuleRow[],
+): { priority: Priority; fired: string[] } {
   const on = (key: string) => {
     const r = rules.find((x) => x.key === key);
     return !r || r.hard || r.enabled;

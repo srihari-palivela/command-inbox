@@ -4,7 +4,13 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import Fastify, { type FastifyError } from 'fastify';
-import { hasZodFastifySchemaValidationErrors, jsonSchemaTransform, serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
+import {
+  hasZodFastifySchemaValidationErrors,
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+  type ZodTypeProvider,
+} from 'fastify-type-provider-zod';
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { env } from './config/env.js';
@@ -24,7 +30,10 @@ const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 export async function buildApp() {
   const app = Fastify({
     loggerInstance: logger,
-    genReqId: (req) => (typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'].slice(0, 64) : randomUUID()),
+    genReqId: (req) =>
+      typeof req.headers['x-request-id'] === 'string'
+        ? req.headers['x-request-id'].slice(0, 64)
+        : randomUUID(),
     trustProxy: true,
     bodyLimit: 1_048_576,
   }).withTypeProvider<ZodTypeProvider>();
@@ -38,10 +47,17 @@ export async function buildApp() {
   await app.register(rateLimit, {
     max: 600,
     timeWindow: '1 minute',
-    keyGenerator: (req) => (req.cookies?.[SESSION_COOKIE] ? `s:${req.cookies[SESSION_COOKIE]!.slice(0, 16)}` : `ip:${req.ip}`),
+    keyGenerator: (req) =>
+      req.cookies?.[SESSION_COOKIE] ? `s:${req.cookies[SESSION_COOKIE]!.slice(0, 16)}` : `ip:${req.ip}`,
   });
   await app.register(swagger, {
-    openapi: { info: { title: 'Command Inbox API', version: '1.0.0', description: 'AI triage & resolution platform for bank customer queries.' } },
+    openapi: {
+      info: {
+        title: 'Command Inbox API',
+        version: '1.0.0',
+        description: 'AI triage & resolution platform for bank customer queries.',
+      },
+    },
     transform: jsonSchemaTransform,
   });
 
@@ -58,7 +74,8 @@ export async function buildApp() {
       }
     }
     const cfg = req.routeOptions.config ?? {};
-    if (!cfg.public && req.url.startsWith('/v1/') && !req.ctx) throw new AppError(401, 'unauthenticated', 'Sign in to continue');
+    if (!cfg.public && req.url.startsWith('/v1/') && !req.ctx)
+      throw new AppError(401, 'unauthenticated', 'Sign in to continue');
     if (UNSAFE.has(req.method) && req.ctx && !cfg.csrfExempt) {
       const header = req.headers['x-csrf-token'];
       if (typeof header !== 'string' || !req.csrfToken || !safeEqual(header, req.csrfToken)) {
@@ -70,20 +87,26 @@ export async function buildApp() {
   app.addHook('onResponse', async (req, reply) => {
     if (!req.startedAt) return;
     const seconds = Number(process.hrtime.bigint() - req.startedAt) / 1e9;
-    httpDuration.observe({ method: req.method, route: req.routeOptions.url ?? 'unknown', status: String(reply.statusCode) }, seconds);
+    httpDuration.observe(
+      { method: req.method, route: req.routeOptions.url ?? 'unknown', status: String(reply.statusCode) },
+      seconds,
+    );
   });
 
   // RFC 9457 problem details for every error.
   app.setErrorHandler((err: FastifyError, req, reply) => {
     if (hasZodFastifySchemaValidationErrors(err)) {
-      return reply.status(400).type('application/problem+json').send({
-        type: 'about:blank',
-        title: 'Invalid request',
-        status: 400,
-        code: 'validation',
-        detail: err.validation.map((v) => `${v.instancePath || '(body)'} ${v.message}`).join('; '),
-        requestId: req.id,
-      });
+      return reply
+        .status(400)
+        .type('application/problem+json')
+        .send({
+          type: 'about:blank',
+          title: 'Invalid request',
+          status: 400,
+          code: 'validation',
+          detail: err.validation.map((v) => `${v.instancePath || '(body)'} ${v.message}`).join('; '),
+          requestId: req.id,
+        });
     }
     if (err instanceof AppError) {
       return reply.status(err.status).type('application/problem+json').send({
@@ -96,10 +119,25 @@ export async function buildApp() {
       });
     }
     if (err.statusCode && err.statusCode < 500) {
-      return reply.status(err.statusCode).type('application/problem+json').send({ type: 'about:blank', title: err.message, status: err.statusCode, code: err.code ?? 'error', requestId: req.id });
+      return reply
+        .status(err.statusCode)
+        .type('application/problem+json')
+        .send({
+          type: 'about:blank',
+          title: err.message,
+          status: err.statusCode,
+          code: err.code ?? 'error',
+          requestId: req.id,
+        });
     }
     req.log.error({ err }, 'unhandled error');
-    return reply.status(500).type('application/problem+json').send({ type: 'about:blank', title: 'Something went wrong', status: 500, code: 'internal', requestId: req.id });
+    return reply.status(500).type('application/problem+json').send({
+      type: 'about:blank',
+      title: 'Something went wrong',
+      status: 500,
+      code: 'internal',
+      requestId: req.id,
+    });
   });
 
   app.get('/healthz', { config: { public: true } }, async () => ({ ok: true }));

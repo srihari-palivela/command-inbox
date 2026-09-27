@@ -59,7 +59,10 @@ describe('lane decision', () => {
   });
 
   it('checks safety before anything else', () => {
-    expect(decideLane({ ...base, hardStop: 'ombudsman named' })).toEqual({ lane: 'manual', note: 'Held back — ombudsman named' });
+    expect(decideLane({ ...base, hardStop: 'ombudsman named' })).toEqual({
+      lane: 'manual',
+      note: 'Held back — ombudsman named',
+    });
   });
 
   it('stands down on multi-intent mail and on query types no team owns', () => {
@@ -81,7 +84,14 @@ describe('lane decision', () => {
 });
 
 describe('priority rules', () => {
-  const calm: PrioritySignals = { regulatorNamed: false, vulnerable: false, minutesLeft: 1000, amountInr: null, contactCount: 1, informational: false };
+  const calm: PrioritySignals = {
+    regulatorNamed: false,
+    vulnerable: false,
+    minutesLeft: 1000,
+    amountInr: null,
+    contactCount: 1,
+    informational: false,
+  };
 
   it('defaults to P3 and drops pure information requests to P4', () => {
     expect(rankPriority(calm, []).priority).toBe('P3');
@@ -100,8 +110,12 @@ describe('priority rules', () => {
   });
 
   it('ignores a disabled weighted rule but never a hard one', () => {
-    expect(rankPriority({ ...calm, contactCount: 5 }, [{ key: 'p4', hard: false, enabled: false }]).priority).toBe('P3');
-    expect(rankPriority({ ...calm, regulatorNamed: true }, [{ key: 'p1', hard: true, enabled: false }]).priority).toBe('P1');
+    expect(
+      rankPriority({ ...calm, contactCount: 5 }, [{ key: 'p4', hard: false, enabled: false }]).priority,
+    ).toBe('P3');
+    expect(
+      rankPriority({ ...calm, regulatorNamed: true }, [{ key: 'p1', hard: true, enabled: false }]).priority,
+    ).toBe('P1');
   });
 });
 
@@ -110,20 +124,40 @@ describe('deadlines', () => {
   const due = (mins: number) => new Date(now.getTime() + mins * 60_000);
 
   it('grades pressure against the budget', () => {
-    expect(computeSla({ status: 'with_human', dueAt: due(600), slaMinutes: 1440, pausedAt: null }, now).tone).toBe('due_soon');
-    expect(computeSla({ status: 'with_human', dueAt: due(1000), slaMinutes: 1440, pausedAt: null }, now).tone).toBe('on_track');
-    expect(computeSla({ status: 'with_human', dueAt: due(45), slaMinutes: 1440, pausedAt: null }, now).tone).toBe('almost_late');
-    expect(computeSla({ status: 'with_human', dueAt: due(-5), slaMinutes: 240, pausedAt: null }, now)).toMatchObject({ tone: 'late', minutesLeft: -5 });
+    expect(
+      computeSla({ status: 'with_human', dueAt: due(600), slaMinutes: 1440, pausedAt: null }, now).tone,
+    ).toBe('due_soon');
+    expect(
+      computeSla({ status: 'with_human', dueAt: due(1000), slaMinutes: 1440, pausedAt: null }, now).tone,
+    ).toBe('on_track');
+    expect(
+      computeSla({ status: 'with_human', dueAt: due(45), slaMinutes: 1440, pausedAt: null }, now).tone,
+    ).toBe('almost_late');
+    expect(
+      computeSla({ status: 'with_human', dueAt: due(-5), slaMinutes: 240, pausedAt: null }, now),
+    ).toMatchObject({ tone: 'late', minutesLeft: -5 });
   });
 
   it('pauses the clock while waiting on the customer and stops it when closed', () => {
-    const paused = computeSla({ status: 'waiting_customer', dueAt: due(300), slaMinutes: 1440, pausedAt: new Date(now.getTime() - 60 * 60_000) }, now);
+    const paused = computeSla(
+      {
+        status: 'waiting_customer',
+        dueAt: due(300),
+        slaMinutes: 1440,
+        pausedAt: new Date(now.getTime() - 60 * 60_000),
+      },
+      now,
+    );
     expect(paused).toMatchObject({ tone: 'paused', minutesLeft: 360 });
-    expect(computeSla({ status: 'resolved', dueAt: due(-500), slaMinutes: 240, pausedAt: null }, now).tone).toBe('closed');
+    expect(
+      computeSla({ status: 'resolved', dueAt: due(-500), slaMinutes: 240, pausedAt: null }, now).tone,
+    ).toBe('closed');
   });
 
   it('counts due-soon, almost-late and late as at risk', () => {
-    expect(['on_track', 'due_soon', 'almost_late', 'late', 'paused', 'closed'].filter((t) => atRisk(t as never))).toEqual(['due_soon', 'almost_late', 'late']);
+    expect(
+      ['on_track', 'due_soon', 'almost_late', 'late', 'paused', 'closed'].filter((t) => atRisk(t as never)),
+    ).toEqual(['due_soon', 'almost_late', 'late']);
   });
 
   it('sets budgets by priority, segment and escalation', () => {
@@ -149,7 +183,8 @@ describe('status transitions', () => {
 
 describe('PII masking', () => {
   it('replaces identifiers with typed tokens and restores them from the vault', () => {
-    const raw = 'Mail m.raghavan@sundaramtextiles.in or call +91 9840014471; PAN ABCDE1234F, card 4111 1111 1111 1111, A/C 123456789012.';
+    const raw =
+      'Mail m.raghavan@sundaramtextiles.in or call +91 9840014471; PAN ABCDE1234F, card 4111 1111 1111 1111, A/C 123456789012.';
     const { text, vault } = maskPii(raw);
     expect(text).not.toMatch(/raghavan|ABCDE1234F|4111|123456789012|9840014471/);
     expect(text).toContain('[EMAIL_1]');

@@ -22,12 +22,14 @@ export function computeSla(t: SlaInput, now: Date): SlaDTO {
   const dueAt = t.dueAt.toISOString();
   if (t.pausedAt) return { tone: 'paused', minutesLeft: left, budgetMinutes: budget, dueAt };
   if (left < 0) return { tone: 'late', minutesLeft: left, budgetMinutes: budget, dueAt };
-  if (left <= 60 || left <= budget * 0.1) return { tone: 'almost_late', minutesLeft: left, budgetMinutes: budget, dueAt };
+  if (left <= 60 || left <= budget * 0.1)
+    return { tone: 'almost_late', minutesLeft: left, budgetMinutes: budget, dueAt };
   if (left <= budget * 0.5) return { tone: 'due_soon', minutesLeft: left, budgetMinutes: budget, dueAt };
   return { tone: 'on_track', minutesLeft: left, budgetMinutes: budget, dueAt };
 }
 
-export const atRisk = (tone: SlaDTO['tone']): boolean => tone === 'due_soon' || tone === 'almost_late' || tone === 'late';
+export const atRisk = (tone: SlaDTO['tone']): boolean =>
+  tone === 'due_soon' || tone === 'almost_late' || tone === 'late';
 
 /** SLA budget in minutes by priority and segment. */
 export function slaBudget(priority: string, segment: string, escalation = false): number {

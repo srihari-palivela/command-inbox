@@ -12,7 +12,9 @@
 .source {
   padding: 13px 15px;
   min-width: 0;
-  box-shadow: 1px 0 0 var(--line-soft), 0 1px 0 var(--line-soft);
+  box-shadow:
+    1px 0 0 var(--line-soft),
+    0 1px 0 var(--line-soft);
   animation: fadeIn 0.3s ease both;
   display: flex;
   flex-direction: column;
@@ -259,7 +261,9 @@
   background: var(--surface);
   border-radius: 10px;
   padding: 11px 13px;
-  transition: border-color 0.16s ease, background 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
   width: 100%;
 }
 .kind:hover:not(:disabled) {

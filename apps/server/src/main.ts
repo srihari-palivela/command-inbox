@@ -20,7 +20,10 @@ async function main() {
     };
   }
   await app.listen({ port: env.PORT, host: env.HOST });
-  logger.info({ port: env.PORT, embeddedWorker: env.EMBEDDED_WORKER, demo: env.DEMO_MODE }, 'command inbox api listening');
+  logger.info(
+    { port: env.PORT, embeddedWorker: env.EMBEDDED_WORKER, demo: env.DEMO_MODE },
+    'command inbox api listening',
+  );
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'shutting down');

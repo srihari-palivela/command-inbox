@@ -26,8 +26,28 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const openCompose = useCallback(() => setCompose(true), []);
   const closeCompose = useCallback(() => setCompose(false), []);
   const value = useMemo(
-    () => ({ paletteOpen, openPalette, closePalette, learnCourseId, openLearn, closeLearn, composeOpen, openCompose, closeCompose }),
-    [paletteOpen, openPalette, closePalette, learnCourseId, openLearn, closeLearn, composeOpen, openCompose, closeCompose],
+    () => ({
+      paletteOpen,
+      openPalette,
+      closePalette,
+      learnCourseId,
+      openLearn,
+      closeLearn,
+      composeOpen,
+      openCompose,
+      closeCompose,
+    }),
+    [
+      paletteOpen,
+      openPalette,
+      closePalette,
+      learnCourseId,
+      openLearn,
+      closeLearn,
+      composeOpen,
+      openCompose,
+      closeCompose,
+    ],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

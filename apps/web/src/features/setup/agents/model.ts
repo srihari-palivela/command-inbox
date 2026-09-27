@@ -13,10 +13,15 @@ export function evalColor(score: number | null): string {
   return score >= 93 ? 'var(--ok)' : score >= 88 ? 'var(--accent)' : 'var(--warn)';
 }
 
-export const evalToneColor = (t: 'ok' | 'warn' | 'neutral') => (t === 'ok' ? 'var(--ok)' : t === 'warn' ? 'var(--warn)' : 'var(--text-2)');
+export const evalToneColor = (t: 'ok' | 'warn' | 'neutral') =>
+  t === 'ok' ? 'var(--ok)' : t === 'warn' ? 'var(--warn)' : 'var(--text-2)';
 
 export const boardList = (boards: { name: string }[]) =>
-  boards.length === 0 ? 'No boards' : boards.length > 2 ? `${boards.length} boards` : boards.map((b) => b.name).join(', ');
+  boards.length === 0
+    ? 'No boards'
+    : boards.length > 2
+      ? `${boards.length} boards`
+      : boards.map((b) => b.name).join(', ');
 
 export const isGuard = (a: Pick<AgentDTO, 'template'>) => a.template === 'policy_guard';
 
@@ -37,10 +42,17 @@ export interface CalibrationVerdict {
  * band with enough outcomes is within 5 points of its stated confidence, otherwise the worst band.
  */
 export function calibrationVerdict(bands: CalibrationBandDTO[]): CalibrationVerdict {
-  const scored = bands.filter((b): b is CalibrationBandDTO & { observed: number } => b.observed !== null && b.n >= MIN_BAND_N);
-  if (!scored.length) return { word: bands.length ? 'Too few scored outcomes to judge yet' : 'No scored outcomes yet', tone: 'neutral' };
+  const scored = bands.filter(
+    (b): b is CalibrationBandDTO & { observed: number } => b.observed !== null && b.n >= MIN_BAND_N,
+  );
+  if (!scored.length)
+    return {
+      word: bands.length ? 'Too few scored outcomes to judge yet' : 'No scored outcomes yet',
+      tone: 'neutral',
+    };
   let worst = scored[0]!;
-  for (const b of scored) if (Math.abs(b.observed - b.predicted) > Math.abs(worst.observed - worst.predicted)) worst = b;
+  for (const b of scored)
+    if (Math.abs(b.observed - b.predicted) > Math.abs(worst.observed - worst.predicted)) worst = b;
   const gap = worst.observed - worst.predicted;
   if (Math.abs(gap) <= CAL_TOLERANCE) return { word: 'Well calibrated', tone: 'ok' };
   return {

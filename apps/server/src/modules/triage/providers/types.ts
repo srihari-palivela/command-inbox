@@ -96,15 +96,30 @@ export interface LlmProvider {
   guard(t: ThreadInput, agent: AgentConfig): Promise<Staged<GuardResult>>;
   classify(t: ThreadInput, taxonomy: TaxonomyEntry[], agent: AgentConfig): Promise<Staged<ClassifyResult>>;
   extract(t: ThreadInput, template: TemplateSpec, agent: AgentConfig): Promise<Staged<ExtractResult>>;
-  draft(t: ThreadInput, docs: GroundingDoc[], agent: AgentConfig, customerName: string): Promise<Staged<DraftResult>>;
+  draft(
+    t: ThreadInput,
+    docs: GroundingDoc[],
+    agent: AgentConfig,
+    customerName: string,
+  ): Promise<Staged<DraftResult>>;
   brief(t: ThreadInput, facts: string, agent: AgentConfig): Promise<Staged<BriefResult>>;
-  nlFilter(query: string, departments: { id: string; name: string }[]): Promise<{ filters: TicketFilters; understood: boolean } | null>;
+  nlFilter(
+    query: string,
+    departments: { id: string; name: string }[],
+  ): Promise<{ filters: TicketFilters; understood: boolean } | null>;
   answer(question: string, facts: string): Promise<{ headline: string; lines: string[] } | null>;
 }
 
 /** Field specs per action template (what the extractor must fill). */
 export const TEMPLATE_FIELDS: Record<string, string[]> = {
-  'ACT-STP-014': ['Account number', 'Cheque number', 'Amount', 'Instrument date', 'Reason code', 'Requested by'],
+  'ACT-STP-014': [
+    'Account number',
+    'Cheque number',
+    'Amount',
+    'Instrument date',
+    'Reason code',
+    'Requested by',
+  ],
   'ACT-STM-002': ['Account number', 'Period from', 'Period to', 'Format', 'Delivery', 'Charge'],
   'ACT-CRT-004': ['Account number', 'Financial year', 'Delivery'],
   'ACT-LTR-011': ['Account number', 'Purpose', 'Delivery'],

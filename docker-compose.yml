@@ -1,0 +1,71 @@
+# Local, production-shaped stack: Postgres, one-shot migrate + seed, API, a separate worker, and the SPA
+# behind nginx. Open http://localhost:8080 and sign in with a demo user.
+#
+# The secrets below are for local use only. In a real deployment they come from your secret manager.
+x-server-env: &server-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://ci_app:ci_app@db:5432/command_inbox
+  DATABASE_ADMIN_URL: postgres://postgres:postgres@db:5432/command_inbox
+  WEB_ORIGIN: http://localhost:8080
+  PUBLIC_API_URL: http://localhost:8080
+  COOKIE_SECURE: 'true' # browsers treat http://localhost as a secure context
+  DEMO_MODE: 'true'
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-local-compose-key-0123456789abcdef0123456789abcdef}
+  INTAKE_WEBHOOK_SECRET: ${INTAKE_WEBHOOK_SECRET:-local-compose-intake-secret}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+  LOG_LEVEL: info
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: command_inbox
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/docker/postgres-init.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d command_inbox']
+      interval: 3s
+      retries: 20
+
+  migrate:
+    build: { context: ., dockerfile: infra/docker/server.Dockerfile }
+    image: command-inbox-server
+    environment: *server-env
+    # Seeds only an empty database, so restarts keep your data.
+    command: ['sh', '-c', 'node dist/migrate.js && node dist/seed.js --if-empty']
+    depends_on:
+      db: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    image: command-inbox-server
+    environment:
+      <<: *server-env
+      EMBEDDED_WORKER: 'false'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  worker:
+    image: command-inbox-server
+    environment: *server-env
+    command: ['node', 'dist/worker.js']
+    healthcheck: { disable: true }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  web:
+    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    ports:
+      - '8080:8080'
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  pgdata:

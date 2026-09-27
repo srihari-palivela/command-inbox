@@ -26,7 +26,11 @@ export const db: Db = drizzle(pool, { schema });
  * Run `fn` in a transaction bound to one tenant. Row-level security policies read `app.org_id`,
  * so a query that forgets its `org_id` filter still cannot see another bank's rows.
  */
-export async function withTenant<T>(orgId: string, fn: (tx: Tx) => Promise<T>, database: Db = db): Promise<T> {
+export async function withTenant<T>(
+  orgId: string,
+  fn: (tx: Tx) => Promise<T>,
+  database: Db = db,
+): Promise<T> {
   return database.transaction(async (tx) => {
     await tx.execute(sql`select set_config('app.org_id', ${orgId}, true)`);
     return fn(tx);

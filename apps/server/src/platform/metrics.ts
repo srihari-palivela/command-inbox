@@ -33,4 +33,8 @@ export const gateDecisions = new client.Counter({
   registers: [registry],
 });
 
-export const sseClients = new client.Gauge({ name: 'sse_clients', help: 'Connected SSE clients', registers: [registry] });
+export const sseClients = new client.Gauge({
+  name: 'sse_clients',
+  help: 'Connected SSE clients',
+  registers: [registry],
+});

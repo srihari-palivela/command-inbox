@@ -460,7 +460,9 @@
   border-radius: 9px;
   padding: 10px 12px;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
 }
 .check:hover {
   border-color: var(--accent-line-2);

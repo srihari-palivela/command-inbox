@@ -5,7 +5,9 @@ import { Button, Modal } from '../../../ui';
 import s from './Knowledge.module.css';
 import { SOURCE_KINDS } from './tones';
 
-const NAME: Record<KnowledgeKind, string> = Object.fromEntries(SOURCE_KINDS.map((k) => [k.kind, k.name])) as Record<KnowledgeKind, string>;
+const NAME: Record<KnowledgeKind, string> = Object.fromEntries(
+  SOURCE_KINDS.map((k) => [k.kind, k.name]),
+) as Record<KnowledgeKind, string>;
 
 function useConnect(onDone: () => void) {
   const m = useAction((kind: KnowledgeKind) => api.post('/v1/knowledge/sources', { kind }), {
@@ -18,10 +20,22 @@ function useConnect(onDone: () => void) {
 export function ConnectSourceModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const connect = useConnect(onClose);
   return (
-    <Modal open={open} onClose={onClose} width={520} title="Connect a knowledge source" subtitle="Read-only. Everything lands as pending — nothing is citable until a knowledge manager approves it.">
+    <Modal
+      open={open}
+      onClose={onClose}
+      width={520}
+      title="Connect a knowledge source"
+      subtitle="Read-only. Everything lands as pending — nothing is citable until a knowledge manager approves it."
+    >
       <div className={s.kinds}>
         {SOURCE_KINDS.map((k) => (
-          <button key={k.kind} type="button" className={s.kind} disabled={connect.isPending} onClick={() => connect.connect(k.kind)}>
+          <button
+            key={k.kind}
+            type="button"
+            className={s.kind}
+            disabled={connect.isPending}
+            onClick={() => connect.connect(k.kind)}
+          >
             <span className={`${s.abbr} ${s.abbrLg}`} aria-hidden>
               {k.abbr}
             </span>
@@ -53,13 +67,21 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="dark" style={{ marginLeft: 'auto' }} loading={connect.isPending} onClick={() => connect.connect('Upload')}>
+          <Button
+            variant="dark"
+            style={{ marginLeft: 'auto' }}
+            loading={connect.isPending}
+            onClick={() => connect.connect('Upload')}
+          >
             Open an upload source
           </Button>
         </>
       }
     >
-      <p className={s.modalText}>Direct uploads are a knowledge source like any other. What you upload lands as pending until a knowledge manager approves it — the AI cannot quote it before then.</p>
+      <p className={s.modalText}>
+        Direct uploads are a knowledge source like any other. What you upload lands as pending until a
+        knowledge manager approves it — the AI cannot quote it before then.
+      </p>
       <ol className={s.steps}>
         <li>An upload source is created for this workspace.</li>
         <li>Drop files into it; each one is parsed for text inside the bank tenancy.</li>
