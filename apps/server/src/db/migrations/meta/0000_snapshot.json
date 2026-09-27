@@ -1,5 +1,5 @@
 {
-  "id": "4e9dd400-0b19-417f-89f1-8bbb9276bb67",
+  "id": "5a9adcc2-b08a-4fd2-b2ee-fd656e66c580",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3589,6 +3589,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "map_name": {
+          "name": "map_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "department_id": {
           "name": "department_id",

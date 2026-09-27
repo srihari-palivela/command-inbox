@@ -10,7 +10,9 @@ export type Topic =
   | 'gate.updated'
   | 'call.updated'
   | 'setup.updated'
-  | 'people.updated';
+  | 'people.updated'
+  | 'insights.updated'
+  | 'learning.updated';
 
 export const EVENTS_CHANNEL = 'ci_events';
 

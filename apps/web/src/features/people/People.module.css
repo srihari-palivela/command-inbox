@@ -1,0 +1,135 @@
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.legendBox {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+.card {
+  overflow: hidden;
+  animation: riseIn 0.45s var(--ease-out) both;
+  animation-delay: 0.05s;
+}
+.hint {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.scroll {
+  overflow-x: auto;
+}
+.table {
+  min-width: 900px;
+}
+.row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  animation: fadeIn 0.3s ease both;
+}
+.row:last-child {
+  border-bottom: 0;
+}
+.head {
+  padding: 9px 16px;
+  background: var(--surface-sunk);
+  animation: none;
+}
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--muted-2);
+  text-transform: uppercase;
+}
+.dept {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  line-height: 1.25;
+}
+.person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.name {
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sub {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cell {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.25;
+  transition:
+    filter 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.cellBtn:hover {
+  filter: brightness(0.96);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.load {
+  min-width: 0;
+}
+.loadTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+.loadNum {
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.pod {
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.you {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 500;
+  flex: 0 0 auto;
+}

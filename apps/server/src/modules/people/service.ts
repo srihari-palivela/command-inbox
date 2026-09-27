@@ -46,7 +46,8 @@ export async function listStaff(tx: Tx, ctx: Ctx): Promise<StaffDTO[]> {
 }
 
 export async function people(tx: Tx, ctx: Ctx): Promise<PeopleDTO> {
-  requireCap(ctx, 'insights.view', 'view skills and clearance');
+  // Everyone on the team can see who is cleared for what (read-only); only leads and admins edit it.
+  requireCap(ctx, 'ticket.work', 'view skills and clearance');
   const departments = await tx
     .select({ id: s.departments.id, name: s.departments.name })
     .from(s.departments)
@@ -57,7 +58,12 @@ export async function people(tx: Tx, ctx: Ctx): Promise<PeopleDTO> {
 
 export async function setClearance(tx: Tx, ctx: Ctx, userId: string, departmentId: string, level: number): Promise<void> {
   requireCap(ctx, 'people.edit_clearance', 'change someone’s clearance');
-  const [u] = await tx.select().from(s.users).where(eq(s.users.id, userId));
+  // The person must belong to this workspace: a user id from another org is "not found", never written.
+  const [u] = await tx
+    .select({ name: s.users.name })
+    .from(s.users)
+    .innerJoin(s.memberships, and(eq(s.memberships.userId, s.users.id), eq(s.memberships.orgId, ctx.orgId)))
+    .where(eq(s.users.id, userId));
   const [d] = await tx.select().from(s.departments).where(and(eq(s.departments.orgId, ctx.orgId), eq(s.departments.id, departmentId)));
   if (!u || !d) throw notFound('Person or team');
   await tx

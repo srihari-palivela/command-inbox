@@ -147,10 +147,7 @@ export const workspaceRoutes: FastifyPluginAsyncZod = async (app) => {
     return { ok: true };
   });
   app.get('/v1/knowledge', (req) => tenant(req, (tx, ctx) => knowledge(tx, ctx)));
-  app.post('/v1/knowledge/sources', { schema: { body: KnowledgeSourceBody } }, async (req) => {
-    await tenant(req, (tx, ctx) => connectSource(tx, ctx, req.body));
-    return { ok: true };
-  });
+  app.post('/v1/knowledge/sources', { schema: { body: KnowledgeSourceBody } }, (req) => tenant(req, (tx, ctx) => connectSource(tx, ctx, req.body)));
   app.post('/v1/knowledge/sources/:id/sync', { schema: { params: Uuid } }, (req) => tenant(req, (tx, ctx) => syncSource(tx, ctx, req.params.id)));
   app.post('/v1/knowledge/gaps/:id/act', { schema: { params: Uuid } }, (req) => tenant(req, (tx, ctx) => actOnGap(tx, ctx, req.params.id)));
   app.get('/v1/taxonomy', (req) => tenant(req, (tx, ctx) => taxonomy(tx, ctx)));

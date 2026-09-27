@@ -263,6 +263,10 @@ export async function setAgentBoards(tx: Tx, ctx: Ctx, agentId: string, boardIds
   const [a] = await tx.select().from(s.agents).where(and(eq(s.agents.orgId, ctx.orgId), eq(s.agents.id, agentId)));
   if (!a) throw notFound('Agent');
   await tx.delete(s.agentBoards).where(and(eq(s.agentBoards.orgId, ctx.orgId), eq(s.agentBoards.agentId, agentId)));
+  if (boardIds.length) {
+    const owned = await tx.select({ id: s.boards.id }).from(s.boards).where(and(eq(s.boards.orgId, ctx.orgId), inArray(s.boards.id, boardIds)));
+    if (owned.length !== new Set(boardIds).size) throw notFound('Board');
+  }
   if (boardIds.length) await tx.insert(s.agentBoards).values(boardIds.map((boardId) => ({ orgId: ctx.orgId, agentId, boardId })));
   await audit(tx, ctx.orgId, { actor: actorOf(ctx), action: 'agent.boards_changed', entity: 'agent', entityId: agentId, summary: `${a.name} now on ${boardIds.length} board${boardIds.length === 1 ? '' : 's'}` });
   await publish(tx, ctx.orgId, 'setup.updated', { area: 'agents' });
@@ -283,6 +287,7 @@ export async function queueTuning(tx: Tx, ctx: Ctx, feedbackId: string): Promise
     entityId: f.id,
     summary: `${f.fix === 'prompt' ? 'Prompt' : 'Context'} tuning queued for ${f.agentName}; case added to the golden set`,
   });
+  await publish(tx, ctx.orgId, 'setup.updated', { area: 'feedback' });
 }
 
 /** Recently-edited drafts, for the agents screen: the cheapest training signal there is. */

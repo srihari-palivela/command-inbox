@@ -210,6 +210,7 @@ export async function computeGate(
 
   // Manual lane: the AI has stepped back; the move is to take ownership.
   const g: GateDTO = { ...base, mode: 'manual', state: t.acceptedAt ? 'taken' : 'open' };
+  if (t.lane !== 'manual') g.note = t.lane === 'auto' ? 'No filled action to approve yet — work it by hand or wait for the agent.' : 'No draft to approve yet — reply by hand or wait for the agent.';
   if (!open) g.state = 'done';
   if (g.state === 'open') {
     if (!ctx.capabilities.has('ticket.work')) g.blockedReason = 'Your role cannot work tickets.';

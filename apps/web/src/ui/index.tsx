@@ -15,6 +15,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { ApiError } from '../lib/api';
 import { toast, type ToastItem } from '../lib/toast';
 import s from './ui.module.css';
 
@@ -423,6 +424,15 @@ export function Skeleton({ h = 14, w = '100%', style }: { h?: number; w?: number
 }
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  // Permission and not-found answers won't change on retry: say so plainly instead of offering "Try again".
+  if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+    return (
+      <EmptyState
+        title={error.status === 403 ? 'Not available for your role' : 'Not found'}
+        text={error.problem.detail ?? error.problem.title}
+      />
+    );
+  }
   const msg = error instanceof Error ? error.message : 'Something went wrong.';
   return (
     <div className={s.errorBox} role="alert">

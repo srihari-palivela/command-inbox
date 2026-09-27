@@ -101,12 +101,13 @@ export const ticketRoutes: FastifyPluginAsyncZod = async (app) => {
     return { ok: true };
   });
   app.post('/v1/gate/batch-approve', { schema: { body: BatchApproveBody } }, async (req) => {
-    // Each approval is its own transaction with its own audit entry and idempotency key.
+    // Each approval is its own transaction with its own audit entry. Approving from the list never opens the
+    // evidence, so these count toward the approve-without-open canary (review W1) — that is the point of it.
     const ctx = ctxOf(req);
     const out: { ticketId: string; ok: boolean; outcome?: string; error?: string }[] = [];
     for (const ticketId of req.body.ticketIds) {
       try {
-        const r = await withTenant(ctx.orgId, (tx) => approve(tx, ctx, ticketId, true));
+        const r = await withTenant(ctx.orgId, (tx) => approve(tx, ctx, ticketId, false));
         out.push({ ticketId, ok: true, outcome: r.outcome });
       } catch (err) {
         out.push({ ticketId, ok: false, error: err instanceof Error ? err.message : 'failed' });

@@ -50,17 +50,14 @@ async function liveMetrics(tx: Tx, orgId: string): Promise<Partial<Record<KpiMet
     select count(*)::int as sent, count(*) filter (where trim(current_body) = trim(original_body))::int as unedited
       from drafts where org_id = ${orgId} and state = 'sent' and sent_at >= ${since}`).then((r) => r.rows);
   if (drafts && drafts.sent >= 20) out.accept = Math.round((drafts.unedited / drafts.sent) * 100);
-  const [awo] = await tx.execute<{ n: number; without: number }>(sql`
-    select count(*)::int as n, count(*) filter (where not opened_evidence)::int as without
-      from approvals where org_id = ${orgId} and created_at >= ${since}`).then((r) => r.rows);
-  if (awo && awo.n >= 20) out.awo = Math.round((awo.without / awo.n) * 100);
+  out.awo = await approveWithoutOpenPct(tx, orgId);
   return out;
 }
 
 export async function approveWithoutOpenPct(tx: Tx, orgId: string): Promise<number> {
   const [awo] = await tx.execute<{ n: number; without: number }>(sql`
     select count(*)::int as n, count(*) filter (where not opened_evidence)::int as without
-      from approvals where org_id = ${orgId} and created_at >= now() - interval '7 days'`).then((r) => r.rows);
+      from approvals where org_id = ${orgId} and created_at >= ${new Date(clock.now().getTime() - 7 * 86400_000)}`).then((r) => r.rows);
   if (awo && awo.n > 0) return Math.round((awo.without / awo.n) * 100);
   const hist = await series(tx, orgId, 'weekly.awo');
   return hist.at(-1) ?? 0;
@@ -70,7 +67,8 @@ function tile(key: string, label: string, values: number[], unit: string, digest
   const last = values.at(-1) ?? 0;
   const first = values[0] ?? last;
   const change = first ? ((last - first) / first) * 100 : 0;
-  const pts = opts.decimals === undefined && Math.abs(last) < 10 && key === 'reopen';
+  // Small percentages (reopen rate) read better as a change in points than as a relative change.
+  const pts = unit === '%' && Math.abs(last) < 10;
   const trendPct = pts ? `${last - first >= 0 ? '+' : '−'}${Math.abs(last - first).toFixed(1)}pt` : `${change >= 0 ? '+' : '−'}${Math.abs(Math.round(change))}%`;
   const good = opts.lowerBetter ? last <= first : last >= first;
   return {
@@ -119,7 +117,7 @@ export async function performance(tx: Tx, ctx: Ctx): Promise<PerformanceDTO> {
     owner: q.ownerLabel,
   }));
 
-  const alertRows = await tx.select().from(s.alerts).where(and(eq(s.alerts.orgId, orgId), isNull(s.alerts.resolvedAt))).orderBy(asc(s.alerts.createdAt));
+  const alertRows = await tx.select().from(s.alerts).where(and(eq(s.alerts.orgId, orgId), isNull(s.alerts.resolvedAt))).orderBy(desc(s.alerts.createdAt));
   const kpiRows = await tx
     .select()
     .from(s.kpis)
@@ -194,7 +192,7 @@ export async function results(tx: Tx, ctx: Ctx): Promise<ResultsDTO> {
     days: baseline.map((b, i) => ({ label: `d${i + 1}`, baseline: b, actual: actual[i] ?? 0 })),
     coverage: lanes.map((lane) => {
       const v = cov.rows.find((r) => r.lane === lane)?.volume ?? 0;
-      return { lane, pct: Math.round((v / total) * 100), volume: v * 5 };
+      return { lane, pct: Math.round((v / total) * 100), volume: v };
     }),
     phases: [
       { n: 1, label: 'Drafts only', scope: 'The AI writes, a human sends every reply', state: 'Complete', current: false },
@@ -214,6 +212,7 @@ export async function createKpi(tx: Tx, ctx: Ctx, body: KpiBody): Promise<void> 
   requireCap(ctx, 'kpi.manage', 'create a KPI');
   await tx.insert(s.kpis).values({ orgId: ctx.orgId, ownerId: ctx.user.id, ...body });
   await audit(tx, ctx.orgId, { actor: actorOf(ctx), action: 'kpi.created', entity: 'kpi', summary: `KPI "${body.name}" created on the ${body.scope === 'team' ? 'team' : 'personal'} dashboard` });
+  await publish(tx, ctx.orgId, 'insights.updated', { area: 'kpis' });
 }
 
 export async function deleteKpi(tx: Tx, ctx: Ctx, id: string): Promise<void> {
@@ -221,6 +220,8 @@ export async function deleteKpi(tx: Tx, ctx: Ctx, id: string): Promise<void> {
   if (!k) throw notFound('KPI');
   if (k.ownerId !== ctx.user.id && !ctx.capabilities.has('kpi.manage')) throw forbidden('Only the owner or a team lead can remove this KPI.');
   await tx.delete(s.kpis).where(eq(s.kpis.id, id));
+  await audit(tx, ctx.orgId, { actor: actorOf(ctx), action: 'kpi.deleted', entity: 'kpi', entityId: id, summary: `KPI "${k.name}" removed` });
+  await publish(tx, ctx.orgId, 'insights.updated', { area: 'kpis' });
 }
 
 export async function actOnAlert(tx: Tx, ctx: Ctx, id: string, mode: 'act' | 'notify'): Promise<{ message: string }> {

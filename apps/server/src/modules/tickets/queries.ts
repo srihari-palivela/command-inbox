@@ -198,7 +198,12 @@ const FACET_VALUES: Partial<Record<keyof TicketFilters, string[]>> = {
 export async function listTickets(tx: Tx, ctx: Ctx, filters: TicketFilters): Promise<TicketListDTO> {
   const now = clock.now();
   const bar = await orgBar(tx, ctx.orgId);
-  const boards = await tx.select().from(s.boards).where(eq(s.boards.orgId, ctx.orgId)).orderBy(asc(s.boards.sort));
+  const boards = await tx
+    .select({ id: s.boards.id, key: s.boards.key, name: s.boards.name, state: s.boards.state, source: s.mailboxes.address })
+    .from(s.boards)
+    .leftJoin(s.mailboxes, eq(s.mailboxes.id, s.boards.mailboxId))
+    .where(eq(s.boards.orgId, ctx.orgId))
+    .orderBy(asc(s.boards.sort));
   const boardKeys = new Map(boards.map((b) => [b.id, b.key]));
   const departments = await tx
     .select({ id: s.departments.id, name: s.departments.name })
@@ -256,7 +261,7 @@ export async function listTickets(tx: Tx, ctx: Ctx, filters: TicketFilters): Pro
       id: b.id,
       key: b.key,
       name: b.name,
-      source: '',
+      source: b.source ?? '',
       state: b.state as TicketListDTO['boards'][number]['state'],
       count: tabPool.filter((t) => t.boardId === b.id).length,
     })),
@@ -301,11 +306,13 @@ export async function inbox(tx: Tx, ctx: Ctx, filter: 'all' | 'auto' | 'draft' |
       return al - bl || b.number.localeCompare(a.number);
     });
   const late = (t: TicketSummaryDTO) => isOpen(t.status) && atRisk(t.sla.tone);
+  // Counts are what still needs someone; closed-today tickets stay listed (at the bottom) but aren't counted.
+  const open = all.filter((t) => isOpen(t.status));
   const counts = {
-    all: all.length,
-    auto: all.filter((t) => t.lane === 'auto').length,
-    draft: all.filter((t) => t.lane === 'draft').length,
-    manual: all.filter((t) => t.lane === 'manual').length,
+    all: open.length,
+    auto: open.filter((t) => t.lane === 'auto').length,
+    draft: open.filter((t) => t.lane === 'draft').length,
+    manual: open.filter((t) => t.lane === 'manual').length,
     late: all.filter(late).length,
   };
   const items = filter === 'all' ? all : filter === 'late' ? all.filter(late) : all.filter((t) => t.lane === filter);

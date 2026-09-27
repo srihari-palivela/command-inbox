@@ -549,6 +549,7 @@ CREATE TABLE "query_types" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"org_id" uuid NOT NULL,
 	"name" text NOT NULL,
+	"map_name" text,
 	"department_id" uuid,
 	"default_lane" text NOT NULL,
 	"monthly_volume" integer DEFAULT 0 NOT NULL,

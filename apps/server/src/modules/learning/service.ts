@@ -110,6 +110,7 @@ export async function completeCourse(tx: Tx, ctx: Ctx, courseId: string, answers
       .onConflictDoNothing();
   }
   await audit(tx, ctx.orgId, { actor: actorOf(ctx), action: 'course.completed', entity: 'course', entityId: courseId, summary: `${ctx.user.name} completed "${c.title}" (${score}/${c.quiz.length})` });
+  await publish(tx, ctx.orgId, 'learning.updated', { courseId });
   return { score, total: c.quiz.length };
 }
 

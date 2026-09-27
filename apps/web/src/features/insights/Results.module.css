@@ -1,0 +1,320 @@
+.h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.sub {
+  margin: 4px 0 13px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legend {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+/* ── Headline ──────────────────────────────────────────────────────────── */
+.headline {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  overflow: hidden;
+  margin-bottom: 13px;
+  animation: riseIn 0.45s var(--ease-out) both;
+  animation-delay: 0.05s;
+}
+.cells {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line-soft);
+}
+.cell {
+  background: var(--surface);
+  padding: 17px 20px;
+  min-width: 0;
+}
+.cellStar {
+  background: var(--accent-bg-4);
+}
+.cellStar .cellLabel {
+  color: var(--accent);
+  font-weight: 500;
+}
+.cellLabel {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.cellValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.cellValue {
+  font-size: 33px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.cellUnit {
+  font-size: 14px;
+  color: var(--muted);
+}
+.cellNote {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.chartWrap {
+  border-top: 1px solid var(--line-soft);
+  padding: 15px 20px 17px;
+}
+.chartHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 13px;
+}
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  height: 126px;
+  margin-bottom: 12px;
+}
+.day {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.pair {
+  width: 100%;
+  height: 106px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+}
+.barBefore,
+.barNow {
+  width: 42%;
+  border-radius: 3px 3px 0 0;
+  transform-origin: bottom;
+  animation: growY 0.6s var(--ease-out) both;
+}
+.barBefore {
+  background: var(--disabled);
+}
+.barNow {
+  background: var(--accent);
+}
+.dayLabel {
+  font-size: 9.5px;
+  color: var(--muted-2);
+}
+.chartObs {
+  border-top: 1px dashed var(--line-soft);
+  border-radius: 0;
+}
+
+/* ── Two-up ────────────────────────────────────────────────────────────── */
+.two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 13px;
+  margin-bottom: 13px;
+  align-items: stretch;
+}
+.card {
+  border-radius: 11px;
+  padding: 1px 2px;
+  animation: riseIn 0.45s var(--ease-out) both;
+}
+.stack {
+  display: flex;
+  height: 30px;
+  border-radius: 7px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.stackSeg {
+  display: grid;
+  place-items: center;
+  transform-origin: left;
+  animation: growX 0.6s var(--ease-out) both;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 0;
+}
+.coverList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.coverRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.coverLabel {
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.coverNote {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.coverVol {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.phases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.phase {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+}
+.phaseN {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+.phaseBody {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.phaseLabel {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.phaseScope {
+  font-size: 11px;
+  color: var(--muted);
+}
+.phaseState {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-2);
+  background: var(--surface-4);
+  border-radius: 4px;
+  padding: 2px 7px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.phaseOn {
+  background: var(--accent-bg-3);
+  border-color: var(--accent-line);
+}
+.phaseOn .phaseN {
+  background: var(--accent);
+  color: var(--surface);
+}
+.phaseOn .phaseLabel {
+  font-weight: 600;
+  color: var(--ink);
+}
+.phaseOn .phaseState {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* ── Value pools ───────────────────────────────────────────────────────── */
+.pools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+.pool {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 15px 17px;
+  animation: riseIn 0.45s var(--ease-out) both;
+  min-width: 0;
+}
+.poolHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.poolDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+.poolTitle {
+  font-size: 13px;
+  font-weight: 600;
+}
+.poolMetric {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.poolNote {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+@media (max-width: 1100px) {
+  .cells {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .two,
+  .pools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chart {
+    gap: 4px;
+  }
+}

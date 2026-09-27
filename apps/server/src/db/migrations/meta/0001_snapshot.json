@@ -1,6 +1,6 @@
 {
-  "id": "0548ca20-791d-44b8-9ad7-6b50019c1a3d",
-  "prevId": "4e9dd400-0b19-417f-89f1-8bbb9276bb67",
+  "id": "600432b9-e6a6-4a3f-82bb-743f9cb6f06a",
+  "prevId": "5a9adcc2-b08a-4fd2-b2ee-fd656e66c580",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3589,6 +3589,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "map_name": {
+          "name": "map_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "department_id": {
           "name": "department_id",

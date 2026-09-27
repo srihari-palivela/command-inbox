@@ -1,0 +1,305 @@
+/* Boards screen + new-board wizard. Metrics follow the prototype (Command Inbox.dc.html ~1213-1267, 2210-2296). */
+
+.head > div {
+  animation: riseIn 0.4s var(--ease-out) both;
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+@media (max-width: 1280px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: riseIn 0.42s var(--ease-out) both;
+}
+.cardHead {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.name {
+  font-size: 13.5px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.state {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 2px 7px;
+  flex: 0 0 auto;
+}
+.source {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--line-soft);
+  margin: 0;
+}
+.stats > div {
+  background: var(--surface);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+}
+.stats dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.stats dt {
+  font-size: 10px;
+  color: var(--muted);
+}
+.cardFoot {
+  padding: 11px 15px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.eyebrow {
+  margin-bottom: 7px;
+}
+.agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.agent {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-line);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+.none {
+  font-size: 11px;
+  color: var(--muted);
+}
+.teamRow {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.team {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* ── Wizard ─────────────────────────────────────────────────────────────── */
+.steps {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0 0 13px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line-soft);
+}
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.stepN {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+.stepN[data-state='now'] {
+  background: var(--accent);
+  color: #fff;
+}
+.stepN[data-state='done'] {
+  background: var(--ok);
+  color: #fff;
+}
+.stepLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.stepLabel[data-now] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.providers {
+  display: grid;
+  gap: 7px;
+  padding-bottom: 4px;
+}
+.provider {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 12px 13px;
+  transition: all 0.16s ease;
+}
+.provider:hover {
+  border-color: var(--accent-line-2);
+  background: var(--accent-bg-4);
+}
+.providerMark {
+  width: 34px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 9.5px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+.providerName {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.providerNote {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.grant {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.grantHead {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-sunk);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.scopes {
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px;
+  display: grid;
+  gap: 9px;
+}
+.scopes li {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.scopes li.denied {
+  color: var(--muted);
+}
+.yes,
+.no {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  font-size: 9px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.yes {
+  background: var(--ok-bg-2);
+  border: 1px solid var(--ok-line);
+  color: var(--ok);
+}
+.no {
+  background: var(--bad-bg);
+  border: 1px solid var(--bad-line);
+  color: var(--bad);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.ok {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--ok-line);
+  background: var(--ok-bg-3);
+  border-radius: 9px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  color: var(--ok);
+}
+.okMark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
+  font-size: 9px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+.fields {
+  display: grid;
+  gap: 11px;
+  margin-bottom: 15px;
+}
+.observe {
+  margin: 0 0 14px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}

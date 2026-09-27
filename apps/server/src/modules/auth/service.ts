@@ -223,8 +223,12 @@ export async function buildMe(ctx: Ctx, csrfToken: string): Promise<MeDTO> {
   const nav = await withTenant(ctx.orgId, async (tx) => {
     const one = async (q: ReturnType<typeof sql>) => Number((await tx.execute<{ n: number }>(q)).rows[0]?.n ?? 0);
     return {
-      inbox: await one(sql`select count(*)::int n from tickets where assignee_id = ${ctx.user.id}
-                            and (status not in ('resolved','closed') or resolved_at > now() - interval '24 hours')`),
+      // Same rule as the Inbox's own count: open work assigned to me, plus maker-approved actions I can check.
+      inbox: await one(sql`select count(*)::int n from tickets t where t.merged_into_id is null and t.status not in ('resolved','closed')
+                            and (t.assignee_id = ${ctx.user.id}
+                                 or (${ctx.capabilities.has('action.approve_checker')} and exists (
+                                       select 1 from action_instances ai where ai.ticket_id = t.id
+                                          and ai.state = 'awaiting_checker' and ai.maker_id <> ${ctx.user.id})))`),
       tickets: await one(sql`select count(*)::int n from tickets where status not in ('closed') and (resolved_at is null or resolved_at > now() - interval '24 hours') and merged_into_id is null`),
       boards: await one(sql`select count(*)::int n from boards`),
       alerts: await one(sql`select count(*)::int n from alerts where resolved_at is null`),

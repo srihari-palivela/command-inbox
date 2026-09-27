@@ -25,7 +25,7 @@ export const SCREENS = {
   boards: screen({ key: 'boards', path: '/boards', label: 'Boards', meta: 'mail sources and their agents', cap: 'ticket.work', badge: (n) => n.boards }, () => import('../features/boards/BoardsScreen')),
   performance: screen({ key: 'performance', path: '/performance', label: 'Performance', meta: 'speed and deadlines', cap: 'insights.view', badge: (n) => n.alerts || undefined, hot: true }, () => import('../features/insights/PerformanceScreen')),
   results: screen({ key: 'results', path: '/results', label: 'Results', meta: 'before and after', cap: 'insights.view' }, () => import('../features/insights/ResultsScreen')),
-  people: screen({ key: 'people', path: '/people', label: 'Skills & clearance', meta: 'who is cleared for what', cap: 'insights.view' }, () => import('../features/people/PeopleScreen')),
+  people: screen({ key: 'people', path: '/people', label: 'Skills & clearance', meta: 'who is cleared for what', cap: 'ticket.work' }, () => import('../features/people/PeopleScreen')),
   learning: screen({ key: 'learning', path: '/learning', label: 'Learning', meta: 'courses and updates', cap: null, badge: (n) => n.learning || undefined, hot: true }, () => import('../features/learning/LearningScreen')),
   agents: screen({ key: 'agents', path: '/setup/agents', label: 'AI agents', meta: 'prompts, models, evals', cap: 'setup.view', badge: (n) => n.agents }, () => import('../features/setup/AgentsScreen')),
   actions: screen({ key: 'actions', path: '/setup/actions', label: 'What it can do', meta: 'actions and risk groups', cap: 'setup.view' }, () => import('../features/setup/ActionsScreen')),

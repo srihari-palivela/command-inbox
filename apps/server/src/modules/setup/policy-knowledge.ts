@@ -95,7 +95,11 @@ export async function setDial(tx: Tx, ctx: Ctx, cell: RiskCell, level: number): 
 
 export async function createActionTemplate(tx: Tx, ctx: Ctx, body: ActionTemplateBody): Promise<ActionTemplateDTO> {
   requireCap(ctx, 'setup.edit', 'create an action template');
-  const [n] = await tx.select({ n: sql<number>`count(*)::int` }).from(s.actionTemplates).where(eq(s.actionTemplates.orgId, ctx.orgId));
+  // Next free number after the highest existing ACT-NEW code (a count would collide once any are removed).
+  const [n] = await tx
+    .select({ n: sql<number>`coalesce(max(nullif(substring(${s.actionTemplates.code} from 'ACT-NEW-(\\d+)'), '')::int), 0)::int` })
+    .from(s.actionTemplates)
+    .where(eq(s.actionTemplates.orgId, ctx.orgId));
   const code = `ACT-NEW-${String((n?.n ?? 0) + 1).padStart(3, '0')}`;
   const money = body.cell.startsWith('1');
   const reversible = body.cell.endsWith('0');
@@ -232,7 +236,7 @@ export async function knowledge(tx: Tx, ctx: Ctx): Promise<KnowledgeDTO> {
 
 const KIND_ABBR: Record<string, string> = { SharePoint: 'SP', Confluence: 'CF', 'Google Drive': 'GD', S3: 'S3', Upload: 'UP' };
 
-export async function connectSource(tx: Tx, ctx: Ctx, body: KnowledgeSourceBody): Promise<void> {
+export async function connectSource(tx: Tx, ctx: Ctx, body: KnowledgeSourceBody): Promise<{ id: string; name: string }> {
   requireCap(ctx, 'setup.edit', 'connect a knowledge source');
   const [src] = await tx
     .insert(s.knowledgeSources)
@@ -253,6 +257,7 @@ export async function connectSource(tx: Tx, ctx: Ctx, body: KnowledgeSourceBody)
   await enqueue(tx, { orgId: ctx.orgId, kind: 'knowledge_sync', payload: { sourceId: src!.id }, runAt: new Date(clock.now().getTime() + 3000), dedupeKey: `ksync:${src!.id}:first` });
   await audit(tx, ctx.orgId, { actor: actorOf(ctx), action: 'knowledge.source_connected', entity: 'knowledge_source', entityId: src!.id, summary: `${body.kind} connected — first sync queued; nothing is citable until approved` });
   await publish(tx, ctx.orgId, 'setup.updated', { area: 'knowledge' });
+  return { id: src!.id, name: src!.name };
 }
 
 export async function syncSource(tx: Tx, ctx: Ctx, id: string): Promise<{ message: string }> {
@@ -311,7 +316,7 @@ export async function taxonomy(tx: Tx, ctx: Ctx): Promise<TaxonomyDTO> {
         owner: users.find((u) => u.id === d.ownerId) ?? null,
         gapNote: d.gapNote,
         tone: (d.risk ? 'risk' : 'normal') as 'risk' | 'normal',
-        queryTypes: items.map((q) => ({ id: q.id, name: q.name === 'Trade finance advisory' ? 'Forward cover advisory' : q.name, lane: q.defaultLane as 'auto', volume: q.monthlyVolume, live: q.live && !!q.departmentId })),
+        queryTypes: items.map((q) => ({ id: q.id, name: q.mapName ?? q.name, lane: q.defaultLane as 'auto', volume: q.monthlyVolume, live: q.live && !!q.departmentId })),
       };
     })
     .filter((d) => d.queryTypes.length > 0);

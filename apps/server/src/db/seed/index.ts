@@ -126,6 +126,7 @@ async function seedApex(
       QUERY_TYPES.map((q, i) => ({
         orgId,
         name: q.name,
+        mapName: 'mapName' in q ? (q.mapName as string) : null,
         departmentId: q.dept ? dept[q.dept]! : null,
         defaultLane: q.lane,
         monthlyVolume: q.vol,

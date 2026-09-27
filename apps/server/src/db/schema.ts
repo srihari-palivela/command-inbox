@@ -114,6 +114,8 @@ export const queryTypes = pgTable('query_types', {
   id: id(),
   orgId: orgId(),
   name: text('name').notNull(),
+  /** Customer-facing label on the ownership map, when it differs from the internal name. */
+  mapName: text('map_name'),
   departmentId: uuid('department_id'),
   defaultLane: text('default_lane').notNull(),
   monthlyVolume: integer('monthly_volume').notNull().default(0),
