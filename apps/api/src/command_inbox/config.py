@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     env: Literal["development", "test", "production"] = Field("production", alias="APP_ENV")
     host: str = "0.0.0.0"  # noqa: S104 - containers bind all interfaces; the ingress decides exposure
     port: int = 4000
+    # Only these peers may set X-Forwarded-For/Proto (the reverse proxy). Never "*" in production.
+    forwarded_allow_ips: str = "127.0.0.1"
 
     # Runtime connection: a non-owner role, so row-level security applies.
     database_url: str = "postgresql+asyncpg://ci_app:ci_app@localhost:5432/command_inbox"
@@ -96,6 +98,8 @@ class Settings(BaseSettings):
                 problems.append("DECISION_ENGINE must be llamacpp or vllm (no silent keyword fallback)")
             if self.llm_provider == "auto":
                 problems.append("LLM_PROVIDER must be set explicitly")
+            if self.forwarded_allow_ips.strip() == "*":
+                problems.append("FORWARDED_ALLOW_IPS must list the proxy addresses, not *")
             if "postgres:postgres@" in self.database_admin_url or "ci_app:ci_app@" in self.database_url:
                 problems.append("database credentials must not be the development defaults")
             if problems:

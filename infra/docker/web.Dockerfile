@@ -13,6 +13,7 @@ RUN pnpm --filter @ci/web build
 
 FROM nginx:1.29-alpine AS runtime
 COPY infra/docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY infra/docker/snippets/ /etc/nginx/snippets/
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1

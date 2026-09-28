@@ -244,6 +244,6 @@ def run() -> None:
         host=settings.host,
         port=settings.port,
         proxy_headers=True,
-        forwarded_allow_ips="*",
+        forwarded_allow_ips=settings.forwarded_allow_ips,
         log_config=None,
     )
