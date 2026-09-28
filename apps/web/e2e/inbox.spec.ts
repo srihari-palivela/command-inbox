@@ -28,7 +28,7 @@ test('J/K move through the queue and the URL follows', async ({ browser }) => {
 });
 
 test('irreversible money movement needs a maker and a different checker', async ({ browser }) => {
-  const maker = await signedIn(browser, 'staff');
+  const maker = await signedIn(browser, 'staff', { autoAdvance: false });
   await maker.goto('/inbox/QRY-48211');
   const gate = gateway(maker);
   await expect(gate).toContainText('Needs two approvers');
@@ -91,7 +91,7 @@ test('sending work back records a correction and hands the ticket to me', async 
 });
 
 test('taking on a stood-down ticket makes it mine', async ({ browser }) => {
-  const page = await signedIn(browser, 'staff');
+  const page = await signedIn(browser, 'staff', { autoAdvance: false });
   await page.goto('/inbox/QRY-48174');
   await gateway(page)
     .getByRole('button', { name: /Take it on/ })
