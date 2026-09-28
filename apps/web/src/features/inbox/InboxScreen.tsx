@@ -49,12 +49,19 @@ export default function InboxScreen() {
 
   // Default selection: the first ticket in the queue.
   const selectedRef = param ?? items[0]?.number ?? null;
+  // Where keyboard moves start from. Updated the moment we navigate, not on the next render, so a quick
+  // J then K never moves from a stale selection.
+  const current = useRef(selectedRef);
+  useEffect(() => {
+    current.current = selectedRef;
+  }, [selectedRef]);
   const detail = useTicket(selectedRef);
   const t = detail.data;
 
   const go = useCallback(
     (number: string | null | undefined, replace = false) => {
       if (!number) return;
+      current.current = number;
       navigate(
         { pathname: `/inbox/${number}`, search: search.toString() ? `?${search.toString()}` : '' },
         { replace },
@@ -72,11 +79,11 @@ export default function InboxScreen() {
   const move = useCallback(
     (delta: 1 | -1) => {
       if (!items.length) return;
-      const i = items.findIndex((x) => x.number === selectedRef);
+      const i = items.findIndex((x) => x.number === current.current);
       const next = i < 0 ? items[0] : items[(i + delta + items.length) % items.length];
       go(next?.number);
     },
-    [items, selectedRef, go],
+    [items, go],
   );
 
   const onApproved = (r: ApproveResult) => {
