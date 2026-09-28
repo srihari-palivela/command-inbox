@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Local development: create the database and give the runtime role a login.
-# Usage: ADMIN_URL=postgres://postgres:postgres@localhost:5432/postgres ./scripts/setup-db.sh [dbname]
+# Usage: ADMIN_URL=postgres://postgres:postgres@localhost:5432/postgres ./infra/scripts/setup-db.sh [dbname]
 set -euo pipefail
 DB="${1:-command_inbox}"
 ADMIN_URL="${ADMIN_URL:-postgres://postgres:postgres@localhost:5432/postgres}"

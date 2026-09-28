@@ -1,6 +1,6 @@
 # Command Inbox — Python platform plan (v2)
 
-**Status:** In build · **Supersedes:** the TypeScript API in `apps/server` (kept until parity, then deleted)
+**Status:** Phases A–D delivered (the TypeScript API has been removed); phase E (hardening) open · **Supersedes:** the TypeScript API that lived in `apps/server`
 **Scope of this revision:** Python backend; identity and access control; per-tenant mailbox deployments with
 their own rules and agent flows; a System 1 / System 2 categorisation design built on an open-source
 alternative to Jev; LangGraph flows; evals that gate publishing; Langfuse + OpenTelemetry; production gaps.

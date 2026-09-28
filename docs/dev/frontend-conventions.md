@@ -44,7 +44,7 @@ apps/web/src/
 ## Running it
 
 ```
-pnpm --filter @ci/server dev    # API on :4000 (worker embedded in dev)
+pnpm dev:api                    # Python API on :4000 (worker embedded in dev)
 pnpm --filter @ci/web dev       # SPA on :5173, proxies /v1 to the API
 ```
 

@@ -1,6 +1,6 @@
 /**
  * The 2×2 risk matrix, as the product explains it: rows = does money move, columns = can it be undone.
- * Limits mirror the server's policy (apps/server/src/domain/risk.ts); the server still enforces them.
+ * Limits mirror the server's policy (apps/api/src/command_inbox/domain/risk.py); the server still enforces them.
  */
 import type { RiskCell, RiskCellDTO } from '@ci/contracts';
 

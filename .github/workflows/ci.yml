@@ -32,29 +32,6 @@ jobs:
       - run: pnpm test:unit
       - run: pnpm build
 
-  integration:
-    name: API integration tests (Postgres)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:16
-        env: { POSTGRES_PASSWORD: postgres }
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s --health-retries 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      # Creates/resets the *_test database, migrates and seeds it, then runs against the runtime role.
-      - run: pnpm test:integration
-        env:
-          TEST_DATABASE_ADMIN_URL: ${{ env.PG_ADMIN }}/command_inbox_test
-          TEST_DATABASE_URL: postgres://ci_app:ci_app@localhost:5432/command_inbox_test
-
   python:
     name: Python API (lint, contracts, migrations, tests, audit)
     runs-on: ubuntu-latest
@@ -121,7 +98,7 @@ jobs:
         with: { enable-cache: true, cache-dependency-glob: apps/api/uv.lock }
       - run: uv sync --frozen --no-dev
         working-directory: apps/api
-      - run: ADMIN_URL=$PG_ADMIN/postgres ./apps/server/scripts/setup-db.sh command_inbox
+      - run: ADMIN_URL=$PG_ADMIN/postgres ./infra/scripts/setup-db.sh command_inbox
       # Playwright starts the Python API (embedded worker) and the SPA; E2E_RESET migrates and seeds first.
       - run: pnpm e2e
         env:
@@ -143,6 +120,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
-        with: { context: ., file: infra/docker/server.Dockerfile, push: false, tags: command-inbox-server:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
+        with: { context: ., file: infra/docker/api.Dockerfile, push: false, tags: command-inbox-api:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
       - uses: docker/build-push-action@v6
         with: { context: ., file: infra/docker/web.Dockerfile, push: false, tags: command-inbox-web:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
