@@ -2,25 +2,34 @@
 # behind nginx. Open http://localhost:8080 and sign in with a demo user.
 #
 # Optional profiles (combine freely):
-#   --profile python         the Python API + worker (replacing the TypeScript ones at cut-over) on :8080/v1
 #   --profile sso            Keycloak on :8081 (realm "command-inbox"; users p.sharma / r.menon / a.kapoor, password "demo")
 #   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local)
 #   --profile local-llm      llama.cpp server for the System 1 decision engine on :8090 (put a GGUF in ./models)
 #
 # The secrets below are for local use only. In a real deployment they come from your secret manager.
-x-server-env: &server-env
-  NODE_ENV: production
-  DATABASE_URL: postgres://ci_app:ci_app@db:5432/command_inbox
-  DATABASE_ADMIN_URL: postgres://postgres:postgres@db:5432/command_inbox
+x-api-env: &api-env
+  APP_ENV: development # local stack: demo sign-in stays available; APP_ENV=production refuses it
+  DEMO_MODE: ${DEMO_MODE:-true}
+  DATABASE_URL: postgresql+asyncpg://ci_app:ci_app@db:5432/command_inbox
+  DATABASE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@db:5432/command_inbox
   WEB_ORIGIN: http://localhost:8080
   PUBLIC_API_URL: http://localhost:8080
   COOKIE_SECURE: 'true' # browsers treat http://localhost as a secure context
-  DEMO_MODE: 'true'
+  FORWARDED_ALLOW_IPS: '*' # only nginx can reach the API on the compose network
+  EMBEDDED_WORKER: 'false'
   ENCRYPTION_KEY: ${ENCRYPTION_KEY:-local-compose-key-0123456789abcdef0123456789abcdef}
   INTAKE_WEBHOOK_SECRET: ${INTAKE_WEBHOOK_SECRET:-local-compose-intake-secret}
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   LLM_PROVIDER: ${LLM_PROVIDER:-auto}
-  LOG_LEVEL: info
+  DECISION_ENGINE: ${DECISION_ENGINE:-auto}
+  DECISION_ENGINE_URL: ${DECISION_ENGINE_URL:-}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+  LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+  LOG_JSON: 'true'
 
 services:
   db:
@@ -38,28 +47,28 @@ services:
       retries: 20
 
   migrate:
-    build: { context: ., dockerfile: infra/docker/server.Dockerfile }
-    image: command-inbox-server
-    environment: *server-env
-    # Seeds only an empty database, so restarts keep your data.
-    command: ['sh', '-c', 'node dist/migrate.js && node dist/seed.js --if-empty']
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    image: command-inbox-api
+    environment: *api-env
+    # Migrates, then seeds only an empty database, so restarts keep your data.
+    command: ['command-inbox-seed', '--if-empty']
     depends_on:
       db: { condition: service_healthy }
     restart: 'no'
 
   api:
-    image: command-inbox-server
-    environment:
-      <<: *server-env
-      EMBEDDED_WORKER: 'false'
+    image: command-inbox-api
+    environment: *api-env
     depends_on:
       migrate: { condition: service_completed_successfully }
     restart: unless-stopped
 
   worker:
-    image: command-inbox-server
-    environment: *server-env
-    command: ['node', 'dist/worker.js']
+    image: command-inbox-api
+    environment:
+      <<: *api-env
+      OTEL_SERVICE_NAME: command-inbox-worker
+    command: ['command-inbox-worker']
     healthcheck: { disable: true }
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -71,52 +80,6 @@ services:
       - '8080:8080'
     depends_on:
       api: { condition: service_healthy }
-    restart: unless-stopped
-
-  # ── Python API (profile: python) ────────────────────────────────────────────────────────────────
-  api-py:
-    profiles: [python]
-    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
-    image: command-inbox-api
-    environment: &py-env
-      APP_ENV: development # local stack: demo sign-in stays available; production refuses it
-      DEMO_MODE: ${DEMO_MODE:-true}
-      DATABASE_URL: postgresql+asyncpg://ci_app:ci_app@db:5432/command_inbox
-      DATABASE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@db:5432/command_inbox
-      WEB_ORIGIN: http://localhost:8080
-      PUBLIC_API_URL: http://localhost:8080
-      COOKIE_SECURE: 'true'
-      FORWARDED_ALLOW_IPS: '*' # only nginx can reach this container on the compose network
-      EMBEDDED_WORKER: 'false'
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-local-compose-key-0123456789abcdef0123456789abcdef}
-      INTAKE_WEBHOOK_SECRET: ${INTAKE_WEBHOOK_SECRET:-local-compose-intake-secret}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
-      DECISION_ENGINE: ${DECISION_ENGINE:-auto}
-      DECISION_ENGINE_URL: ${DECISION_ENGINE_URL:-}
-      OIDC_ISSUER: ${OIDC_ISSUER:-}
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
-      LOG_JSON: 'true'
-    command: ['sh', '-c', 'alembic upgrade head && exec command-inbox-api']
-    depends_on:
-      db: { condition: service_healthy }
-    ports: ['4000:4000']
-    restart: unless-stopped
-
-  worker-py:
-    profiles: [python]
-    image: command-inbox-api
-    environment:
-      <<: *py-env
-      OTEL_SERVICE_NAME: command-inbox-worker
-    command: ['command-inbox-worker']
-    healthcheck: { disable: true }
-    depends_on:
-      api-py: { condition: service_healthy }
     restart: unless-stopped
 
   # ── Identity (profile: sso) ─────────────────────────────────────────────────────────────────────
