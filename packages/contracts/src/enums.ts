@@ -143,3 +143,21 @@ export const Capability = z.enum([
   'rbac.manage',
 ]);
 export type Capability = z.infer<typeof Capability>;
+
+// ── Tenant administration ─────────────────────────────────────────────────────
+/** A deployment version's rollout state. Shadow runs beside the live version and is never acted on. */
+export const DeploymentVersionState = z.enum(['draft', 'shadow', 'canary', 'published', 'retired']);
+export type DeploymentVersionState = z.infer<typeof DeploymentVersionState>;
+
+export const EvalRunState = z.enum(['queued', 'running', 'passed', 'failed', 'error']);
+export type EvalRunState = z.infer<typeof EvalRunState>;
+
+/** Calibration (temperature, conformal threshold) is fitted on `calibration`; gates are scored on `test`. */
+export const EvalSplit = z.enum(['calibration', 'test']);
+export type EvalSplit = z.infer<typeof EvalSplit>;
+
+export const InvitationState = z.enum(['pending', 'accepted', 'revoked', 'expired']);
+export type InvitationState = z.infer<typeof InvitationState>;
+
+export const PolicyEffect = z.enum(['allow', 'deny']);
+export type PolicyEffect = z.infer<typeof PolicyEffect>;

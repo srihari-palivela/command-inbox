@@ -38,6 +38,7 @@ dependencies = [
 command-inbox-api = "command_inbox.main:run"
 command-inbox-worker = "command_inbox.worker:run"
 command-inbox-evals = "command_inbox.evals.cli:main"
+command-inbox-seed = "command_inbox.seed.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.8.17,<0.9.0"]

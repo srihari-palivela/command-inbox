@@ -26,9 +26,24 @@ async def _recreate_test_db() -> None:
         await conn.close()
 
 
+def _migrate_test_db() -> None:
+    """Bring the clone up to the latest migration (the template may be older than head)."""
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
+    cfg.attributes["configure_logger"] = False
+    command.upgrade(cfg, "head")
+
+
 @pytest.fixture(scope="session")
 async def app() -> AsyncIterator[Any]:
+    import asyncio
+
     await _recreate_test_db()
+    await asyncio.to_thread(_migrate_test_db)  # env.py runs its own event loop
     from command_inbox.main import create_app
 
     application = create_app()

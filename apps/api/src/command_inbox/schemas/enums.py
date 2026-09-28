@@ -60,4 +60,9 @@ Capability = Literal[
     "members.manage",
     "rbac.manage",
 ]
+DeploymentVersionState = Literal["draft", "shadow", "canary", "published", "retired"]
+EvalRunState = Literal["queued", "running", "passed", "failed", "error"]
+EvalSplit = Literal["calibration", "test"]
+InvitationState = Literal["pending", "accepted", "revoked", "expired"]
+PolicyEffect = Literal["allow", "deny"]
 ClearanceLevel = Literal[0, 1, 2, 3]

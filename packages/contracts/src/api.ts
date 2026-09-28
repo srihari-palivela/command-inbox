@@ -5,17 +5,21 @@
 import { z } from 'zod';
 import {
   AgentTemplate,
+  Capability,
   ClearanceLevel,
   CommentKind,
   DialLevel,
+  EvalSplit,
   KnowledgeKind,
   KpiMetric,
   Lane,
   MailProvider,
   NotificationKind,
+  PolicyEffect,
   Priority,
   RejectReason,
   RiskCell,
+  Role,
   TicketStatus,
 } from './enums.js';
 
@@ -212,3 +216,94 @@ export const IntakeMessageBody = z.object({
   inReplyTo: z.string().max(300).optional(),
 });
 export type IntakeMessageBody = z.infer<typeof IntakeMessageBody>;
+
+// ── Deployments ───────────────────────────────────────────────────────────────
+const key = z.string().regex(/^[a-z][a-z0-9_]{0,47}$/);
+
+export const CreateDeploymentBody = z.object({
+  key,
+  name: trimmed(120),
+  description: z.string().max(600).optional(),
+  /** Copy the configuration of this deployment's active version (default: the tenant's default deployment). */
+  copyFrom: z.string().uuid().optional(),
+});
+export type CreateDeploymentBody = z.infer<typeof CreateDeploymentBody>;
+
+export const NewDraftBody = z.object({ notes: z.string().max(2000).optional() });
+export type NewDraftBody = z.infer<typeof NewDraftBody>;
+
+/** The config is validated server-side (DeploymentConfig); a 400 names the failing path in `detail`. */
+export const DraftConfigBody = z.object({
+  config: z.record(z.string(), z.unknown()),
+  notes: z.string().max(2000).optional(),
+});
+export type DraftConfigBody = z.infer<typeof DraftConfigBody>;
+
+export const BindMailboxesBody = z.object({ mailboxIds: z.array(z.string().uuid()).max(200) });
+export type BindMailboxesBody = z.infer<typeof BindMailboxesBody>;
+
+export const PromoteBody = z.object({
+  to: z.enum(['shadow', 'canary', 'published']),
+  canaryPercent: z.number().int().min(1).max(99).optional(),
+  /** Required (and audited) when the tenant's only admin publishes their own edit. */
+  acknowledgeSingleAdmin: z.boolean().default(false),
+});
+export type PromoteBody = z.infer<typeof PromoteBody>;
+
+export const RollbackBody = z.object({ versionId: z.string().uuid().optional() });
+export type RollbackBody = z.infer<typeof RollbackBody>;
+
+// ── Evals ─────────────────────────────────────────────────────────────────────
+export const EvalDatasetBody = z.object({
+  deploymentId: z.string().uuid(),
+  name: trimmed(120),
+  description: z.string().max(600).optional(),
+});
+export type EvalDatasetBody = z.infer<typeof EvalDatasetBody>;
+
+export const EvalDatasetPatchBody = z.object({
+  name: trimmed(120).optional(),
+  description: z.string().max(600).optional(),
+});
+export type EvalDatasetPatchBody = z.infer<typeof EvalDatasetPatchBody>;
+
+export const EvalCaseBody = z.object({
+  input: z.object({
+    subject: z.string().max(300),
+    body: z.string().max(20000),
+    fromEmail: z.string().trim().toLowerCase().email().optional(),
+  }),
+  expected: z.object({ category: key, hardStop: z.boolean().default(false) }),
+  split: EvalSplit.default('test'),
+  tags: z.array(z.string().max(40)).max(20).default([]),
+});
+export type EvalCaseBody = z.infer<typeof EvalCaseBody>;
+
+export const EvalCasesBody = z.object({ cases: z.array(EvalCaseBody).min(1).max(500) });
+export type EvalCasesBody = z.infer<typeof EvalCasesBody>;
+
+export const StartEvalRunBody = z.object({
+  deploymentVersionId: z.string().uuid(),
+  datasetId: z.string().uuid(),
+});
+export type StartEvalRunBody = z.infer<typeof StartEvalRunBody>;
+
+// ── Members, invitations, permissions ─────────────────────────────────────────
+export const MemberRoleBody = z.object({ role: Role });
+export type MemberRoleBody = z.infer<typeof MemberRoleBody>;
+
+export const InvitationBody = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  role: Role,
+  expiresInDays: z.number().int().min(1).max(30).default(7),
+});
+export type InvitationBody = z.infer<typeof InvitationBody>;
+
+/** `effect: null` removes the override (back to the product baseline). */
+export const PermissionOverridesBody = z.object({
+  overrides: z
+    .array(z.object({ role: Role, capability: Capability, effect: PolicyEffect.nullable() }))
+    .min(1)
+    .max(100),
+});
+export type PermissionOverridesBody = z.infer<typeof PermissionOverridesBody>;

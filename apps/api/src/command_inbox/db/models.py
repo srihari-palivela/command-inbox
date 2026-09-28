@@ -598,6 +598,8 @@ class InboundMessage(Base):
         DateTime(True), nullable=False, server_default=text("now()")
     )
     ticket_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    # DKIM/SPF/DMARC verdict recorded at intake (migration 0004).
+    sender_auth: Mapped[Any | None] = mapped_column(JSONB)
 
 
 class Job(Base):
@@ -694,6 +696,11 @@ class Mailbox(Base):
         PrimaryKeyConstraint("id", name="mailboxes_pkey"),
         Index("mailboxes_org_address_uq", "org_id", "address", unique=True),
         Index("mailboxes_address_global_uq", text("lower(address)"), unique=True),
+        ForeignKeyConstraint(
+            ["org_id", "deployment_id"],
+            ["deployments.org_id", "deployments.id"],
+            name="mailboxes_deployment_fk",
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -977,6 +984,16 @@ class Ticket(Base):
         Index("tickets_org_number_uq", "org_id", "number", unique=True),
         Index("tickets_status_idx", "org_id", "status"),
         Index("tickets_deployment_idx", "org_id", "deployment_id"),
+        ForeignKeyConstraint(
+            ["org_id", "deployment_id"],
+            ["deployments.org_id", "deployments.id"],
+            name="tickets_deployment_fk",
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "deployment_version_id"],
+            ["deployment_versions.org_id", "deployment_versions.id"],
+            name="tickets_deployment_version_fk",
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1031,6 +1048,8 @@ class Ticket(Base):
     parent_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     merged_into_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     accepted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    # An unauthenticated sender never reaches the Auto lane (migration 0004).
+    sender_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
 
 class TraceSpan(Base):
@@ -1199,7 +1218,11 @@ class RolePolicy(Base):
     """A tenant admin's override of a delegable capability for staff or team leads (see rbac/policy.py)."""
 
     __tablename__ = "role_policies"
-    __table_args__ = (PrimaryKeyConstraint("org_id", "role", "capability", name="role_policies_pkey"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("org_id", "role", "capability", name="role_policies_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="role_policies_org_fk"),
+        ForeignKeyConstraint(["changed_by"], ["users.id"], name="role_policies_changed_by_fk"),
+    )
 
     org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
     role: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -1225,6 +1248,8 @@ class Invitation(Base):
             postgresql_where=text("accepted_at is null and revoked_at is null"),
         ),
         CheckConstraint("email = lower(email)", name="invitations_email_lower_ck"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="invitations_org_fk"),
+        ForeignKeyConstraint(["invited_by"], ["users.id"], name="invitations_invited_by_fk"),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1251,6 +1276,15 @@ class Deployment(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="deployments_pkey"),
         Index("deployments_org_key_uq", "org_id", "key", unique=True),
+        UniqueConstraint("org_id", "id", name="deployments_org_id_id_uq"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="deployments_org_fk"),
+        ForeignKeyConstraint(
+            ["org_id", "active_version_id"],
+            ["deployment_versions.org_id", "deployment_versions.id"],
+            name="deployments_active_version_fk",
+            use_alter=True,
+        ),
+        CheckConstraint("status in ('active', 'archived')", name="deployments_status_ck"),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1273,6 +1307,36 @@ class DeploymentVersion(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="deployment_versions_pkey"),
         Index("deployment_versions_uq", "org_id", "deployment_id", "version", unique=True),
+        # At most one draft, shadow, canary and published version per deployment at a time.
+        Index(
+            "deployment_versions_live_uq",
+            "org_id",
+            "deployment_id",
+            "state",
+            unique=True,
+            postgresql_where=text("state <> 'retired'"),
+        ),
+        UniqueConstraint("org_id", "id", name="deployment_versions_org_id_id_uq"),
+        ForeignKeyConstraint(
+            ["org_id", "deployment_id"],
+            ["deployments.org_id", "deployments.id"],
+            name="deployment_versions_deployment_fk",
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "eval_run_id"],
+            ["eval_runs.org_id", "eval_runs.id"],
+            name="deployment_versions_eval_run_fk",
+            use_alter=True,
+        ),
+        CheckConstraint(
+            "state in ('draft', 'shadow', 'canary', 'published', 'retired')",
+            name="deployment_versions_state_ck",
+        ),
+        CheckConstraint(
+            "(state = 'canary') = (canary_percent is not null) "
+            "and (canary_percent is null or canary_percent between 1 and 99)",
+            name="deployment_versions_canary_ck",
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1291,6 +1355,13 @@ class DeploymentVersion(Base):
     published_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     published_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     eval_run_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    canary_percent: Mapped[int | None] = mapped_column(Integer)
+    # sha256 of the canonical config (DeploymentConfig.config_hash); publishing needs a passing run on it.
+    config_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    # Who last changed the config: that person cannot publish it (four-eyes).
+    edited_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    edited_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    retired_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
 
 # Evals: labelled cases per deployment, runs against a deployment version, per-case results.
@@ -1298,7 +1369,16 @@ class DeploymentVersion(Base):
 
 class EvalDataset(Base):
     __tablename__ = "eval_datasets"
-    __table_args__ = (PrimaryKeyConstraint("id", name="eval_datasets_pkey"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="eval_datasets_pkey"),
+        UniqueConstraint("org_id", "id", name="eval_datasets_org_id_id_uq"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="eval_datasets_org_fk"),
+        ForeignKeyConstraint(
+            ["org_id", "deployment_id"],
+            ["deployments.org_id", "deployments.id"],
+            name="eval_datasets_deployment_fk",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
@@ -1317,6 +1397,14 @@ class EvalCase(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="eval_cases_pkey"),
         Index("eval_cases_dataset_idx", "org_id", "dataset_id"),
+        UniqueConstraint("org_id", "id", name="eval_cases_org_id_id_uq"),
+        ForeignKeyConstraint(
+            ["org_id", "dataset_id"],
+            ["eval_datasets.org_id", "eval_datasets.id"],
+            name="eval_cases_dataset_fk",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("split in ('calibration', 'test')", name="eval_cases_split_ck"),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1331,6 +1419,10 @@ class EvalCase(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
     )
+    # Temperature and conformal threshold are fitted on `calibration`; gates are scored on `test` only.
+    split: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'test'::text"))
+    # Cases are archived, never deleted, so past runs keep their evidence.
+    archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
 
 class EvalRun(Base):
@@ -1338,6 +1430,20 @@ class EvalRun(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="eval_runs_pkey"),
         Index("eval_runs_version_idx", "org_id", "deployment_version_id"),
+        UniqueConstraint("org_id", "id", name="eval_runs_org_id_id_uq"),
+        ForeignKeyConstraint(
+            ["org_id", "dataset_id"],
+            ["eval_datasets.org_id", "eval_datasets.id"],
+            name="eval_runs_dataset_fk",
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "deployment_version_id"],
+            ["deployment_versions.org_id", "deployment_versions.id"],
+            name="eval_runs_version_fk",
+        ),
+        CheckConstraint(
+            "state in ('queued', 'running', 'passed', 'failed', 'error')", name="eval_runs_state_ck"
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1356,6 +1462,11 @@ class EvalRun(Base):
     )
     finished_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     error: Mapped[str | None] = mapped_column(Text)
+    # The run is bound to exactly what it scored: the version's config hash and the frozen dataset.
+    config_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    dataset_snapshot: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    split: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    started_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
 
 class EvalResult(Base):
@@ -1363,6 +1474,15 @@ class EvalResult(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="eval_results_pkey"),
         Index("eval_results_run_idx", "org_id", "run_id"),
+        ForeignKeyConstraint(
+            ["org_id", "run_id"],
+            ["eval_runs.org_id", "eval_runs.id"],
+            name="eval_results_run_fk",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "case_id"], ["eval_cases.org_id", "eval_cases.id"], name="eval_results_case_fk"
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1376,3 +1496,4 @@ class EvalResult(Base):
     passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     trace_id: Mapped[str | None] = mapped_column(Text)
+    split: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'test'::text"))

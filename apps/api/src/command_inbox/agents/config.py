@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
@@ -58,11 +59,25 @@ class HardStop(CamelModel):
 
 
 class BucketOverride(CamelModel):
-    """Force a category when a sender, domain or phrase matches; applied before the decision engine."""
+    """Force a category when a sender, domain, phrase or pattern matches; applied before the decision engine.
 
-    match: Literal["sender", "domain", "phrase"]
+    `regex` is matched case-insensitively against subject + body; `requires` lists words that must all be
+    present as well (carries over the setup's deterministic bucketing rules exactly).
+    """
+
+    match: Literal["sender", "domain", "phrase", "regex"]
     value: Short
     category: Key
+    requires: list[Annotated[str, Field(max_length=80)]] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def _valid_regex(self) -> BucketOverride:
+        if self.match == "regex":
+            try:
+                re.compile(self.value)
+            except re.error as err:
+                raise ValueError(f"invalid bucket override pattern: {err}") from err
+        return self
 
 
 class PriorityRuleSpec(CamelModel):
@@ -71,6 +86,8 @@ class PriorityRuleSpec(CamelModel):
     target: Literal["p1", "p2", "p3", "p4"]
     hard: bool = False
     keywords: list[Annotated[str, Field(max_length=80)]] = Field(default_factory=list, max_length=40)
+    # A weighted (non-hard) rule can be switched off; hard rules always fire.
+    enabled: bool = True
 
 
 class Rules(CamelModel):

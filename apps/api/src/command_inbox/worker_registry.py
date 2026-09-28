@@ -33,7 +33,7 @@ def register_all(worker: Worker) -> Worker:
 
 # Modules that react when a job exhausts its retries (e.g. hand the ticket back to a person). Each
 # `install(worker)` chains the handler installed before it.
-FAILURE_HANDLERS: list[str] = ["command_inbox.modules.gateway.jobs"]
+FAILURE_HANDLERS: list[str] = ["command_inbox.modules.gateway.jobs", "command_inbox.agents.runner"]
 
 
 def install_failure_handlers(worker: Worker) -> Worker:

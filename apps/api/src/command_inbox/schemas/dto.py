@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from pydantic import Field
+
 from command_inbox.schemas.base import CamelModel
 from command_inbox.schemas.enums import (
     ActionState,
@@ -17,11 +19,15 @@ from command_inbox.schemas.enums import (
     ClearanceLevel,
     CommentKind,
     ConnectorState,
+    DeploymentVersionState,
     DraftState,
+    EvalRunState,
+    EvalSplit,
     FeedbackKind,
     FixKind,
     GapSeverity,
     Health,
+    InvitationState,
     KnowledgeKind,
     KpiMetric,
     Lane,
@@ -29,6 +35,7 @@ from command_inbox.schemas.enums import (
     MailProvider,
     NotificationKind,
     OwnerKind,
+    PolicyEffect,
     Priority,
     RejectReason,
     RiskCell,
@@ -44,6 +51,7 @@ from command_inbox.schemas.requests import FilterKey, TicketFilters
 
 GateMode = Literal["action", "draft", "manual"]
 GateState = Literal["open", "awaiting_checker", "scheduled", "executing", "done", "rejected", "taken"]
+ApproveOutcome = Literal["awaiting_checker", "scheduled", "sending", "taken"]
 FacetCounts = dict[str, dict[str, int | float]]
 
 
@@ -492,7 +500,7 @@ class BoardDTO(CamelModel):
     name: str
     source: str
     provider: MailProvider
-    volume24h: int | float
+    volume24h: int | float = Field(alias="volume24h")
     open: int | float
     auto_rate_pct: int | float
     state: BoardState
@@ -536,7 +544,7 @@ class AgentDTO(CamelModel):
     version: int | float
     prompt: str
     eval_score: int | float | None
-    cost_per1k_minor: int | float
+    cost_per1k_minor: int | float = Field(alias="costPer1kMinor")
     boards: list[AgentDTOBoards]
     evals: list[AgentEvalDTO]
     calibration: list[CalibrationBandDTO]
@@ -878,7 +886,7 @@ class MailboxDTO(CamelModel):
     address: str
     department: str
     permissions: list[str]
-    volume24h: int | float
+    volume24h: int | float = Field(alias="volume24h")
     state: MailboxState
     provider: MailProvider
 
@@ -998,6 +1006,271 @@ class AuditVerifyDTO(CamelModel):
     ok: bool
     events: int | float
     broken_at: int | float | None
+
+
+class ApproveResult(CamelModel):
+    outcome: ApproveOutcome
+
+
+class BatchApproveItem(CamelModel):
+    ticket_id: str
+    ok: bool
+    outcome: ApproveOutcome | None | None = None
+    error: str | None | None = None
+
+
+class BatchApproveResult(CamelModel):
+    results: list[BatchApproveItem]
+
+
+class ReplyScheduled(CamelModel):
+    reply_id: str
+    send_after: str
+
+
+class IngestResult(CamelModel):
+    ticket_id: str
+    number: int | float
+    created: bool
+    duplicate: bool
+
+
+class AuthorizeUrlResult(CamelModel):
+    authorize_url: str
+
+
+class AssignResult(CamelModel):
+    assignee: str
+    reason: str
+
+
+class EscalateResult(CamelModel):
+    to: str
+
+
+class SplitResult(CamelModel):
+    children: list[str]
+
+
+class PublishCheckDTO(CamelModel):
+    ready: bool
+    blockers: list[str]
+    requires_single_admin_ack: bool
+    eval_run_id: str | None
+
+
+class DeploymentVersionDTO(CamelModel):
+    id: str
+    deployment_id: str
+    version: int | float
+    state: DeploymentVersionState
+    canary_percent: int | float | None
+    config_hash: str
+    notes: str
+    created_by: UserRef | None
+    created_at: str
+    edited_by: UserRef | None
+    edited_at: str | None
+    published_by: UserRef | None
+    published_at: str | None
+    retired_at: str | None
+    eval_run_id: str | None
+    config: dict[str, Any]
+    publish_check: PublishCheckDTO | None
+
+
+class DeploymentDTOCanary(CamelModel):
+    version: int | float
+    percent: int | float
+
+
+class DeploymentDTOMailboxes(CamelModel):
+    id: str
+    address: str
+
+
+class DeploymentDTO(CamelModel):
+    id: str
+    key: str
+    name: str
+    description: str
+    status: Literal["active", "archived"]
+    active_version_id: str | None
+    active_version: int | float | None
+    shadow_version: int | float | None
+    canary: DeploymentDTOCanary | None
+    draft_version_id: str | None
+    mailboxes: list[DeploymentDTOMailboxes]
+    created_at: str
+
+
+class DeploymentDetailDTO(DeploymentDTO):
+    versions: list[DeploymentVersionDTO]
+
+
+class EvalDatasetDTOSplits(CamelModel):
+    calibration: int | float
+    test: int | float
+
+
+class EvalDatasetDTO(CamelModel):
+    id: str
+    deployment_id: str | None
+    name: str
+    description: str
+    cases: int | float
+    splits: EvalDatasetDTOSplits
+    snapshot: str
+    created_at: str
+
+
+class EvalCaseDTOInput(CamelModel):
+    subject: str
+    body: str
+    from_email: str | None
+
+
+class EvalCaseDTOExpected(CamelModel):
+    category: str
+    hard_stop: bool
+
+
+class EvalCaseDTO(CamelModel):
+    id: str
+    dataset_id: str
+    input: EvalCaseDTOInput
+    expected: EvalCaseDTOExpected
+    split: EvalSplit
+    tags: list[str]
+    source: str
+    created_at: str
+
+
+class EvalMetricsDTO(CamelModel):
+    cases: int | float
+    calibration_cases: int | float
+    accuracy: int | float | None
+    macro_f1: int | float | None
+    hard_stop_recall: int | float | None
+    ece: int | float | None
+    ece_uncalibrated: int | float | None
+    selective_accuracy: int | float | None
+    coverage: int | float | None
+    conformal_coverage: int | float | None
+    lane_safety_violations: int | float
+    escalation_rate: int | float | None
+    p95_latency_ms: int | float | None
+    cost_per_thousand_mails_minor: int | float | None
+    temperature: int | float
+    conformal_qhat: int | float | None
+
+
+class EvalGateDTO(CamelModel):
+    key: str
+    label: str
+    metric: str
+    op: Literal["gte", "lte"]
+    threshold: int | float
+    value: int | float | None
+    passed: bool
+
+
+class EvalRunDTOSplit(CamelModel):
+    calibration: int | float
+    test: int | float
+
+
+class EvalRunDTO(CamelModel):
+    id: str
+    dataset_id: str
+    dataset_name: str
+    deployment_id: str
+    deployment_version_id: str
+    version: int | float
+    state: EvalRunState
+    engine: str
+    config_hash: str
+    dataset_snapshot: str
+    current: bool
+    split: EvalRunDTOSplit
+    metrics: EvalMetricsDTO | None
+    gates: list[EvalGateDTO]
+    passed: bool | None
+    created_by: UserRef | None
+    created_at: str
+    started_at: str | None
+    finished_at: str | None
+    error: str | None
+
+
+class EvalResultDTO(CamelModel):
+    id: str
+    case_id: str
+    split: EvalSplit
+    expected: str
+    predicted: str
+    confidence: int | float
+    correct: bool
+    hard_stop_expected: bool
+    hard_stop_predicted: bool
+    lane: Lane
+    escalated: bool
+    latency_ms: int | float
+
+
+class MemberDTOUser(UserRef):
+    email: str
+
+
+class MemberDTO(CamelModel):
+    user: MemberDTOUser
+    role: Role
+    title: str
+    joined_at: str
+    last_login_at: str | None
+    is_me: bool
+
+
+class InvitationDTO(CamelModel):
+    id: str
+    email: str
+    role: Role
+    state: InvitationState
+    invited_by: UserRef | None
+    created_at: str
+    expires_at: str
+    accepted_at: str | None
+    revoked_at: str | None
+
+
+class RolePolicyDTO(CamelModel):
+    role: Role
+    capability: Capability
+    effect: PolicyEffect
+    changed_by: UserRef | None
+    changed_at: str
+
+
+class PermissionMatrixDTORowsCells(CamelModel):
+    role: Role
+    allowed: bool
+    baseline: bool
+    override: PolicyEffect | None
+    locked: bool
+
+
+class PermissionMatrixDTORows(CamelModel):
+    capability: Capability
+    label: str
+    delegable: bool
+    admin_only: bool
+    cells: list[PermissionMatrixDTORowsCells]
+
+
+class PermissionMatrixDTO(CamelModel):
+    roles: list[Role]
+    rows: list[PermissionMatrixDTORows]
+    overrides: list[RolePolicyDTO]
 
 
 class ProblemDTO(CamelModel):

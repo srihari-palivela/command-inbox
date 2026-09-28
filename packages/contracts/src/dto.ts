@@ -13,17 +13,22 @@ import type {
   Capability,
   CommentKind,
   ConnectorState,
+  DeploymentVersionState,
   DraftState,
+  EvalRunState,
+  EvalSplit,
   FeedbackKind,
   FixKind,
   GapSeverity,
   Health,
+  InvitationState,
   KpiMetric,
   Lane,
   MailboxState,
   MailProvider,
   NotificationKind,
   OwnerKind,
+  PolicyEffect,
   Priority,
   RiskCell,
   Role,
@@ -765,6 +770,245 @@ export interface AuditVerifyDTO {
   ok: boolean;
   events: number;
   brokenAt: number | null;
+}
+
+// ── Approval gateway, intake and ticket action results ────────────────────────
+export type ApproveOutcome = 'awaiting_checker' | 'scheduled' | 'sending' | 'taken';
+
+export interface ApproveResult {
+  outcome: ApproveOutcome;
+}
+
+export interface BatchApproveItem {
+  ticketId: string;
+  ok: boolean;
+  outcome?: ApproveOutcome | null;
+  error?: string | null;
+}
+
+export interface BatchApproveResult {
+  results: BatchApproveItem[];
+}
+
+export interface ReplyScheduled {
+  replyId: string;
+  sendAfter: string;
+}
+
+export interface IngestResult {
+  ticketId: string;
+  number: number;
+  created: boolean;
+  duplicate: boolean;
+}
+
+export interface AuthorizeUrlResult {
+  authorizeUrl: string;
+}
+
+export interface AssignResult {
+  assignee: string;
+  reason: string;
+}
+
+export interface EscalateResult {
+  to: string;
+}
+
+export interface SplitResult {
+  children: string[];
+}
+
+// ── Deployments ───────────────────────────────────────────────────────────────
+/** Why a version can or cannot be promoted by the current user right now. */
+export interface PublishCheckDTO {
+  ready: boolean;
+  blockers: string[];
+  /** The only admin also made the last edit: promoting needs an explicit, audited acknowledgement. */
+  requiresSingleAdminAck: boolean;
+  /** The passing eval run on this exact config hash, if any. */
+  evalRunId: string | null;
+}
+
+export interface DeploymentVersionDTO {
+  id: string;
+  deploymentId: string;
+  version: number;
+  state: DeploymentVersionState;
+  canaryPercent: number | null;
+  configHash: string;
+  notes: string;
+  createdBy: UserRef | null;
+  createdAt: string;
+  editedBy: UserRef | null;
+  editedAt: string | null;
+  publishedBy: UserRef | null;
+  publishedAt: string | null;
+  retiredAt: string | null;
+  evalRunId: string | null;
+  /** The DeploymentConfig document (taxonomy, rules, flow, models, thresholds, gates). */
+  config: Record<string, unknown>;
+  publishCheck: PublishCheckDTO | null;
+}
+
+export interface DeploymentDTO {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  status: 'active' | 'archived';
+  activeVersionId: string | null;
+  activeVersion: number | null;
+  shadowVersion: number | null;
+  canary: { version: number; percent: number } | null;
+  draftVersionId: string | null;
+  mailboxes: { id: string; address: string }[];
+  createdAt: string;
+}
+
+export interface DeploymentDetailDTO extends DeploymentDTO {
+  versions: DeploymentVersionDTO[];
+}
+
+// ── Evals ─────────────────────────────────────────────────────────────────────
+export interface EvalDatasetDTO {
+  id: string;
+  deploymentId: string | null;
+  name: string;
+  description: string;
+  cases: number;
+  splits: { calibration: number; test: number };
+  /** Hash of the current (non-archived) cases; a run records the snapshot it scored. */
+  snapshot: string;
+  createdAt: string;
+}
+
+export interface EvalCaseDTO {
+  id: string;
+  datasetId: string;
+  input: { subject: string; body: string; fromEmail: string | null };
+  expected: { category: string; hardStop: boolean };
+  split: EvalSplit;
+  tags: string[];
+  source: string;
+  createdAt: string;
+}
+
+export interface EvalMetricsDTO {
+  cases: number;
+  calibrationCases: number;
+  accuracy: number | null;
+  macroF1: number | null;
+  hardStopRecall: number | null;
+  ece: number | null;
+  eceUncalibrated: number | null;
+  selectiveAccuracy: number | null;
+  coverage: number | null;
+  conformalCoverage: number | null;
+  laneSafetyViolations: number;
+  escalationRate: number | null;
+  p95LatencyMs: number | null;
+  costPerThousandMailsMinor: number | null;
+  temperature: number;
+  conformalQhat: number | null;
+}
+
+export interface EvalGateDTO {
+  key: string;
+  label: string;
+  metric: string;
+  op: 'gte' | 'lte';
+  threshold: number;
+  value: number | null;
+  passed: boolean;
+}
+
+export interface EvalRunDTO {
+  id: string;
+  datasetId: string;
+  datasetName: string;
+  deploymentId: string;
+  deploymentVersionId: string;
+  version: number;
+  state: EvalRunState;
+  engine: string;
+  configHash: string;
+  datasetSnapshot: string;
+  /** False once the version's config changed after this run: it no longer counts for publishing. */
+  current: boolean;
+  split: { calibration: number; test: number };
+  metrics: EvalMetricsDTO | null;
+  gates: EvalGateDTO[];
+  passed: boolean | null;
+  createdBy: UserRef | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+}
+
+export interface EvalResultDTO {
+  id: string;
+  caseId: string;
+  split: EvalSplit;
+  expected: string;
+  predicted: string;
+  confidence: number;
+  correct: boolean;
+  hardStopExpected: boolean;
+  hardStopPredicted: boolean;
+  lane: Lane;
+  escalated: boolean;
+  latencyMs: number;
+}
+
+// ── Members, invitations, permissions ─────────────────────────────────────────
+export interface MemberDTO {
+  user: UserRef & { email: string };
+  role: Role;
+  title: string;
+  joinedAt: string;
+  lastLoginAt: string | null;
+  isMe: boolean;
+}
+
+export interface InvitationDTO {
+  id: string;
+  email: string;
+  role: Role;
+  state: InvitationState;
+  invitedBy: UserRef | null;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface RolePolicyDTO {
+  role: Role;
+  capability: Capability;
+  effect: PolicyEffect;
+  changedBy: UserRef | null;
+  changedAt: string;
+}
+
+export interface PermissionMatrixDTO {
+  roles: Role[];
+  rows: {
+    capability: Capability;
+    label: string;
+    /** Staff and team-lead cells can be changed by the tenant; everything else is fixed by policy. */
+    delegable: boolean;
+    adminOnly: boolean;
+    cells: {
+      role: Role;
+      allowed: boolean;
+      baseline: boolean;
+      override: PolicyEffect | null;
+      locked: boolean;
+    }[];
+  }[];
+  overrides: RolePolicyDTO[];
 }
 
 export interface ProblemDTO {
