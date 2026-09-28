@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from pydantic.alias_generators import to_camel
+
 ROOT = Path(__file__).resolve().parents[3]
 CONTRACTS = ROOT / "packages" / "contracts" / "src"
 OUT = Path(__file__).resolve().parents[1] / "src" / "command_inbox" / "schemas"
@@ -130,7 +132,14 @@ class Gen:
             out.append("    pass\n")
         for field, typ in members:
             snake = re.sub(r"(?<!^)(?=[A-Z])", "_", field).lower()
-            out.append(f"    {snake}: {typ}\n")
+            if to_camel(snake) == field:
+                out.append(f"    {snake}: {typ}\n")
+            elif typ.endswith(
+                " = None"
+            ):  # the alias generator would not round-trip (volume24h, costPer1kMinor)
+                out.append(f'    {snake}: {typ[: -len(" = None")]} = Field(default=None, alias="{field}")\n')
+            else:
+                out.append(f'    {snake}: {typ} = Field(alias="{field}")\n')
         self.classes.append("".join(out) + "\n\n")
         self.known.add(name)
         return name
@@ -154,6 +163,7 @@ class Gen:
             HEADER.format(src="dto.ts"),
             "from __future__ import annotations\n\n",
             "from typing import Any, Literal\n\n",
+            "from pydantic import Field\n\n",
             "from command_inbox.schemas.base import CamelModel\n",
             f"from command_inbox.schemas.enums import {enum_import}\n",
             "from command_inbox.schemas.requests import FilterKey, TicketFilters\n\n",

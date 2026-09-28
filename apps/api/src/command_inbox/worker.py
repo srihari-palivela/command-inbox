@@ -21,9 +21,9 @@ log = structlog.get_logger(__name__)
 
 def build_worker() -> Worker:
     """Register every job handler. Handlers live with their modules and are imported lazily."""
-    from command_inbox.worker_registry import register_all
+    from command_inbox.worker_registry import install_failure_handlers, register_all
 
-    return register_all(Worker())
+    return install_failure_handlers(register_all(Worker()))
 
 
 async def start_scheduler() -> None:

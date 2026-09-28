@@ -168,15 +168,11 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, err: RequestValidationError) -> JSONResponse:
-        first = err.errors()[0] if err.errors() else {}
-        where = ".".join(str(p) for p in first.get("loc", ()) if p != "body")
-        return problem(
-            400,
-            "validation",
-            "The request is not valid.",
-            request,
-            f"{where}: {first.get('msg', 'invalid')}" if where else None,
-        )
+        parts = []
+        for e in err.errors():
+            where = "/" + "/".join(str(p) for p in e.get("loc", ()) if p != "body")
+            parts.append(f"{where if where != '/' else '(body)'} {e.get('msg', 'invalid')}")
+        return problem(400, "validation", "Invalid request", request, "; ".join(parts) or None)
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, err: StarletteHTTPException) -> JSONResponse:

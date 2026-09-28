@@ -29,3 +29,17 @@ def register_all(worker: Worker) -> Worker:
             continue
     worker.register("rerank", _noop).register("sla_sweep", _noop).register("retention_sweep", _noop)
     return worker
+
+
+# Modules that react when a job exhausts its retries (e.g. hand the ticket back to a person). Each
+# `install(worker)` chains the handler installed before it.
+FAILURE_HANDLERS: list[str] = ["command_inbox.modules.gateway.jobs"]
+
+
+def install_failure_handlers(worker: Worker) -> Worker:
+    for module in FAILURE_HANDLERS:
+        try:
+            importlib.import_module(module).install(worker)
+        except ModuleNotFoundError:
+            continue
+    return worker
