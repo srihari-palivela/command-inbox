@@ -30,6 +30,15 @@ import type {
   TicketFilters,
   TicketListDTO,
   AuditVerifyDTO,
+  DeploymentDTO,
+  DeploymentDetailDTO,
+  EvalCaseDTO,
+  EvalDatasetDTO,
+  EvalResultDTO,
+  EvalRunDTO,
+  InvitationDTO,
+  MemberDTO,
+  PermissionMatrixDTO,
 } from '@ci/contracts';
 import { QueryClient, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { api, ApiError, qs, setCsrfToken } from './api';
@@ -75,6 +84,19 @@ export const keys = {
   admin: ['admin'] as const,
   sessions: ['sessions'] as const,
   search: (q: string) => ['search', q] as const,
+  // Tenant administration
+  deployments: ['deployments'] as const,
+  deployment: (id: string) => ['deployments', id] as const,
+  evals: ['evals'] as const,
+  evalDatasets: (deploymentId: string) => ['evals', 'datasets', deploymentId] as const,
+  evalDataset: (id: string) => ['evals', 'dataset', id] as const,
+  evalCases: (datasetId: string) => ['evals', 'cases', datasetId] as const,
+  evalRuns: (f: { deploymentId?: string; versionId?: string }) => ['evals', 'runs', f] as const,
+  evalRun: (id: string) => ['evals', 'run', id] as const,
+  evalResults: (id: string) => ['evals', 'results', id] as const,
+  members: ['members'] as const,
+  invitations: ['invitations'] as const,
+  permissions: ['permissions'] as const,
 };
 
 // ── Session ───────────────────────────────────────────────────────────────────
@@ -220,6 +242,69 @@ export const useAuditVerify = (enabled: boolean) =>
     queryKey: ['audit', 'verify'],
     queryFn: () => api.get<AuditVerifyDTO>('/v1/audit/verify'),
     enabled,
+  });
+
+// ── Tenant administration ─────────────────────────────────────────────────────
+export const useDeployments = (enabled = true) =>
+  useQuery({
+    queryKey: keys.deployments,
+    queryFn: () => api.get<DeploymentDTO[]>('/v1/deployments'),
+    enabled,
+  });
+export const useDeployment = (id: string | null | undefined) =>
+  useQuery({
+    queryKey: keys.deployment(id ?? ''),
+    queryFn: () => api.get<DeploymentDetailDTO>(`/v1/deployments/${id}`),
+    enabled: !!id,
+  });
+export const useEvalDatasets = (deploymentId: string | null | undefined) =>
+  useQuery({
+    queryKey: keys.evalDatasets(deploymentId ?? ''),
+    queryFn: () => api.get<EvalDatasetDTO[]>(`/v1/evals/datasets${qs({ deploymentId })}`),
+    enabled: !!deploymentId,
+  });
+export const useEvalDataset = (id: string | null | undefined) =>
+  useQuery({
+    queryKey: keys.evalDataset(id ?? ''),
+    queryFn: () => api.get<EvalDatasetDTO>(`/v1/evals/datasets/${id}`),
+    enabled: !!id,
+  });
+export const useEvalCases = (datasetId: string | null | undefined) =>
+  useQuery({
+    queryKey: keys.evalCases(datasetId ?? ''),
+    queryFn: () => api.get<EvalCaseDTO[]>(`/v1/evals/datasets/${datasetId}/cases`),
+    enabled: !!datasetId,
+  });
+/** A queued or running eval is also polled slowly, in case the live stream drops the `eval.updated` event. */
+const pending = (state: string | undefined) => state === 'queued' || state === 'running';
+export const useEvalRuns = (f: { deploymentId?: string; versionId?: string }, enabled = true) =>
+  useQuery({
+    queryKey: keys.evalRuns(f),
+    queryFn: () => api.get<EvalRunDTO[]>(`/v1/evals/runs${qs(f)}`),
+    enabled: enabled && !!(f.deploymentId || f.versionId),
+    refetchInterval: (q) => (q.state.data?.some((r) => pending(r.state)) ? 4000 : false),
+  });
+export const useEvalRun = (id: string | null | undefined) =>
+  useQuery({
+    queryKey: keys.evalRun(id ?? ''),
+    queryFn: () => api.get<EvalRunDTO>(`/v1/evals/runs/${id}`),
+    enabled: !!id,
+    refetchInterval: (q) => (pending(q.state.data?.state) ? 4000 : false),
+  });
+export const useEvalResults = (id: string | null | undefined, enabled = true) =>
+  useQuery({
+    queryKey: keys.evalResults(id ?? ''),
+    queryFn: () => api.get<EvalResultDTO[]>(`/v1/evals/runs/${id}/results`),
+    enabled: enabled && !!id,
+  });
+export const useMembers = () =>
+  useQuery({ queryKey: keys.members, queryFn: () => api.get<MemberDTO[]>('/v1/members') });
+export const useInvitations = () =>
+  useQuery({ queryKey: keys.invitations, queryFn: () => api.get<InvitationDTO[]>('/v1/invitations') });
+export const usePermissions = () =>
+  useQuery({
+    queryKey: keys.permissions,
+    queryFn: () => api.get<PermissionMatrixDTO>('/v1/permissions'),
   });
 
 export const useSearch = (q: string) =>

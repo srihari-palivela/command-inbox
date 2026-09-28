@@ -32,7 +32,12 @@ export function useLiveUpdates(enabled: boolean): boolean {
           keys.taxonomy,
           keys.admin,
         ]);
-      if (topics.has('people.updated')) invalidate(qc, [keys.people, keys.performance]);
+      if (topics.has('people.updated'))
+        invalidate(qc, [keys.people, keys.performance, keys.members, keys.invitations]);
+      // A passed run changes a version's publish check, so eval events refresh deployments too.
+      if (topics.has('deployment.updated') || topics.has('eval.updated'))
+        invalidate(qc, [keys.deployments, keys.evals]);
+      if (topics.has('rbac.updated')) invalidate(qc, [keys.permissions, keys.me]);
       if (topics.has('insights.updated')) invalidate(qc, [keys.performance, keys.results]);
       if (topics.has('learning.updated')) invalidate(qc, [keys.learning]);
     };
@@ -51,6 +56,9 @@ export function useLiveUpdates(enabled: boolean): boolean {
       'people.updated',
       'insights.updated',
       'learning.updated',
+      'deployment.updated',
+      'eval.updated',
+      'rbac.updated',
     ];
     for (const t of topics) es.addEventListener(t, on(t));
     es.addEventListener('ready', () => setConnected(true));

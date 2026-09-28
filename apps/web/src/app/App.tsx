@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, Navigate, RouterProvider, useRouteError } from 'react-router-dom';
 import { queryClient, useMe } from '../lib/queries';
 import { ErrorState, Skeleton, Toaster } from '../ui';
-import { SCREENS } from './routes';
+import { DETAIL_ROUTES, SCREENS } from './routes';
 import { Shell } from './Shell';
 import { SignIn } from './SignIn';
 import { UiProvider } from './ui-context';
@@ -43,6 +43,8 @@ const screenRoutes = Object.values(SCREENS).map((sc) => {
   return { path: sc.path.slice(1), element: <C /> };
 });
 
+const detailRoutes = DETAIL_ROUTES.map(({ path, component: C }) => ({ path, element: <C /> }));
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -51,6 +53,8 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/inbox" replace /> },
       ...screenRoutes,
+      ...detailRoutes,
+      { path: 'admin', element: <Navigate to="/admin/deployments" replace /> },
       {
         path: 'inbox/:ticket',
         element: (() => {

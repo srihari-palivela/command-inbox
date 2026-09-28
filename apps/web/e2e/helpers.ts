@@ -33,3 +33,22 @@ export async function signedIn(
 
 export const gateway = (page: Page) => page.getByRole('region', { name: 'Approval gateway' });
 export const toast = (page: Page) => page.getByRole('status');
+
+/**
+ * Call the API as the page's signed-in user (for setup and cleanup that is not what a test is about).
+ * Writes need the session's CSRF token, which `/v1/me` returns.
+ */
+export async function apiAs(page: Page) {
+  const me = await page.request.get('/v1/me');
+  expect(me.ok()).toBeTruthy();
+  const { csrfToken } = (await me.json()) as { csrfToken: string };
+  const headers = { 'x-csrf-token': csrfToken };
+  return {
+    get: async <T>(path: string) => {
+      const res = await page.request.get(path);
+      expect(res.ok()).toBeTruthy();
+      return (await res.json()) as T;
+    },
+    post: (path: string, data: unknown = {}) => page.request.post(path, { data, headers }),
+  };
+}

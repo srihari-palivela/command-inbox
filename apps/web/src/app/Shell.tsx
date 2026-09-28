@@ -8,7 +8,7 @@ import { toast } from '../lib/toast';
 import { MenuItem, Popover, Segmented, Skeleton } from '../ui';
 import { CommandPalette } from './CommandPalette';
 import { NotificationCenter } from './NotificationCenter';
-import { NAV } from './routes';
+import { canSee, NAV } from './routes';
 import s from './Shell.module.css';
 import { useUi } from './ui-context';
 import { ComposeUpdate } from '../features/learning/ComposeUpdate';
@@ -321,7 +321,7 @@ export function Shell({ me }: { me: MeDTO }) {
       <div className={s.body}>
         <nav className={s.nav} aria-label="Main">
           {NAV.map((g) => {
-            const items = g.items.filter((i) => !i.cap || caps.has(i.cap));
+            const items = g.items.filter((i) => canSee(i, caps));
             if (!items.length) return null;
             return (
               <div className={s.group} key={g.label}>

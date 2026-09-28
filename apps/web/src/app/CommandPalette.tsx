@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { LANE_TONE } from '../lib/presentation';
 import { useAsk, useSearch } from '../lib/queries';
-import { SCREENS } from './routes';
+import { canSee, SCREENS } from './routes';
 import { filtersToSearch } from '../features/tickets/filter-url';
 
 interface Item {
@@ -71,10 +71,7 @@ export function CommandPalette({ open, onClose, me }: { open: boolean; onClose: 
     const out: Item[] = [];
     const neutral = { tagFg: 'var(--muted)', tagBg: 'var(--surface-3)' };
     Object.values(SCREENS)
-      .filter(
-        (sc) =>
-          (!sc.cap || caps.has(sc.cap)) && (!term || `${sc.label} ${sc.meta}`.toLowerCase().includes(term)),
-      )
+      .filter((sc) => canSee(sc, caps) && (!term || `${sc.label} ${sc.meta}`.toLowerCase().includes(term)))
       .slice(0, term ? 6 : 5)
       .forEach((sc) =>
         out.push({
