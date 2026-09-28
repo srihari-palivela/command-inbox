@@ -18,6 +18,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
+from command_inbox.seed import asyncpg_url
 from tests.conftest import ADMIN_BASE
 
 pytestmark = pytest.mark.integration
@@ -27,7 +28,7 @@ NOW = datetime(2026, 9, 28, 12, 2, tzinfo=UTC)
 
 
 def _url(db: str) -> str:
-    return f"{ADMIN_BASE.replace('postgresql://', 'postgresql+asyncpg://')}/{db}"
+    return asyncpg_url(f"{ADMIN_BASE}/{db}")
 
 
 async def _fresh_seeded(db: str) -> str:
