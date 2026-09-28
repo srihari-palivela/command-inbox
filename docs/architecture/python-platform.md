@@ -216,3 +216,34 @@ System-1.x ([arXiv 2407.14414](https://arxiv.org/abs/2407.14414)) ·
 Conformal LLM classification ([arXiv 2305.18404](https://arxiv.org/abs/2305.18404)) ·
 Calibration ([arXiv 1706.04599](https://arxiv.org/abs/1706.04599)).
 Jev's own pages were not reachable from the build environment; Jev facts come from the two GitHub sources.
+
+---
+
+## 9. Delivery plan (strangler, in phases)
+
+The TypeScript API stays deployable until the Python API passes the same checks. Each phase ends with a check
+that can fail.
+
+| Phase | Scope | Exit criterion |
+|---|---|---|
+| A — Foundation | FastAPI app, sessions, Keycloak BFF, Casbin, RLS, audit, outbox, jobs, telemetry, migrations 0001–0003 | Platform tests green: RLS isolation, CSRF, audit chain (including chains the TS server wrote), locked overrides |
+| B — Module parity | Tickets, search, copilot, gateway, calls, intake, workspace, people, insights, learning, setup, seed + reset CLI | Every TS integration test ported and green; the response-diff harness shows no unexplained difference on the recorded `/v1` corpus |
+| C — Deployments and AI | Deployments with versions and four-eyes publish, System 1 engine, LangGraph flows, triage runner, evals, Langfuse | Eval gates enforced on publish; triage of the seeded mail matches the TS lanes on the heuristic engine |
+| D — Cut-over | Playwright suite against the Python API, compose with Keycloak / Langfuse / OTel collector / llama.cpp, CI jobs | 12/12 end-to-end tests green on Python; `apps/server` deleted |
+| E — Hardening | Shadow and canary rollout of deployment versions, rate limits, retention jobs, residency profile | Canary promotion and rollback exercised in staging |
+
+### Review findings accepted into the plan
+
+| Area | Change |
+|---|---|
+| Deployments | Migration backfills a **default deployment** per tenant (from its current setup) and binds existing mailboxes and tickets, so no ticket is left without a version |
+| Publishing | **Four-eyes publish**: the admin who edited a draft cannot publish it; publish requires a passing eval run on the exact config hash and a frozen dataset snapshot |
+| Rollout | Versions go `draft → shadow` (runs beside the live version, decisions recorded, never acted on) `→ canary` (a share of mail) `→ published`; rollback is one click |
+| Flows | Flows compile only from vetted templates; the PII mask, hard-stop guard, lane policy and approval gate nodes are **required** and cannot be removed or reordered |
+| Calibration | Temperature is fitted on a held-out split, never on the gate's test split; ECE is reported on the test split |
+| Sender trust | DKIM/SPF/DMARC verdict is recorded at intake; an unauthenticated sender never reaches the Auto lane |
+| Intake | Webhooks signed over the raw body with a timestamp (replay window 5 min); mailbox OAuth `state` bound to the session with PKCE; the connected account must match the mailbox address |
+| Edge | nginx sets security headers per location, HSTS, `X-Forwarded-For` from `$remote_addr`; the app trusts forwarded headers only from the proxy |
+| Abuse | Rate limits per session and per tenant on sign-in, copilot, search and intake |
+| Schema | Composite foreign keys `(org_id, id)` on tenant tables so a row can never point into another tenant; a test asserts RLS is enabled and forced on every tenant table |
+| Roles | Three roles stay. A read-only **auditor** is a candidate fourth role for regulators and internal audit; not built until asked |
