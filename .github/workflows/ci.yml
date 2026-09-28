@@ -114,8 +114,12 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ci/web exec playwright install --with-deps chromium
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true, cache-dependency-glob: apps/api/uv.lock }
+      - run: uv sync --frozen --no-dev
+        working-directory: apps/api
       - run: ADMIN_URL=$PG_ADMIN/postgres ./apps/server/scripts/setup-db.sh command_inbox
-      # Playwright starts the API (embedded worker) and the SPA; E2E_RESET migrates and seeds first.
+      # Playwright starts the Python API (embedded worker) and the SPA; E2E_RESET migrates and seeds first.
       - run: pnpm e2e
         env:
           E2E_RESET: '1'

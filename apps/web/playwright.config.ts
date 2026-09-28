@@ -1,5 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/** The Python API in development mode: demo sign-in, deterministic models, the worker embedded. */
+const apiEnv = {
+  APP_ENV: 'development',
+  DEMO_MODE: 'true',
+  LOG_JSON: 'false',
+  LLM_PROVIDER: 'heuristic',
+  DECISION_ENGINE: 'heuristic',
+  EMBEDDED_WORKER: 'true',
+};
+
 /**
  * End-to-end tests run the real stack: Postgres, the API (with its embedded worker in dev) and the SPA.
  * They change data, so CI runs them against a freshly seeded database (E2E_RESET=1 resets before the run).
@@ -21,9 +31,31 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 1000 }, launchOptions: executablePath ? { executablePath } : {} } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1600, height: 1000 },
+        launchOptions: executablePath ? { executablePath } : {},
+      },
+    },
+  ],
   webServer: [
-    { command: 'pnpm --filter @ci/server dev', url: 'http://localhost:4000/healthz', reuseExistingServer: !process.env.CI, timeout: 60_000, cwd: '../..' },
-    { command: 'pnpm --filter @ci/web dev', url: 'http://localhost:5173', reuseExistingServer: !process.env.CI, timeout: 60_000, cwd: '../..' },
+    {
+      command: 'uv run command-inbox-api',
+      url: 'http://localhost:4000/healthz',
+      reuseExistingServer: !process.env.CI,
+      timeout: 90_000,
+      cwd: '../api',
+      env: apiEnv,
+    },
+    {
+      command: 'pnpm --filter @ci/web dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      cwd: '../..',
+    },
   ],
 });
