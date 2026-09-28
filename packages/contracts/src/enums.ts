@@ -134,5 +134,12 @@ export const Capability = z.enum([
   'autonomy.change',
   'rules.edit',
   'audit.verify',
+  'deployment.view',
+  'deployment.edit',
+  'deployment.publish',
+  'evals.view',
+  'evals.run',
+  'members.manage',
+  'rbac.manage',
 ]);
 export type Capability = z.infer<typeof Capability>;

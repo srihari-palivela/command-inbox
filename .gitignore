@@ -9,3 +9,9 @@ playwright-report
 test-results
 .DS_Store
 apps/web/e2e/screenshots
+__pycache__/
+*.pyc
+.venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
