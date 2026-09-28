@@ -69,6 +69,9 @@ jobs:
     defaults:
       run:
         working-directory: apps/api
+    env:
+      # Without it the API assumes production and (correctly) refuses the development defaults.
+      APP_ENV: development
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
