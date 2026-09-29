@@ -1698,3 +1698,39 @@ class MonitoringDTO(CamelModel):
     knowledge: MonitoringDTOKnowledge
     mailboxes: list[MonitoringDTOMailboxes]
     open_alerts: int | float
+
+
+class OperationsDTOSiem(CamelModel):
+    url: str | None
+    has_secret: bool
+    delivered_seq: int | float
+    pending: int | float
+    last_ok_at: str | None
+    last_error: str | None
+
+
+class OperationsDTO(CamelModel):
+    retention_mail_days: int | float | None
+    retention_trace_days: int | float | None
+    siem: OperationsDTOSiem
+    audit_events: int | float
+    can_edit: bool
+
+
+class AuditManifestDTOFiles(CamelModel):
+    name: str
+    sha256: str
+    bytes: int | float
+
+
+class AuditManifestDTO(CamelModel):
+    tenant: str
+    generated_at: str
+    since: str | None
+    until: str | None
+    events: int | float
+    first_seq: int | float | None
+    last_seq: int | float | None
+    last_hash: str | None
+    files: list[AuditManifestDTOFiles]
+    signature: str

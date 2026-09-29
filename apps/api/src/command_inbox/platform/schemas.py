@@ -26,6 +26,7 @@ class TenantLimitsBody(CamelModel):
     monthly_mail: Annotated[int, Field(ge=100, le=10_000_000)] = 20_000
     model_spend_cap_minor: Annotated[int, Field(ge=0, le=1_000_000_000)] = 5_000_000
     storage_gb: Annotated[int, Field(ge=1, le=10_000)] = 50
+    api_per_minute: Annotated[int, Field(ge=60, le=100_000)] = 3000
 
 
 class AdminContact(CamelModel):

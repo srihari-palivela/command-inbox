@@ -254,6 +254,14 @@ export default function NewTenantScreen() {
             >
               <Input {...bind('storageGb')} inputMode="numeric" />
             </FormField>
+            <FormField
+              id="t-apiPerMinute"
+              label="API requests per minute"
+              error={errors.apiPerMinute}
+              hint="Per API server; protects the stack from a runaway client."
+            >
+              <Input {...bind('apiPerMinute')} inputMode="numeric" />
+            </FormField>
           </div>
         </Card>
 

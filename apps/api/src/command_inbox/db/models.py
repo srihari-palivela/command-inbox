@@ -868,6 +868,7 @@ class Message(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(True), nullable=False)
     provider_message_id: Mapped[str | None] = mapped_column(Text)
+    redacted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
 
 class NotificationRead(Base):
@@ -969,6 +970,14 @@ class Org(Base):
         ARRAY(Text), nullable=False, server_default=text("'{anthropic,openai}'::text[]")
     )
     model_budget_monthly_minor: Mapped[int | None] = mapped_column(BigInteger)
+    # Retention (days; null keeps) and SIEM streaming of the audit log.
+    retention_mail_days: Mapped[int | None] = mapped_column(Integer, server_default=text("730"))
+    retention_trace_days: Mapped[int | None] = mapped_column(Integer, server_default=text("180"))
+    siem_url: Mapped[str | None] = mapped_column(Text)
+    siem_secret_sealed: Mapped[str | None] = mapped_column(Text)
+    siem_cursor: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    siem_last_ok_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    siem_last_error: Mapped[str | None] = mapped_column(Text)
 
 
 class ModelSpend(Base):
@@ -1930,6 +1939,7 @@ class MailMessage(Base):
     raw_sealed: Mapped[str | None] = mapped_column(Text)
     raw_size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     body_text: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    redacted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     direction: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'inbound'::text"))
     flags: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     outcome: Mapped[str] = mapped_column(Text, nullable=False)

@@ -35,16 +35,20 @@ async def schedule_tick(now: datetime | None = None, state: dict[str, int] | Non
     ts = int(now.timestamp())
     minute, hour, day = ts // 60, ts // 3600, ts // 86400
     async with global_tx() as g:
-        org_ids = (
-            (await g.execute(select(Org.id).where(Org.status.not_in(("archived", "draft", "provisioning")))))
-            .scalars()
-            .all()
-        )
+        orgs = (
+            await g.execute(
+                select(Org.id, Org.siem_url).where(Org.status.not_in(("archived", "draft", "provisioning")))
+            )
+        ).all()
+    org_ids = [o for o, _ in orgs]
+    streaming = {o for o, url in orgs if url}
     for org_id in org_ids:
         async with tenant_tx(org_id) as tx:
             await enqueue(tx, org_id, "sla_sweep", dedupe_key=f"sla_sweep:{minute}", max_attempts=1)
             await enqueue(tx, org_id, "metrics_rollup", dedupe_key=f"metrics_rollup:{hour}", max_attempts=2)
             await enqueue(tx, org_id, "retention_sweep", dedupe_key=f"retention_sweep:{day}", max_attempts=3)
+            if org_id in streaming:
+                await enqueue(tx, org_id, "siem_push", dedupe_key=f"siem_push:{minute}", max_attempts=1)
     from command_inbox.mail.sync import schedule_mail
 
     await schedule_mail()

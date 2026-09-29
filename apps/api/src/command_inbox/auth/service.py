@@ -46,7 +46,7 @@ async def build_me(ctx: Ctx, csrf_token: str) -> dto.MeDTO:
                 select(Org, Membership.role)
                 .join(Membership, Membership.org_id == Org.id)
                 .where(Membership.user_id == ctx.user.id)
-                .order_by(Org.created_at)
+                .order_by(Org.created_at, Org.slug)
             )
         ).all()
     if org is None or membership is None:
@@ -135,7 +135,7 @@ async def first_org_for(user_id: str) -> str | None:
                 select(Membership.org_id)
                 .join(Org, Org.id == Membership.org_id)
                 .where(Membership.user_id == user_id)
-                .order_by(Org.created_at)
+                .order_by(Org.created_at, Org.slug)
                 .limit(1)
             )
         ).scalar_one_or_none()
@@ -269,7 +269,7 @@ async def demo_users() -> list[dto.DemoUserDTO]:
 
 async def org_choices(email: str | None) -> list[dto.OrgChoiceDTO]:
     async with global_tx() as g:
-        orgs = (await g.execute(select(Org).order_by(Org.created_at))).scalars().all()
+        orgs = (await g.execute(select(Org).order_by(Org.created_at, Org.slug))).scalars().all()
         user = (
             (await g.execute(select(User).where(User.email == email))).scalar_one_or_none() if email else None
         )

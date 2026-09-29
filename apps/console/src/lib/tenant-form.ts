@@ -22,6 +22,7 @@ export interface TenantForm {
   /** Major units (e.g. pounds); sent as minor units. */
   modelSpendCap: string;
   storageGb: string;
+  apiPerMinute: string;
   adminName: string;
   adminEmail: string;
   provision: boolean;
@@ -44,6 +45,7 @@ export const EMPTY_FORM: TenantForm = {
   monthlyMail: '20000',
   modelSpendCap: '50000',
   storageGb: '50',
+  apiPerMinute: '3000',
   adminName: '',
   adminEmail: '',
   provision: true,
@@ -88,6 +90,7 @@ export function toBody(f: TenantForm): unknown {
       monthlyMail: plainNumber(f.monthlyMail),
       modelSpendCapMinor: majorToMinor(f.modelSpendCap),
       storageGb: plainNumber(f.storageGb),
+      apiPerMinute: plainNumber(f.apiPerMinute),
     },
     admin: { name: f.adminName, email: f.adminEmail },
     provision: f.provision,
@@ -112,6 +115,7 @@ const MESSAGE: Partial<Record<FieldKey, string>> = {
   monthlyMail: 'A whole number from 100 to 10,000,000.',
   modelSpendCap: 'An amount from 0 to 10,000,000.',
   storageGb: 'A whole number from 1 to 10,000.',
+  apiPerMinute: 'A whole number from 60 to 100,000.',
   adminName: 'Enter the first admin’s name.',
   adminEmail: 'Enter the first admin’s work email.',
 };
@@ -122,6 +126,7 @@ const FIELD_OF_PATH: Record<string, FieldKey> = {
   'limits.monthlyMail': 'monthlyMail',
   'limits.modelSpendCapMinor': 'modelSpendCap',
   'limits.storageGb': 'storageGb',
+  'limits.apiPerMinute': 'apiPerMinute',
   'admin.name': 'adminName',
   'admin.email': 'adminEmail',
 };

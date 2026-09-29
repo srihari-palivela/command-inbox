@@ -67,6 +67,7 @@ export const keys = {
   mailboxConnections: ['mailbox-connections'] as const,
   workspaceProfile: ['workspace', 'profile'] as const,
   modelPolicy: ['workspace', 'model-policy'] as const,
+  operations: ['workspace', 'operations'] as const,
   taxonomyAdmin: ['taxonomy', 'admin'] as const,
   slaPolicies: ['taxonomy', 'sla'] as const,
   demo: ['auth', 'demo'] as const,

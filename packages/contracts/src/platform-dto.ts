@@ -54,6 +54,7 @@ export interface TenantLimitsDTO {
   monthlyMail: number;
   modelSpendCapMinor: number;
   storageGb: number;
+  apiPerMinute: number;
 }
 
 export interface TenantSummaryDTO {

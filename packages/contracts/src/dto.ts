@@ -1433,3 +1433,37 @@ export interface MonitoringDTO {
   mailboxes: { id: string; address: string; level: string; lagSeconds: number | null; messages24h: number }[];
   openAlerts: number;
 }
+
+// ── Operations: retention, audit export, SIEM ─────────────────────────────────
+export interface OperationsDTO {
+  /** Customer mail text of tickets closed longer ago than this is removed; null keeps it. */
+  retentionMailDays: number | null;
+  /** Model traces older than this are deleted; null keeps them. */
+  retentionTraceDays: number | null;
+  siem: {
+    url: string | null;
+    hasSecret: boolean;
+    /** Audit events delivered so far (sequence number) and how many are waiting. */
+    deliveredSeq: number;
+    pending: number;
+    lastOkAt: string | null;
+    lastError: string | null;
+  };
+  auditEvents: number;
+  canEdit: boolean;
+}
+
+export interface AuditManifestDTO {
+  tenant: string;
+  generatedAt: string;
+  since: string | null;
+  until: string | null;
+  events: number;
+  firstSeq: number | null;
+  lastSeq: number | null;
+  /** The hash-chain value of the last event exported: ties the export to the live chain. */
+  lastHash: string | null;
+  files: { name: string; sha256: string; bytes: number }[];
+  /** HMAC-SHA256 over the canonical manifest without this field, with the workspace's export key. */
+  signature: string;
+}

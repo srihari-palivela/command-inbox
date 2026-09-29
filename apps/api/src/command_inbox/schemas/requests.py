@@ -312,3 +312,10 @@ class BenchBody(CamelModel):
     from_email: Email | None = None
     segment: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] = "Retail"
     compare_with: Literal["active"] | Uuid | None = None
+
+
+class OperationsBody(CamelModel):
+    retention_mail_days: Annotated[int, Field(ge=30, le=3650)] | None
+    retention_trace_days: Annotated[int, Field(ge=7, le=3650)] | None
+    siem_url: Annotated[str, Field(pattern=r"^https://[^\s]+$", max_length=500)] | None
+    siem_secret: Annotated[str, Field(min_length=16, max_length=200)] | None = None

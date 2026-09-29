@@ -13,6 +13,8 @@ export const TenantLimitsBody = z.object({
   monthlyMail: z.number().int().min(100).max(10_000_000).default(20_000),
   modelSpendCapMinor: z.number().int().min(0).max(1_000_000_000).default(5_000_000),
   storageGb: z.number().int().min(1).max(10_000).default(50),
+  /** API requests per minute per API process; protects the stack from a runaway client. */
+  apiPerMinute: z.number().int().min(60).max(100_000).default(3000),
 });
 export type TenantLimitsBody = z.infer<typeof TenantLimitsBody>;
 

@@ -11,6 +11,7 @@ import { keys } from '../../lib/queries';
 import { Button, Card, Field, Input, Loadable, Page, PageHeader, Skeleton } from '../../ui';
 import { isForbidden, NoAccess, Notice, ProblemAlert, Select, Tone, useInlineAction } from './bits';
 import { ModelPolicyCard } from './ModelPolicyCard';
+import { OperationsCard } from './OperationsCard';
 import s from './workspace.module.css';
 
 const SSO_TONE: Record<WorkspaceSsoDTO['state'], { label: string; fg: string; bg: string; line: string }> = {
@@ -42,6 +43,7 @@ export default function OrganisationScreen() {
               <ProfileForm profile={p} />
               <SsoForm profile={p} />
               <ModelPolicyCard />
+              <OperationsCard />
               <Card title="Set by Command Inbox">
                 <dl className={s.facts}>
                   <dt>Region</dt>

@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, Query, Response
 
 from command_inbox.core.context import Ctx
 from command_inbox.core.http import current_ctx, in_tenant
-from command_inbox.modules.workspace import models, onboarding, profile, service
+from command_inbox.modules.workspace import models, onboarding, operations, profile, service
 from command_inbox.modules.workspace.schemas import AdminOut
 from command_inbox.schemas import dto
 from command_inbox.schemas.base import Ok
 from command_inbox.schemas.requests import (
     ModelPolicyBody,
+    OperationsBody,
     SettingsBody,
     WorkspaceProfileBody,
     WorkspaceSsoBody,
@@ -66,3 +70,43 @@ async def get_model_policy(ctx: Ctx = Depends(current_ctx)) -> dto.ModelPolicyDT
 @router.put("/workspace/model-policy", response_model=dto.ModelPolicyDTO)
 async def update_model_policy(body: ModelPolicyBody, ctx: Ctx = Depends(current_ctx)) -> dto.ModelPolicyDTO:
     return await in_tenant(ctx, lambda tx: models.update_policy(tx, ctx, body))
+
+
+@router.get("/workspace/operations", response_model=dto.OperationsDTO)
+async def get_operations(ctx: Ctx = Depends(current_ctx)) -> dto.OperationsDTO:
+    return await in_tenant(ctx, lambda tx: operations.get_operations(tx, ctx))
+
+
+@router.put("/workspace/operations", response_model=dto.OperationsDTO)
+async def update_operations(body: OperationsBody, ctx: Ctx = Depends(current_ctx)) -> dto.OperationsDTO:
+    return await in_tenant(ctx, lambda tx: operations.update_operations(tx, ctx, body))
+
+
+@router.get("/audit/export")
+async def export_audit(
+    since: datetime | None = Query(None),
+    until: datetime | None = Query(None),
+    ctx: Ctx = Depends(current_ctx),
+) -> Response:
+    data, manifest = await in_tenant(ctx, lambda tx: operations.export_audit(tx, ctx, since, until))
+    name = f"audit-{manifest['tenant']}-{manifest['generatedAt'][:10]}.zip"
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "content-disposition": f'attachment; filename="{name}"',
+            "x-audit-manifest-signature": manifest["signature"],
+        },
+    )
+
+
+@router.post("/audit/export/verify", response_model=dto.AuditVerifyDTO)
+async def verify_export(
+    manifest: dict[str, Any] = Body(...), ctx: Ctx = Depends(current_ctx)
+) -> dto.AuditVerifyDTO:
+    """Whether a manifest handed back later is one this workspace signed, unchanged."""
+    from command_inbox.rbac.policy import require
+
+    require(ctx, "audit.verify", "verify an audit export")
+    ok = operations.verify_manifest(ctx.org_id, manifest)
+    return dto.AuditVerifyDTO(ok=ok, events=int(manifest.get("events") or 0), broken_at=None)

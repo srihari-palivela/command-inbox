@@ -174,6 +174,14 @@ def create_app() -> FastAPI:
             ctx = getattr(request.state, "ctx", None)
             if path.startswith("/v1/") and ctx is None and not is_public(path):
                 return problem(401, "unauthenticated", "Sign in to continue", request)
+            if ctx is not None and path.startswith("/v1/"):
+                from command_inbox.core.ratelimit import limiter
+
+                allowed, wait = await limiter.allow(ctx.org_id)
+                if not allowed:
+                    limited = problem(429, "rate_limited", "Too many requests. Try again shortly.", request)
+                    limited.headers["retry-after"] = str(wait)
+                    return limited
             if (
                 request.method in UNSAFE
                 and ctx is not None

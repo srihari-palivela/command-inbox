@@ -29,7 +29,7 @@ from command_inbox.db.engine import rows, tenant_tx
 from command_inbox.db.models import Alert, Mailbox, Membership, Notification, Org, User
 
 log = structlog.get_logger(__name__)
-SWEPT_PREFIXES = ("sla:", "mailbox:", "budget:", "knowledge:")
+SWEPT_PREFIXES = ("sla:", "mailbox:", "budget:", "knowledge:", "siem:")
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +235,23 @@ async def conditions(tx: AsyncSession, org_id: str) -> list[Condition]:
                     )
                 )
                 break
+
+    # SIEM delivery failing.
+    siem = (await tx.execute(select(Org.siem_url, Org.siem_last_error).where(Org.id == org_id))).one()
+    if siem.siem_url and siem.siem_last_error:
+        out.append(
+            Condition(
+                key="siem:failing",
+                kind="health",
+                sev_label="SIEM delivery failing",
+                bucket="Audit stream",
+                text=f"Audit events are not reaching {siem.siem_url}: {siem.siem_last_error}. They are kept "
+                "and delivered once it answers again.",
+                action_label="Check the SIEM endpoint",
+                owner="Admins",
+                ref="/admin/organisation",
+            )
+        )
 
     # Knowledge about to expire.
     [k] = await rows(

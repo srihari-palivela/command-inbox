@@ -105,6 +105,9 @@ class Settings(BaseSettings):
     clamav_host: str | None = None
     clamav_port: int = 3310
     knowledge_max_upload_mb: int = 20
+    # Per-workspace API requests per minute per API process (a tenant's limits.apiPerMinute overrides it);
+    # 0 disables the limit.
+    api_rate_per_minute: int = 3000
     invitation_ttl_hours: int = 72
 
     encryption_key: str = "dev-only-key-change-me-dev-only-key-change-me"

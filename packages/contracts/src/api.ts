@@ -412,3 +412,13 @@ export const LabelBody = z.object({
   split: EvalSplit.default('test'),
 });
 export type LabelBody = z.infer<typeof LabelBody>;
+
+// ── Operations ──────────────────────────────────────────────────────────────────
+export const OperationsBody = z.object({
+  retentionMailDays: z.number().int().min(30).max(3650).nullable(),
+  retentionTraceDays: z.number().int().min(7).max(3650).nullable(),
+  siemUrl: z.string().trim().url().startsWith('https://').max(500).nullable(),
+  /** Omit to keep the stored signing secret. */
+  siemSecret: z.string().min(16).max(200).optional(),
+});
+export type OperationsBody = z.infer<typeof OperationsBody>;

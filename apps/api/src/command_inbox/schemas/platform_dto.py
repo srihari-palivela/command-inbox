@@ -98,6 +98,7 @@ class TenantLimitsDTO(CamelModel):
     monthly_mail: int | float
     model_spend_cap_minor: int | float
     storage_gb: int | float
+    api_per_minute: int | float
 
 
 class TenantSummaryDTO(CamelModel):

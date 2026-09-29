@@ -172,6 +172,8 @@ function TenantDetail({ t }: { t: TenantDetailDTO }) {
             <dd>{money(t.limits.modelSpendCapMinor, t.currency, t.locale)} a month</dd>
             <dt>Storage</dt>
             <dd>{count(t.limits.storageGb)} GB</dd>
+            <dt>API requests</dt>
+            <dd>{count(t.limits.apiPerMinute)} a minute</dd>
           </dl>
         </Card>
       </div>

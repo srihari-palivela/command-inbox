@@ -140,6 +140,7 @@ def _limits(raw: dict[str, Any]) -> pdto.TenantLimitsDTO:
         monthly_mail=int(raw.get("monthlyMail", 20_000)),
         model_spend_cap_minor=int(raw.get("modelSpendCapMinor", 5_000_000)),
         storage_gb=int(raw.get("storageGb", 50)),
+        api_per_minute=int(raw.get("apiPerMinute", 3000)),
     )
 
 

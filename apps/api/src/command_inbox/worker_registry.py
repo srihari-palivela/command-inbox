@@ -24,6 +24,8 @@ HANDLERS: list[tuple[str, str, str]] = [
     ("knowledge_ingest", "command_inbox.knowledge.service", "run_knowledge_ingest"),
     ("metrics_rollup", "command_inbox.modules.insights.rollup", "run_rollup_job"),
     ("sla_sweep", "command_inbox.modules.insights.alerts", "run_sla_sweep"),
+    ("retention_sweep", "command_inbox.modules.workspace.operations", "run_retention_sweep"),
+    ("siem_push", "command_inbox.modules.workspace.operations", "run_siem_push"),
 ]
 
 
@@ -38,8 +40,6 @@ def register_all(worker: Worker) -> Worker:
         except ModuleNotFoundError:
             continue
     worker.register("rerank", _noop)
-    if not worker.handles("retention_sweep"):
-        worker.register("retention_sweep", _noop)
     return worker
 
 
