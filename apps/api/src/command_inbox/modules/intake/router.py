@@ -114,4 +114,4 @@ async def oauth_callback(
     ctx: Ctx = Depends(current_ctx),
 ) -> RedirectResponse:
     await oauth.handle_callback(ctx, provider, code, state)
-    return RedirectResponse(f"{settings.web_origin}/boards?connected=1", status_code=302)
+    return RedirectResponse(f"{settings.web_origin}/setup/mailboxes?connected=1", status_code=302)

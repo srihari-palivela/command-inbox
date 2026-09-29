@@ -244,12 +244,14 @@ async def test_oauth_connects_the_mailbox_for_the_same_session(app, admin, oauth
     mb = await _mailbox_id(org, "grievance@bank.example")
     q = await _start(admin, mb)
     r = await admin.get("/v1/oauth/microsoft/callback", params={"code": "c1", "state": q["state"]})
-    assert r.status_code == 302 and r.headers["location"].endswith("/boards?connected=1")
+    assert r.status_code == 302 and r.headers["location"].endswith("/setup/mailboxes?connected=1")
     challenge = base64.urlsafe_b64encode(hashlib.sha256(oauth_env["verifier"].encode()).digest()).rstrip(b"=")
     assert challenge.decode() == q["code_challenge"]  # PKCE: the verifier sent matches the challenge
     async with tenant_tx(org) as tx:
         row = (await tx.execute(select(Mailbox).where(Mailbox.id == mb))).scalar_one()
-    assert row.state == "streaming" and row.credentials_enc and "at-c1" not in row.credentials_enc
+    # Sealed with the tenant's data key; the connect job takes it from here.
+    assert row.connection == "connecting" and row.provider_account == "grievance@bank.example"
+    assert row.credentials_enc.startswith("t1.") and "at-c1" not in row.credentials_enc
 
 
 async def test_oauth_state_from_another_session_or_provider_is_rejected(app, admin, lead, anon, oauth_env):

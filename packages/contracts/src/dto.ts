@@ -1090,3 +1090,58 @@ export interface ProblemDTO {
   code: string;
   requestId?: string;
 }
+
+// ── Mailbox connections (Microsoft 365 / Google Workspace) ─────────────────────
+export type MailConnection =
+  | 'not_connected'
+  | 'connecting'
+  | 'syncing'
+  | 'live'
+  | 'degraded'
+  | 'reauth_required'
+  | 'disconnected';
+
+export type HealthLevel = 'healthy' | 'degraded' | 'down' | 'unknown';
+
+export interface MailboxHealthSignalDTO {
+  key: 'stream' | 'lag' | 'sweep' | 'credential' | 'send' | 'throttling';
+  label: string;
+  level: HealthLevel;
+  value: string;
+}
+
+export interface MailSyncEventDTO {
+  at: string;
+  kind: string;
+  ok: boolean;
+  summary: string;
+}
+
+export interface MailboxConnectionDTO {
+  id: string;
+  address: string;
+  provider: MailProvider;
+  connection: MailConnection;
+  account: string | null;
+  /** How new mail is noticed: provider notifications (with a sweep) or polling. */
+  mode: 'notifications' | 'polling' | null;
+  sendEnabled: boolean;
+  level: HealthLevel;
+  signals: MailboxHealthSignalDTO[];
+  lastError: string;
+  lastErrorAt: string | null;
+  lastMessageAt: string | null;
+  lastTestAt: string | null;
+  lastTestOkAt: string | null;
+  messages24h: number;
+  events: MailSyncEventDTO[];
+}
+
+export interface MailConnectorsDTO {
+  /** Which providers this stack has an app registration for. */
+  providers: { microsoft: boolean; google: boolean };
+  /** Whether providers can notify us (a public HTTPS webhook URL is configured); otherwise we poll. */
+  webhooks: boolean;
+  mailboxLimit: number;
+  mailboxes: MailboxConnectionDTO[];
+}

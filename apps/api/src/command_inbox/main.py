@@ -42,8 +42,10 @@ PUBLIC_PATHS = {
     "/v1/auth/invitation/setup",
     "/v1/dev/mailbox",
 }
-PUBLIC_PREFIXES = ("/v1/oauth/",)
+PUBLIC_PREFIXES = ("/v1/oauth/", "/v1/hooks/")
 # State-changing but authenticated another way (no session yet, or a signed webhook). Exact paths only.
+# Provider webhooks (/v1/hooks/*) are authenticated per message (clientState / OIDC), never by a session.
+CSRF_EXEMPT_PREFIXES = ("/v1/hooks/",)
 CSRF_EXEMPT = {
     "/v1/auth/login",
     "/v1/intake/messages",
@@ -172,7 +174,12 @@ def create_app() -> FastAPI:
             ctx = getattr(request.state, "ctx", None)
             if path.startswith("/v1/") and ctx is None and not is_public(path):
                 return problem(401, "unauthenticated", "Sign in to continue", request)
-            if request.method in UNSAFE and ctx is not None and path not in CSRF_EXEMPT:
+            if (
+                request.method in UNSAFE
+                and ctx is not None
+                and path not in CSRF_EXEMPT
+                and not path.startswith(CSRF_EXEMPT_PREFIXES)
+            ):
                 header = request.headers.get("x-csrf-token", "")
                 if not header or not safe_equal(header, request.state.csrf_token):
                     return problem(403, "csrf", "Missing or invalid CSRF token", request)

@@ -45,6 +45,11 @@ JobKind = Literal[
     "retention_sweep",
     "send_email",
     "provision_tenant",
+    "mail_connect",
+    "mail_sync",
+    "mail_renew",
+    "mail_send",
+    "mail_test",
 ]
 
 

@@ -256,3 +256,13 @@ class WorkspaceSsoBody(CamelModel):
     directory_id: Annotated[str, Field(min_length=1, max_length=120)]
     client_id: Annotated[str, Field(min_length=1, max_length=200)]
     client_secret: Annotated[str, Field(min_length=8, max_length=500)] | None = None
+
+
+class CreateMailboxBody(CamelModel):
+    address: Email
+    provider: Literal["microsoft", "google"]
+    team_label: Annotated[str, Field(max_length=80)] = ""
+
+
+class MailboxSendingBody(CamelModel):
+    enabled: bool

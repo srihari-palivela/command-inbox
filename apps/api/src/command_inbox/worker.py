@@ -6,7 +6,7 @@ import asyncio
 import signal
 
 import structlog
-from sqlalchemy import select, text
+from sqlalchemy import select
 
 from command_inbox.config import settings
 from command_inbox.core.clock import clock
@@ -36,8 +36,9 @@ async def start_scheduler() -> None:
             for org_id in org_ids:
                 async with tenant_tx(org_id) as tx:
                     await enqueue(tx, org_id, "rerank", dedupe_key=f"rerank:{window}", max_attempts=1)
-            async with global_tx() as g:
-                await g.execute(text("select 1"))
+            from command_inbox.mail.sync import schedule_mail
+
+            await schedule_mail()
         except Exception as err:
             log.warning("scheduler tick failed", err=str(err))
         await asyncio.sleep(60)

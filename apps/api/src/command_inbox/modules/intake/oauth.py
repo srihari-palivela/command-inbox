@@ -1,5 +1,8 @@
-"""Mailbox OAuth (authorisation-code flow with PKCE). Read-only mail scopes: the AI never holds send scope —
-replies go out under a named approver.
+"""Mailbox OAuth (authorisation-code flow with PKCE): the one interactive sign-in as the mail account that
+connects a mailbox (decision D3: delegated access for one account, on an app registration the bank owns).
+
+Scopes: Microsoft `offline_access User.Read Mail.ReadWrite Mail.Send`; Google `gmail.modify gmail.send`.
+The send scope is used only for replies a named person approved (and the connection test).
 
 Hardening over the previous service:
 - **State bound to the session.** `state` is sealed with `core.crypto.encrypt(purpose="mailbox-oauth")`
@@ -12,7 +15,8 @@ Hardening over the previous service:
 - **The connected account must be the mailbox.** After the exchange we ask the provider which account
   granted access and refuse (`mailbox_mismatch`, 422) unless it equals the mailbox address; no tokens are
   stored in that case.
-Tokens are encrypted at rest (purpose "mailbox-credentials", bound to the tenant and mailbox row).
+Tokens are sealed with the tenant's data key and bound to the mailbox row; the connect job then sets the
+sync baseline and starts the change-notification stream.
 """
 
 from __future__ import annotations
@@ -26,7 +30,6 @@ from urllib.parse import urlencode
 
 import httpx
 from cryptography.exceptions import InvalidTag
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import select, update
 
 from command_inbox.config import settings
@@ -36,7 +39,8 @@ from command_inbox.core.context import Ctx, actor_of
 from command_inbox.core.crypto import decrypt, encrypt, random_token, sha256
 from command_inbox.core.errors import bad_request, not_found, unprocessable
 from command_inbox.db.engine import tenant_tx
-from command_inbox.db.models import Mailbox
+from command_inbox.db.models import Mailbox, MailSyncEvent
+from command_inbox.mail.credentials import GMAIL_SCOPES, GRAPH_SCOPES, seal_tokens
 from command_inbox.rbac.policy import require
 
 OAuthProvider = Literal["microsoft", "google"]
@@ -45,17 +49,7 @@ STATE_PURPOSE = "mailbox-oauth"
 CREDENTIALS_PURPOSE = "mailbox-credentials"
 
 
-class _OAuthSettings(BaseSettings):
-    """Provider app registrations. (Belongs in `config.Settings`; kept here until that file is edited.)"""
-
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-    ms_client_id: str | None = None
-    ms_client_secret: str | None = None
-    google_client_id: str | None = None
-    google_client_secret: str | None = None
-
-
-oauth_settings = _OAuthSettings()
+oauth_settings = settings  # the provider app registrations live in the main settings
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,18 +66,23 @@ class _Provider:
         return oauth_settings.ms_client_secret if p == "microsoft" else oauth_settings.google_client_secret
 
 
+def _ms(path: str) -> str:
+    # The bank's own single-tenant app: its directory, not /common.
+    return f"https://login.microsoftonline.com/{settings.ms_tenant}/oauth2/v2.0/{path}"
+
+
 PROVIDERS: dict[str, _Provider] = {
     "microsoft": _Provider(
-        authorize="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-        token="https://login.microsoftonline.com/common/oauth2/v2.0/token",  # noqa: S106 - a URL
+        authorize=_ms("authorize"),
+        token=_ms("token"),
         # User.Read lets us confirm which account granted access (the mailbox-address check).
-        scope="offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/User.Read",
-        extra={"prompt": "consent"},
+        scope=GRAPH_SCOPES,
+        extra={"prompt": "select_account"},
     ),
     "google": _Provider(
         authorize="https://accounts.google.com/o/oauth2/v2/auth",
         token="https://oauth2.googleapis.com/token",  # noqa: S106 - a URL
-        scope="https://www.googleapis.com/auth/gmail.readonly",
+        scope=GMAIL_SCOPES,
         extra={"access_type": "offline", "prompt": "consent"},
     ),
 }
@@ -210,17 +209,33 @@ async def handle_callback(ctx: Ctx, p: str, code: str, raw_state: str) -> None:
             f"You granted access as {account or 'an unknown account'}, but this board reads {address}. "
             "Sign in as that mailbox and try again.",
         )
+    from command_inbox.core.jobs import enqueue
+
     async with tenant_tx(ctx.org_id) as tx:
+        sealed, expires_at = await seal_tokens(tx, ctx.org_id, st["m"], tokens)
         await tx.execute(
             update(Mailbox)
             .where(Mailbox.org_id == ctx.org_id, Mailbox.id == st["m"])
             .values(
-                credentials_enc=encrypt(
-                    json.dumps(tokens), purpose=CREDENTIALS_PURPOSE, aad=f"{ctx.org_id}|mailboxes|{st['m']}"
-                ),
-                state="streaming",
+                credentials_enc=sealed,
+                token_expires_at=expires_at,
+                provider_account=account,
+                connection="connecting",
+                cursor=None,
+                stream_id=None,
+                stream_secret_hash=None,
+                stream_expires_at=None,
+                last_error="",
                 last_sync_at=clock.now(),
             )
+        )
+        tx.add(
+            MailSyncEvent(
+                org_id=ctx.org_id, mailbox_id=st["m"], kind="authorized", detail={"account": account}
+            )
+        )
+        await enqueue(
+            tx, ctx.org_id, "mail_connect", {"mailboxId": st["m"]}, dedupe_key=f"mail-connect:{st['v'][:16]}"
         )
         await audit(
             tx,

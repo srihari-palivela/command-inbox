@@ -329,3 +329,14 @@ export const WorkspaceSsoBody = z.object({
   clientSecret: z.string().min(8).max(500).optional(),
 });
 export type WorkspaceSsoBody = z.infer<typeof WorkspaceSsoBody>;
+
+// ── Mailbox connections ─────────────────────────────────────────────────────────
+export const CreateMailboxBody = z.object({
+  address: z.string().trim().toLowerCase().email(),
+  provider: z.enum(['microsoft', 'google']),
+  teamLabel: z.string().trim().max(80).default(''),
+});
+export type CreateMailboxBody = z.infer<typeof CreateMailboxBody>;
+
+export const MailboxSendingBody = z.object({ enabled: z.boolean() });
+export type MailboxSendingBody = z.infer<typeof MailboxSendingBody>;

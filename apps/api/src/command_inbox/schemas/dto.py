@@ -63,6 +63,10 @@ WorkspaceStatus = Literal[
 GateMode = Literal["action", "draft", "manual"]
 GateState = Literal["open", "awaiting_checker", "scheduled", "executing", "done", "rejected", "taken"]
 ApproveOutcome = Literal["awaiting_checker", "scheduled", "sending", "taken"]
+MailConnection = Literal[
+    "not_connected", "connecting", "syncing", "live", "degraded", "reauth_required", "disconnected"
+]
+HealthLevel = Literal["healthy", "degraded", "down", "unknown"]
 FacetCounts = dict[str, dict[str, int | float]]
 
 
@@ -1333,3 +1337,48 @@ class ProblemDTO(CamelModel):
     detail: str | None = None
     code: str
     request_id: str | None = None
+
+
+class MailboxHealthSignalDTO(CamelModel):
+    key: Literal["stream", "lag", "sweep", "credential", "send", "throttling"]
+    label: str
+    level: HealthLevel
+    value: str
+
+
+class MailSyncEventDTO(CamelModel):
+    at: str
+    kind: str
+    ok: bool
+    summary: str
+
+
+class MailboxConnectionDTO(CamelModel):
+    id: str
+    address: str
+    provider: MailProvider
+    connection: MailConnection
+    account: str | None
+    mode: Literal["notifications", "polling"] | None
+    send_enabled: bool
+    level: HealthLevel
+    signals: list[MailboxHealthSignalDTO]
+    last_error: str
+    last_error_at: str | None
+    last_message_at: str | None
+    last_test_at: str | None
+    last_test_ok_at: str | None
+    messages24h: int | float = Field(alias="messages24h")
+    events: list[MailSyncEventDTO]
+
+
+class MailConnectorsDTOProviders(CamelModel):
+    microsoft: bool
+    google: bool
+
+
+class MailConnectorsDTO(CamelModel):
+    providers: MailConnectorsDTOProviders
+    webhooks: bool
+    mailbox_limit: int | float
+    mailboxes: list[MailboxConnectionDTO]

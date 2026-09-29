@@ -696,6 +696,15 @@ class Mailbox(Base):
         PrimaryKeyConstraint("id", name="mailboxes_pkey"),
         Index("mailboxes_org_address_uq", "org_id", "address", unique=True),
         Index("mailboxes_address_global_uq", text("lower(address)"), unique=True),
+        Index(
+            "mailboxes_stream_uq", "stream_id", unique=True, postgresql_where=text("stream_id is not null")
+        ),
+        UniqueConstraint("org_id", "id", name="mailboxes_org_id_id_uq"),
+        CheckConstraint(
+            "connection in ('not_connected', 'connecting', 'syncing', 'live', 'degraded', 'reauth_required', "
+            "'disconnected')",
+            name="mailboxes_connection_ck",
+        ),
         ForeignKeyConstraint(
             ["org_id", "deployment_id"],
             ["deployments.org_id", "deployments.id"],
@@ -721,6 +730,29 @@ class Mailbox(Base):
     department_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     credentials_enc: Mapped[str | None] = mapped_column(Text)
     last_sync_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    # The live connection (migration 0008). `state` above is the product mode (streaming, observe, ...).
+    connection: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'not_connected'::text")
+    )
+    connection_mode: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'delegated_oauth'::text")
+    )
+    provider_account: Mapped[str | None] = mapped_column(Text)
+    stream_id: Mapped[str | None] = mapped_column(Text)
+    stream_secret_hash: Mapped[str | None] = mapped_column(Text)
+    stream_expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    cursor: Mapped[str | None] = mapped_column(Text)
+    cursor_updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_message_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_notification_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_sweep_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    token_expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    last_error_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    lag_seconds: Mapped[int | None] = mapped_column(Integer)
+    send_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    last_test_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_test_ok_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
 
 class Message(Base):
@@ -1677,6 +1709,138 @@ class EmailMessage(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     last_error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
     provider_message_id: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    sent_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+# ── Mail connectors (migration 0008) ────────────────────────────────────────────────────────────────
+
+
+class MailMessage(Base):
+    """Every provider message we saw, once per mailbox, and what we did with it."""
+
+    __tablename__ = "mail_messages"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_messages_pkey"),
+        Index("mail_messages_provider_uq", "org_id", "mailbox_id", "provider_message_id", unique=True),
+        Index("mail_messages_internet_idx", "org_id", "internet_message_id"),
+        Index("mail_messages_conversation_idx", "org_id", "mailbox_id", "conversation_id"),
+        CheckConstraint(
+            "outcome in ('ticket', 'thread', 'test', 'skipped_auto_reply', 'skipped_bounce', 'skipped_loop', "
+            "'skipped_own', 'quarantined', 'error')",
+            name="mail_messages_outcome_ck",
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "mailbox_id"],
+            ["mailboxes.org_id", "mailboxes.id"],
+            name="mail_messages_mailbox_fk",
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    mailbox_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    provider_message_id: Mapped[str] = mapped_column(Text, nullable=False)
+    internet_message_id: Mapped[str | None] = mapped_column(Text)
+    conversation_id: Mapped[str | None] = mapped_column(Text)
+    in_reply_to: Mapped[str | None] = mapped_column(Text)
+    references_: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    from_addr: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    from_name: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    to_addrs: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    cc_addrs: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    subject: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    received_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    auth: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    raw_sealed: Mapped[str | None] = mapped_column(Text)
+    raw_size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    body_text: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    direction: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'inbound'::text"))
+    flags: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    ticket_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+class MailAttachment(Base):
+    __tablename__ = "mail_attachments"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_attachments_pkey"),
+        Index("mail_attachments_message_idx", "org_id", "message_id"),
+        CheckConstraint(
+            "av_status in ('not_scanned', 'pending', 'clean', 'infected', 'error')",
+            name="mail_attachments_av_ck",
+        ),
+        ForeignKeyConstraint(["message_id"], ["mail_messages.id"], ondelete="CASCADE"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    message_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    provider_attachment_id: Mapped[str] = mapped_column(Text, nullable=False)
+    filename: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'application/octet-stream'::text")
+    )
+    size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    is_inline: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    av_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'not_scanned'::text"))
+
+
+class MailSyncEvent(Base):
+    __tablename__ = "mail_sync_events"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_sync_events_pkey"),
+        Index("mail_sync_events_mailbox_idx", "org_id", "mailbox_id", text("at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    mailbox_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    ok: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    detail: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
+class MailSendIntent(Base):
+    """An approved reply to send, recorded before the provider is called (no double send on retry)."""
+
+    __tablename__ = "mail_send_intents"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_send_intents_pkey"),
+        Index("mail_send_intents_source_uq", "org_id", "source", "source_id", unique=True),
+        CheckConstraint(
+            "state in ('pending', 'drafted', 'sent', 'failed')", name="mail_send_intents_state_ck"
+        ),
+        CheckConstraint("source in ('draft', 'reply')", name="mail_send_intents_source_ck"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    mailbox_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    ticket_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    reply_to_provider_id: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'::text"))
+    provider_draft_id: Mapped[str | None] = mapped_column(Text)
+    provider_message_id: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
     )

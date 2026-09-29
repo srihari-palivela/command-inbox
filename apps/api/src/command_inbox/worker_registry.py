@@ -16,6 +16,11 @@ HANDLERS: list[tuple[str, str, str]] = [
     ("eval_run", "command_inbox.evals.runner", "run_eval_job"),
     ("send_email", "command_inbox.core.email", "run_send_email"),
     ("provision_tenant", "command_inbox.platform.provisioning", "run_provision_tenant"),
+    ("mail_connect", "command_inbox.mail.sync", "run_mail_connect"),
+    ("mail_sync", "command_inbox.mail.sync", "run_mail_sync"),
+    ("mail_renew", "command_inbox.mail.sync", "run_mail_renew"),
+    ("mail_send", "command_inbox.mail.sync", "run_mail_send"),
+    ("mail_test", "command_inbox.mail.sync", "run_mail_test"),
 ]
 
 

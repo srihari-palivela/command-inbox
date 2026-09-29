@@ -23,7 +23,14 @@ from command_inbox.core.clock import clock
 from command_inbox.core.context import Actor
 from command_inbox.core.jobs import JobRow
 from command_inbox.db.engine import global_tx, tenant_tx
-from command_inbox.db.models import Deployment, DeploymentVersion, Invitation, Org, TenantProvisioning
+from command_inbox.db.models import (
+    Department,
+    Deployment,
+    DeploymentVersion,
+    Invitation,
+    Org,
+    TenantProvisioning,
+)
 from command_inbox.platform import keycloak
 from command_inbox.platform.audit import platform_audit
 from command_inbox.platform.keys import ensure_tenant_key
@@ -77,6 +84,12 @@ async def _starter_deployment(org: Org, payload: dict[str, Any]) -> tuple[str, s
         if existing:
             return "done", "The default deployment already exists."
         config = starter_config()
+        # The starter pack's owning teams, so triage can route and people can be cleared for them.
+        if not (await tx.execute(select(Department.id).where(Department.org_id == org.id).limit(1))).first():
+            names = sorted({c.department for c in config.taxonomy.categories})
+            for i, name in enumerate(names):
+                tx.add(Department(org_id=org.id, name=name, sort=i))
+            await tx.flush()
         d = Deployment(
             org_id=org.id,
             key=DEFAULT_KEY,

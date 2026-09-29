@@ -246,6 +246,7 @@ async def complete(found: Found, user: User, *, idp: str | None) -> None:
                 data={"from": "provisioned", "to": "onboarding"},
             )
     async with tenant_tx(org.id) as tx:
+        await grant_default_clearances(tx, org.id, user.id, inv.role)
         await tx.execute(update(Invitation).where(Invitation.id == inv.id).values(accepted_at=now))
         await audit(
             tx,
@@ -256,6 +257,28 @@ async def complete(found: Found, user: User, *, idp: str | None) -> None:
             entity_id=user.id,
             summary=f"{user.name} joined as {ROLE_LABEL.get(inv.role, inv.role)}",
             data={"role": inv.role, "idp": idp, "invitationId": inv.id},
+        )
+
+
+DEFAULT_CLEARANCE = {
+    "admin": 3,
+    "lead": 3,
+    "staff": 2,
+}  # approve, approve, resolve; admins change it in People
+
+
+async def grant_default_clearances(tx: AsyncSession, org_id: str, user_id: str, role: str) -> None:
+    """A new member can work every team's mail at their role's default level; nothing is overwritten."""
+    from sqlalchemy.dialects.postgresql import insert
+
+    from command_inbox.db.models import Clearance, Department
+
+    departments = (await tx.execute(select(Department.id).where(Department.org_id == org_id))).scalars().all()
+    for dept in departments:
+        await tx.execute(
+            insert(Clearance)
+            .values(org_id=org_id, user_id=user_id, department_id=dept, level=DEFAULT_CLEARANCE.get(role, 2))
+            .on_conflict_do_nothing()
         )
 
 

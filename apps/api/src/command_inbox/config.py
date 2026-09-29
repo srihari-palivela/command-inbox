@@ -72,6 +72,23 @@ class Settings(BaseSettings):
     # Key management: tenant data keys are wrapped by a key-encryption key. "local" derives the KEK from
     # ENCRYPTION_KEY (development and single-host installs); cloud KMS adapters plug in behind the same interface.
     kms_provider: Literal["local"] = "local"
+
+    # Mailbox connectors (decision D3: delegated OAuth for one account; the app registrations belong to the bank).
+    # Microsoft: a single-tenant app in the bank's Entra (MS_TENANT = its directory ID; "organizations" for dev).
+    ms_client_id: str | None = None
+    ms_client_secret: str | None = None
+    ms_tenant: str = "organizations"
+    graph_base_url: str = "https://graph.microsoft.com/v1.0"
+    # Google: an Internal OAuth client in the bank's Cloud project, plus a Pub/Sub topic and push subscription.
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_pubsub_topic: str | None = None  # projects/<project>/topics/<topic>
+    google_push_audience: str | None = None  # the audience set on the push subscription
+    google_push_service_account: str | None = None  # the service account the push subscription signs as
+    # Where providers deliver change notifications (must be public HTTPS). Unset: mailboxes are polled.
+    mail_webhook_base_url: str | None = None
+    mail_poll_seconds: int = 60
+    mail_sweep_minutes: int = 10
     invitation_ttl_hours: int = 72
 
     encryption_key: str = "dev-only-key-change-me-dev-only-key-change-me"

@@ -174,6 +174,15 @@ async def run_execute_action(job: JobRow) -> None:
         )
 
 
+async def _to_mailbox(tx: Any, t: Any, source: str, source_id: str) -> None:
+    """With a connected mailbox that may send, the approved reply goes out in the customer's thread."""
+    from command_inbox.mail.sync import live_mailbox_for_ticket, queue_send
+
+    mb = await live_mailbox_for_ticket(tx, t.org_id, t.mailbox_id)
+    if mb is not None:
+        await queue_send(tx, t.org_id, mb, t.id, source, source_id)
+
+
 async def run_send_draft(job: JobRow) -> None:
     draft_id = str(job.payload["draftId"])
     async with tenant_tx(job.org_id) as tx:
@@ -205,6 +214,7 @@ async def run_send_draft(job: JobRow) -> None:
             .values(state="sent", sent_at=now, updated_at=now)
             .execution_options(synchronize_session=False)
         )
+        await _to_mailbox(tx, t, "draft", d.id)
         await set_subtask(tx, t.org_id, t.id, "b4", True, d.sent_by)
         edited = d.current_body.strip() != d.original_body.strip()
         if edited:
@@ -292,6 +302,7 @@ async def run_send_reply(job: JobRow) -> None:
             .values(state="sent", sent_at=now)
             .execution_options(synchronize_session=False)
         )
+        await _to_mailbox(tx, t, "reply", r.id)
         actor = _user_actor(author)
         await add_comment(
             tx, t.org_id, t.id, actor, "public", r.body[:237] + "…" if len(r.body) > 240 else r.body
