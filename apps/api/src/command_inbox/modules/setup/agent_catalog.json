@@ -1,0 +1,50 @@
+{
+  "templates": [
+    {
+      "key": "bucketing",
+      "label": "Bucketing agent",
+      "abbr": "BK",
+      "what": "Sorts each mail into one query type from your taxonomy",
+      "recommendedModel": "claude-sonnet-5",
+      "prompt": "You sort incoming email into exactly one query type from the approved taxonomy. Return the type, a confidence between 0 and 1, and the phrases that drove the choice. If two types fit equally, return \"ambiguous\" and let a person decide."
+    },
+    {
+      "key": "extraction",
+      "label": "Extraction agent",
+      "abbr": "EX",
+      "what": "Fills action templates with values quoted from the thread",
+      "recommendedModel": "claude-sonnet-5",
+      "prompt": "You pull the fields an action template needs out of an email thread. Every value must be quoted verbatim from the thread or a system record — mark anything you inferred, and never guess an amount, an account number or a date."
+    },
+    {
+      "key": "drafting",
+      "label": "Drafting agent",
+      "abbr": "DR",
+      "what": "Writes cited replies from approved knowledge only",
+      "recommendedModel": "claude-sonnet-5",
+      "prompt": "You draft a reply using only knowledge-manager-approved sources, citing each one. Where the approved material does not cover part of the question, say so plainly and raise a gap ticket. Never fill a gap from memory."
+    },
+    {
+      "key": "summarisation",
+      "label": "Summarisation agent",
+      "abbr": "SM",
+      "what": "Briefs a human with context before they open the ticket",
+      "recommendedModel": "claude-sonnet-5",
+      "prompt": "You brief a human before they open a ticket. Assemble the history, the records and the deadlines that matter. You never write to the customer."
+    },
+    {
+      "key": "policy_guard",
+      "label": "Policy guard",
+      "abbr": "PG",
+      "what": "Stops the pipeline on hard rules before anything runs",
+      "recommendedModel": "claude-haiku-4-5",
+      "prompt": "You read every thread before anything else runs and stop the pipeline on a hard rule: a named regulator, a legal notice, suspected fraud, a vulnerable-customer signal, or a repeat contact past the limit. You never generate customer-facing text."
+    }
+  ],
+  "models": [
+    { "id": "claude-opus-5", "note": "Deepest judgement · highest cost", "family": "opus", "costPer1kMinor": 60 },
+    { "id": "claude-sonnet-5", "note": "Best balance · ₹0.19–0.42 per 1k mails", "family": "sonnet", "costPer1kMinor": 24 },
+    { "id": "claude-haiku-4-5", "note": "Fast and cheap · ₹0.02–0.06 per 1k mails", "family": "haiku", "costPer1kMinor": 5 }
+  ],
+  "defaultCostPer1kMinor": 24
+}

@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PG_ADMIN: postgres://postgres:postgres@localhost:5432
+
+jobs:
+  check:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test:unit
+      - run: pnpm build
+
+  python:
+    name: Python API (lint, contracts, migrations, tests, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      # Without it the API assumes production and (correctly) refuses the development defaults.
+      APP_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true, cache-dependency-glob: apps/api/uv.lock }
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests scripts migrations
+      - run: uv run ruff format --check src tests scripts migrations
+      # The Pydantic DTOs are generated from packages/contracts; fail on drift.
+      - run: uv run python scripts/gen_dto.py --check
+      # A seeded template the integration tests clone per session (the runtime role must exist first).
+      - run: |
+          psql "$PG_ADMIN/postgres" -c "CREATE ROLE ci_app LOGIN PASSWORD 'ci_app'"
+          psql "$PG_ADMIN/postgres" -c "CREATE DATABASE ci_template"
+          uv run command-inbox-seed --database-url postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template
+      # Models and migrations agree.
+      - run: uv run alembic check
+        env:
+          DATABASE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template
+      - run: uv run pytest -q
+        env:
+          TEST_PG_ADMIN: ${{ env.PG_ADMIN }}
+          TEST_TEMPLATE_DB: ci_template
+          TEST_DB: command_inbox_test_py
+      - run: uvx pip-audit --strict --progress-spinner off -r <(uv export --frozen --no-dev --no-hashes --no-emit-project)
+        shell: bash
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ci/web exec playwright install --with-deps chromium
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true, cache-dependency-glob: apps/api/uv.lock }
+      - run: uv sync --frozen --no-dev
+        working-directory: apps/api
+      - run: ADMIN_URL=$PG_ADMIN/postgres ./infra/scripts/setup-db.sh command_inbox
+      # Playwright starts the Python API (embedded worker) and the SPA; E2E_RESET migrates and seeds first.
+      - run: pnpm e2e
+        env:
+          E2E_RESET: '1'
+          LLM_PROVIDER: heuristic
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  docker:
+    name: Container images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: infra/docker/api.Dockerfile, push: false, tags: command-inbox-api:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: infra/docker/web.Dockerfile, push: false, tags: command-inbox-web:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }

@@ -1,0 +1,84 @@
+/*
+ * Design tokens, extracted from the Claude Design prototype (docs/design-source/Command Inbox.dc.html).
+ * Every colour in the product comes from here; text tokens clear 4.5:1 on the tinted panels they sit on.
+ */
+:root {
+  /* Canvas & surfaces */
+  --canvas: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #fbfaf8;
+  --surface-3: #f2f1ed;
+  --surface-4: #f6f5f2;
+  --surface-sunk: #fcfcfb;
+
+  /* Ink */
+  --ink: #191a1d;
+  --ink-2: #2c2e34;
+  --text-2: #46484f;
+  --muted: #6c6e76;
+  --muted-2: #63656d;
+  --dot-idle: #9b9da5;
+  --disabled: #c6c5c1;
+
+  /* Lines */
+  --line: #e4e3df;
+  --line-soft: #efeeea;
+  --line-strong: #deddd8;
+  --line-faint: #e9e8e4;
+
+  /* Accent (indigo) */
+  --accent: #4b4ec8;
+  --accent-strong: #383ba8;
+  --accent-bg: #edecf9;
+  --accent-bg-2: #f3f3fc;
+  --accent-bg-3: #f7f7fd;
+  --accent-bg-4: #fbfbfe;
+  --accent-line: #dddefa;
+  --accent-line-2: #c6c7f0;
+  --accent-soft-bar: #8fa0e6;
+
+  /* Semantic */
+  --ok: #1b6b49;
+  --ok-dot: #1f8a5b;
+  --ok-bg: #e9f2ee;
+  --ok-bg-2: #f1f8f4;
+  --ok-bg-3: #f6fbf8;
+  --ok-line: #dce7e1;
+
+  --warn: #8a6413;
+  --warn-strong: #7a5b14;
+  --warn-dot: #c08a2a;
+  --warn-bg: #fbf4e6;
+  --warn-bg-2: #f6eedf;
+  --warn-line: #efe2c6;
+  --warn-soft-bar: #d9c69b;
+
+  --bad: #c4442e;
+  --bad-text: #9e4b3a;
+  --bad-bg: #fbedea;
+  --bad-bg-2: #fdf8f7;
+  --bad-line: #f2d8d2;
+  --bad-soft-bar: #e2a79c;
+
+  /* Type */
+  --font-sans: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Shape & depth */
+  --r-xs: 5px;
+  --r-sm: 7px;
+  --r-md: 9px;
+  --r-lg: 12px;
+  --r-pill: 20px;
+  --shadow-pop: 0 12px 40px rgba(25, 26, 29, 0.14), 0 2px 8px rgba(25, 26, 29, 0.06);
+  --shadow-lift: 0 4px 16px rgba(25, 26, 29, 0.07);
+  --focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+
+  /* Layout */
+  --header-h: 56px;
+  --nav-w: 230px;
+  --queue-w: 356px;
+  --rail-w: 288px;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

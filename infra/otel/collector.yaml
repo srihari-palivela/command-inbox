@@ -1,0 +1,37 @@
+# OpenTelemetry Collector: receives OTLP from the API and worker, then fans out.
+#   traces → Langfuse (its OTLP endpoint; generative-AI spans show as traces/generations)
+#   traces, logs → debug exporter (swap for Tempo/Loki/your vendor in real deployments)
+receivers:
+  otlp:
+    protocols:
+      http: { endpoint: 0.0.0.0:4318 }
+      grpc: { endpoint: 0.0.0.0:4317 }
+
+processors:
+  memory_limiter: { check_interval: 1s, limit_percentage: 80, spike_limit_percentage: 20 }
+  batch: {}
+  # Belt and braces: the app masks PII before model calls; drop anything that still looks like a secret.
+  attributes/scrub:
+    actions:
+      - { key: http.request.header.cookie, action: delete }
+      - { key: http.request.header.authorization, action: delete }
+      - { key: http.request.header.x-csrf-token, action: delete }
+
+exporters:
+  otlphttp/langfuse:
+    endpoint: ${env:LANGFUSE_OTLP_ENDPOINT}
+    headers:
+      Authorization: Basic ${env:LANGFUSE_AUTH}
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/scrub, batch]
+      exporters: [otlphttp/langfuse, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]

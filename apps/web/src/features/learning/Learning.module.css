@@ -1,0 +1,274 @@
+/* ── Course list ───────────────────────────────────────────────────────── */
+.list {
+  display: grid;
+  gap: 10px;
+}
+.course {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: riseIn 0.42s var(--ease-out) both;
+}
+@media (max-width: 720px) {
+  .course {
+    flex-wrap: wrap;
+  }
+}
+.info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+.title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.meta {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.progress {
+  width: 190px;
+  flex: 0 0 auto;
+}
+.progressHead {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.pct {
+  font-family: var(--font-mono);
+}
+.go {
+  flex: 0 0 auto;
+  min-width: 76px;
+}
+
+/* ── Learn overlay ─────────────────────────────────────────────────────── */
+.headTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+}
+.headTime {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: linear-gradient(160deg, var(--accent-bg-4), var(--surface));
+  padding: 22px 22px 24px;
+  min-height: 200px;
+  box-shadow: var(--shadow-lift);
+  animation: popIn 0.3s var(--ease-out) both;
+}
+.step {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  color: var(--accent);
+  margin-bottom: 9px;
+  text-transform: uppercase;
+}
+.stepQuiz {
+  color: var(--warn-dot);
+}
+.cardTitle {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 10px;
+  text-wrap: pretty;
+}
+.cardBody {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.dots {
+  display: flex;
+  gap: 5px;
+  margin: 0 auto;
+}
+.navDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+.keys {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 12px;
+}
+.question {
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 14px;
+  text-wrap: pretty;
+}
+.opts {
+  display: grid;
+  gap: 7px;
+}
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.45;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+  width: 100%;
+}
+.opt:hover:not(:disabled) {
+  border-color: var(--accent-line-2);
+  background: var(--accent-bg-4);
+}
+.opt:disabled {
+  cursor: default;
+}
+.optRight {
+  border-color: var(--ok);
+  background: var(--ok-bg-3);
+}
+.optWrong {
+  border-color: var(--bad);
+  background: var(--bad-bg-2);
+}
+.optLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mark {
+  font-size: 13px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.feedback {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  animation: fadeIn 0.2s ease both;
+}
+.feedbackText {
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.feedback > button {
+  margin-left: auto;
+}
+.done {
+  padding: 14px 0 4px;
+  text-align: center;
+}
+.doneIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ok-bg-2);
+  border: 1px solid var(--ok-line);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 12px;
+}
+.doneScore {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.doneText {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.doneActions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ── Compose ───────────────────────────────────────────────────────────── */
+.form {
+  display: grid;
+  gap: 13px;
+}
+.error {
+  font-size: 11.5px;
+  color: var(--bad-text);
+}
+.kinds {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kindBtn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.16s ease;
+}
+.kindBtn[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+  font-weight: 600;
+}
+.select {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0 9px;
+  font-size: 13px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.select:focus {
+  outline: none;
+  border-color: var(--accent-line-2);
+  box-shadow: 0 0 0 3px var(--accent-bg-2);
+}
+.groupLabel {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}

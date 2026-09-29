@@ -1,0 +1,203 @@
+# Local, production-shaped stack: Postgres, one-shot migrate + seed, API, a separate worker, and the SPA
+# behind nginx. Open http://localhost:8080 and sign in with a demo user.
+#
+# Optional profiles (combine freely):
+#   --profile sso            Keycloak on :8081 (realm "command-inbox"; users p.sharma / r.menon / a.kapoor, password "demo")
+#   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local)
+#   --profile local-llm      llama.cpp server for the System 1 decision engine on :8090 (put a GGUF in ./models)
+#
+# The secrets below are for local use only. In a real deployment they come from your secret manager.
+x-api-env: &api-env
+  APP_ENV: development # local stack: demo sign-in stays available; APP_ENV=production refuses it
+  DEMO_MODE: ${DEMO_MODE:-true}
+  DATABASE_URL: postgresql+asyncpg://ci_app:ci_app@db:5432/command_inbox
+  DATABASE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@db:5432/command_inbox
+  WEB_ORIGIN: http://localhost:8080
+  PUBLIC_API_URL: http://localhost:8080
+  COOKIE_SECURE: 'true' # browsers treat http://localhost as a secure context
+  FORWARDED_ALLOW_IPS: '*' # only nginx can reach the API on the compose network
+  EMBEDDED_WORKER: 'false'
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-local-compose-key-0123456789abcdef0123456789abcdef}
+  INTAKE_WEBHOOK_SECRET: ${INTAKE_WEBHOOK_SECRET:-local-compose-intake-secret}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+  DECISION_ENGINE: ${DECISION_ENGINE:-auto}
+  DECISION_ENGINE_URL: ${DECISION_ENGINE_URL:-}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+  LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+  LOG_JSON: 'true'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: command_inbox
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/docker/postgres-init.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d command_inbox']
+      interval: 3s
+      retries: 20
+
+  migrate:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    image: command-inbox-api
+    environment: *api-env
+    # Migrates, then seeds only an empty database, so restarts keep your data.
+    command: ['command-inbox-seed', '--if-empty']
+    depends_on:
+      db: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    image: command-inbox-api
+    environment: *api-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  worker:
+    image: command-inbox-api
+    environment:
+      <<: *api-env
+      OTEL_SERVICE_NAME: command-inbox-worker
+    command: ['command-inbox-worker']
+    healthcheck: { disable: true }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  web:
+    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    ports:
+      - '8080:8080'
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+  # ── Identity (profile: sso) ─────────────────────────────────────────────────────────────────────
+  # Point the API at it with OIDC_ISSUER=http://localhost:8081/realms/command-inbox and
+  # OIDC_CLIENT_SECRET=local-dev-client-secret. Federate a bank's Entra ID / Google as identity providers.
+  keycloak:
+    profiles: [sso]
+    image: quay.io/keycloak/keycloak:26.4
+    command: ['start-dev', '--import-realm', '--http-port=8081', '--hostname=http://localhost:8081']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin-local-only}
+      KC_HEALTH_ENABLED: 'true'
+    volumes:
+      - ./infra/keycloak/realm-command-inbox.json:/opt/keycloak/data/import/realm-command-inbox.json:ro
+    ports: ['8081:8081']
+
+  # ── Observability (profile: observability) ─────────────────────────────────────────────────────
+  # Set OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 on the API and worker.
+  otel-collector:
+    profiles: [observability]
+    image: otel/opentelemetry-collector-contrib:0.136.0
+    command: ['--config=/etc/otelcol/config.yaml']
+    environment:
+      LANGFUSE_OTLP_ENDPOINT: http://langfuse-web:3000/api/public/otel
+      # base64("pk-lf-local:sk-lf-local"), the project keys created at Langfuse start-up below
+      LANGFUSE_AUTH: cGstbGYtbG9jYWw6c2stbGYtbG9jYWw=
+    volumes:
+      - ./infra/otel/collector.yaml:/etc/otelcol/config.yaml:ro
+    ports: ['4318:4318']
+    depends_on: [langfuse-web]
+
+  langfuse-db:
+    profiles: [observability]
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: langfuse, POSTGRES_PASSWORD: langfuse, POSTGRES_DB: langfuse }
+    volumes: [langfuse-pg:/var/lib/postgresql/data]
+    healthcheck: { test: ['CMD-SHELL', 'pg_isready -U langfuse'], interval: 3s, retries: 20 }
+
+  clickhouse:
+    profiles: [observability]
+    image: clickhouse/clickhouse-server:25.8
+    environment: { CLICKHOUSE_DB: default, CLICKHOUSE_USER: clickhouse, CLICKHOUSE_PASSWORD: clickhouse }
+    volumes: [langfuse-ch:/var/lib/clickhouse]
+    healthcheck: { test: ['CMD-SHELL', 'wget -qO- http://localhost:8123/ping'], interval: 5s, retries: 20 }
+
+  redis:
+    profiles: [observability]
+    image: redis:7-alpine
+    command: ['redis-server', '--requirepass', 'langfuse-redis']
+
+  minio:
+    profiles: [observability]
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    entrypoint: sh
+    command: ['-c', 'mkdir -p /data/langfuse && minio server /data --console-address ":9001"']
+    environment: { MINIO_ROOT_USER: minio, MINIO_ROOT_PASSWORD: minio-local-secret }
+    volumes: [langfuse-s3:/data]
+
+  langfuse-worker:
+    profiles: [observability]
+    image: langfuse/langfuse-worker:3
+    environment: &langfuse-env
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_CLUSTER_ENABLED: 'false'
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      REDIS_AUTH: langfuse-redis
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: minio-local-secret
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: 'true'
+      SALT: local-only-salt
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      TELEMETRY_ENABLED: 'false'
+    depends_on:
+      langfuse-db: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+      redis: { condition: service_started }
+      minio: { condition: service_started }
+
+  langfuse-web:
+    profiles: [observability]
+    image: langfuse/langfuse:3
+    environment:
+      <<: *langfuse-env
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: local-only-nextauth-secret
+      # Headless start-up: one org, one project with fixed local keys, one admin user.
+      LANGFUSE_INIT_ORG_ID: command-inbox
+      LANGFUSE_INIT_ORG_NAME: Command Inbox
+      LANGFUSE_INIT_PROJECT_ID: command-inbox-local
+      LANGFUSE_INIT_PROJECT_NAME: Command Inbox (local)
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-local
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-local
+      LANGFUSE_INIT_USER_EMAIL: admin@local.test
+      LANGFUSE_INIT_USER_NAME: Local admin
+      LANGFUSE_INIT_USER_PASSWORD: langfuse-local
+    ports: ['3000:3000']
+    depends_on: [langfuse-worker]
+
+  # ── System 1 decision engine (profile: local-llm) ───────────────────────────────────────────────
+  # Set DECISION_ENGINE=llamacpp and DECISION_ENGINE_URL=http://llamacpp:8090 on the API and worker.
+  llamacpp:
+    profiles: [local-llm]
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: ['-m', '/models/${DECISION_MODEL_FILE:-decision.gguf}', '--host', '0.0.0.0', '--port', '8090', '-c', '4096', '--parallel', '4']
+    volumes: ['./models:/models:ro']
+    ports: ['8090:8090']
+
+volumes:
+  pgdata:
+  langfuse-pg:
+  langfuse-ch:
+  langfuse-s3:

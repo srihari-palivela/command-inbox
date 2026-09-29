@@ -1,0 +1,28 @@
+.obs {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--line-soft);
+}
+.obsFooter {
+  margin-top: 0;
+  padding: 10px 15px;
+  background: var(--surface-sunk);
+}
+.obsTag {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+.obsText {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}

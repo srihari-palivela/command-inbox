@@ -1,0 +1,510 @@
+/* Header actions */
+.period {
+  font-size: 11.5px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 7px;
+  height: 26px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── KPI tiles ─────────────────────────────────────────────────────────── */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.tile {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 14px 15px;
+  animation: riseIn 0.42s var(--ease-out) both;
+  min-width: 0;
+}
+.tileLabel {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.tileValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.tileValue {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.tileUnit {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tileTrend {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.tileSpark {
+  margin-top: 10px;
+}
+
+/* ── Canary strip ──────────────────────────────────────────────────────── */
+.canary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 11px 15px;
+  margin-bottom: 13px;
+  animation: riseIn 0.42s var(--ease-out) both;
+  animation-delay: 0.2s;
+}
+.canaryMain {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.canaryLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.canaryNote {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.canaryGauge {
+  position: relative;
+  flex: 0 0 220px;
+}
+.canaryMark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 1.5px;
+  background: var(--ink-2);
+  border-radius: 1px;
+}
+.canaryValue {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  flex: 0 0 auto;
+  min-width: 52px;
+  text-align: right;
+}
+.canaryPct {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 2px;
+  font-weight: 400;
+}
+
+/* ── Custom KPIs ───────────────────────────────────────────────────────── */
+.customWrap {
+  margin-bottom: 13px;
+}
+.customGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.custom {
+  border: 1px solid var(--accent-line);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 13px 15px;
+  animation: riseIn 0.4s var(--ease-out) both;
+  min-width: 0;
+}
+.customHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.customName {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.remove {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 3px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+.remove:hover:not(:disabled) {
+  color: var(--bad-text);
+  background: var(--bad-bg);
+}
+.customMetric {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.customValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+.customValue {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.customTarget {
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.customSpark {
+  margin-bottom: 8px;
+}
+
+/* ── Layout ────────────────────────────────────────────────────────────── */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 13px;
+  align-items: start;
+}
+.side {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+}
+
+/* ── Speed table ───────────────────────────────────────────────────────── */
+.speed {
+  overflow: hidden;
+  border-radius: 11px;
+  animation: riseIn 0.45s var(--ease-out) both;
+  animation-delay: 0.1s;
+}
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legendLine {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+}
+.speedRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) 76px minmax(0, 1.4fr) 56px 92px;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--line-soft);
+  animation: fadeIn 0.35s ease both;
+}
+.speedHead {
+  padding: 9px 15px;
+  background: var(--surface-sunk);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--muted-2);
+  text-transform: uppercase;
+  animation: none;
+}
+.qtCell {
+  min-width: 0;
+  padding-right: 10px;
+}
+.qtName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lanePill {
+  height: 15px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.qtText {
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qtDept {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vol {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.bars {
+  padding-right: 12px;
+}
+.barTrack {
+  position: relative;
+  height: 14px;
+}
+.barBase,
+.barAct {
+  position: absolute;
+  left: 0;
+  height: 4px;
+  border-radius: 2px;
+  transform-origin: left;
+}
+.barBase {
+  top: 2px;
+  width: 100%;
+  background: var(--disabled);
+  animation: growX 0.55s var(--ease-out) both;
+}
+.barAct {
+  top: 8px;
+  animation: growX 0.65s var(--ease-out) both;
+  animation-delay: 0.08s;
+}
+.barLabels {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 10.5px;
+}
+.late {
+  font-size: 12px;
+  font-weight: 500;
+}
+.owner {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ── Alerts ────────────────────────────────────────────────────────────── */
+.alerts {
+  border: 1px solid var(--bad-line);
+  border-radius: 11px;
+  background: var(--surface);
+  overflow: hidden;
+  animation: riseIn 0.45s var(--ease-out) both;
+  animation-delay: 0.14s;
+}
+.alertsHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--bad-line);
+  background: var(--bad-bg-2);
+}
+.alertsTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bad-text);
+}
+.alertsCount {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--bad-text);
+}
+.alert {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  animation: fadeIn 0.3s ease both;
+}
+.alert:last-child {
+  border-bottom: 0;
+}
+.alertTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+.sev {
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.alertBucket {
+  font-size: 12.5px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alertWhen {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--muted-2);
+  flex: 0 0 auto;
+}
+.alertText {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+.alertActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Staff load ────────────────────────────────────────────────────────── */
+.staffCard {
+  border-radius: 11px;
+  overflow: hidden;
+  animation: riseIn 0.45s var(--ease-out) both;
+  animation-delay: 0.18s;
+}
+.cardNote {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.staffList {
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+}
+.staffTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+.staffName {
+  font-size: 12px;
+  font-weight: 500;
+}
+.staffAvail {
+  font-size: 10.5px;
+}
+.staffOpen {
+  margin-left: auto;
+  font-size: 11px;
+}
+.staffNote {
+  font-size: 10.5px;
+  color: var(--muted-2);
+  margin-top: 3px;
+}
+.assign {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.assignHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.assignHead > button {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.assignTitle {
+  font-size: 12px;
+  font-weight: 600;
+}
+.assignText {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  text-wrap: pretty;
+}
+.log {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+  animation: fadeIn 0.25s ease both;
+}
+.logItem {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 7px 9px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-sunk);
+  border-radius: 7px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.logDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 7px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1280px) {
+  .tiles,
+  .customGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1100px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .canary {
+    flex-wrap: wrap;
+  }
+  .canaryGauge {
+    flex-basis: 160px;
+  }
+}

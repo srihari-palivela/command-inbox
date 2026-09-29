@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #F6F5F2; color: #191A1D; font-family: 'Source Serif 4', Georgia, serif; -webkit-font-smoothing: antialiased; }
+  a { color: #4B4EC8; text-decoration: none; border-bottom: 1px solid #C9CAEE; }
+  a:hover { color: #33359C; border-bottom-color: #33359C; }
+</style>
+</helmet>
+
+<div data-screen-label="UX review" style="max-width: 780px; margin: 0 auto; padding: 64px 32px 80px;">
+
+  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .16em; color: #6C6E76; display: flex; gap: 14px; align-items: baseline;">
+    <span>COMMAND INBOX · UX REVIEW</span>
+    <span style="margin-left: auto; font-weight: 400; letter-spacing: .06em;">2 SEP 2026</span>
+  </div>
+  <h1 style="margin: 18px 0 10px; font-size: 40px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.12; text-wrap: pretty;">The structure is right. The decision moment was underserved.</h1>
+  <p style="margin: 0 0 8px; font-size: 16px; line-height: 1.6; color: #46484F; text-wrap: pretty;">An expert review of the support-automation prototype against published human-AI interaction guidance — Google PAIR, Microsoft's CHI 2019 guidelines, Apple's HIG — and empirical work on confidence display and approval workflows from 2020–2026. Five findings were fixed in the prototype this pass; five are on the watchlist.</p>
+  <p style="margin: 0; font-size: 12.5px; color: #6C6E76; font-style: italic;">Method: heuristic expert review, no users. Treat severity as hypothesis — a 5–8 participant task study on the approve/reject flow would settle the open calls.</p>
+
+  <div style="margin: 40px 0 0; padding: 22px 24px; background: #FFFFFF; border: 1px solid #E4E3DF; border-radius: 12px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .14em; color: #1B6B49; margin-bottom: 12px;">WHAT HOLDS UP</div>
+    <div style="display: grid; gap: 11px;">
+      <div style="font-size: 14.5px; line-height: 1.55; color: #2C2E34;"><b>The three lanes are the textbook gate model.</b> Auto / Draft / You maps one-to-one onto the auto-approve, soft-gate, hard-gate tiers recommended for agent systems (<a href="https://arxiv.org/pdf/2606.24937">Hitchhiker's Guide to Agentic AI</a>). Money movement hard-gates behind maker-checker; drafts soft-gate behind one approver.</div>
+      <div style="font-size: 14.5px; line-height: 1.55; color: #2C2E34;"><b>Low confidence changes behavior, not just color.</b> Below the 0.78 bar the AI stands down or flags the paragraph — exactly the "prompt the user to check in low-confidence, high-stakes situations" pattern (<a href="https://pair.withgoogle.com/chapter/explainability-trust/">PAIR</a>), and consistent with evidence that low displayed confidence pushes people back onto their own judgment (<a href="https://arxiv.org/pdf/2501.16693">CDSS study, 2025</a>).</div>
+      <div style="font-size: 14.5px; line-height: 1.55; color: #2C2E34;"><b>Drafts are grounded and admit gaps.</b> Cited sources only, and the trade-finance draft says in writing that no approved position exists — curated evidence over chain-of-thought dumps (<a href="https://hatchworks.com/blog/ai-agents/agent-ux-patterns/">agent UX patterns</a>).</div>
+      <div style="font-size: 14.5px; line-height: 1.55; color: #2C2E34;"><b>Accountability is explicit.</b> Sign-in states that approvals are recorded against your name; every run ends in the audit log — the separation-of-duties value HITL reviews exist for (<a href="https://www.stackai.com/insights/human-in-the-loop-ai-agents-how-to-design-approval-workflows-for-safe-and-scalable-automation">StackAI</a>).</div>
+    </div>
+  </div>
+
+  <div style="margin: 44px 0 18px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .14em; color: #6C6E76;">FIXED THIS PASS — FIVE FINDINGS</div>
+
+  <div style="display: grid; gap: 26px;">
+    <div style="display: grid; grid-template-columns: 44px 1fr; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; color: #C4442E; font-weight: 500;">01</div>
+      <div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 5px;">The approve bar told you who signs — not what you're signing up for</div>
+        <p style="margin: 0 0 7px; font-size: 14px; line-height: 1.55; color: #46484F;">An approval gate should show what runs, what changes, and how to undo it (<a href="https://arxiv.org/pdf/2606.24937">gate design principles</a>). Ours showed the approver chain and a button. Severity: high — this is the product's core interaction.</p>
+        <div style="font-size: 13px; color: #1B6B49;"><b>Changed</b> — the gateway now states reversibility at the point of commitment: "Cannot be undone" on money movement, "Recallable for 60s" on replies.</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 44px 1fr; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; color: #C4442E; font-weight: 500;">02</div>
+      <div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 5px;">Customer wait time was invisible at the decision point</div>
+        <p style="margin: 0 0 7px; font-size: 14px; line-height: 1.55; color: #46484F;">Queue guidance is unambiguous: countdowns belong where people act, so they move before a breach, not after (<a href="https://www.featurebase.app/blog/ticket-handling-best-practices">Featurebase</a>, <a href="https://titanapps.io/blog/ticket-triage-and-prioritization-checklist-template-for-jira-support-teams">Titanapps</a>). The list showed deadline chips; the approve bar showed nothing.</p>
+        <div style="font-size: 13px; color: #1B6B49;"><b>Changed</b> — "Customer waiting 2h 48m" now sits beside the Approve button, colored by deadline pressure.</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 44px 1fr; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; color: #C08A2A; font-weight: 500;">03</div>
+      <div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 5px;">Confidence spoke only in decimals</div>
+        <p style="margin: 0 0 7px; font-size: 14px; line-height: 1.55; color: #46484F;">Qualitative labels beat raw scores for trust calibration — technical formats read as noise to non-specialists (<a href="https://uxuiprinciples.com/en/principles/confidence-indicator-display">MIT CSAIL 2024 / NN/g 2023</a>); framing matters as much as the number (<a href="https://arxiv.org/pdf/2001.02114">Zhang et al., FAT* 2020</a>). "0.94" carried no verdict.</p>
+        <div style="font-size: 13px; color: #1B6B49;"><b>Changed</b> — every confidence readout now leads with the word: "High · 0.94", "classified with high confidence (0.94)". The trace keeps raw numbers for engineers.</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 44px 1fr; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; color: #C08A2A; font-weight: 500;">04</div>
+      <div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 5px;">Routing was silent about its reasons</div>
+        <p style="margin: 0 0 7px; font-size: 14px; line-height: 1.55; color: #46484F;">Skill- and load-based routing is standard (<a href="https://www.supportbench.com/support-queue-strategy-triage-routing-ownership/">Supportbench</a>), and agent systems should "show why routing happened" (<a href="https://hatchworks.com/blog/ai-agents/agent-ux-patterns/">HatchWorks</a>) — the make-clear-why guideline from <a href="https://www.microsoft.com/en-us/haxtoolkit/ai-guidelines/">CHI 2019</a>. Staff trust assignment they can see the logic of.</p>
+        <div style="font-size: 13px; color: #1B6B49;"><b>Changed</b> — the assignment event now reads "Assigned to P. Sharma — closest skill match for disputed transactions, lightest live load in Cards."</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 44px 1fr; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; color: #C08A2A; font-weight: 500;">05</div>
+      <div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 5px;">No duplicate-execution check where money moves</div>
+        <p style="margin: 0 0 7px; font-size: 14px; line-height: 1.55; color: #46484F;">Retries and re-approvals make one approved action execute twice; the fix is idempotency keys plus execution-time checks that the action hasn't already occurred (<a href="https://www.stackai.com/insights/human-in-the-loop-ai-agents-how-to-design-approval-workflows-for-safe-and-scalable-automation">StackAI</a>). The approver had no way to see that check.</p>
+        <div style="font-size: 13px; color: #1B6B49;"><b>Changed</b> — irreversible actions now show "✓ No similar action on this account in 90 days" at the gate.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin: 44px 0 0; padding: 22px 24px; background: #FFFFFF; border: 1px solid #E4E3DF; border-radius: 12px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .14em; color: #8A6413; margin-bottom: 12px;">WATCHLIST — NOT SHIPPED, WORTH TESTING</div>
+    <div style="display: grid; gap: 10px; font-size: 14px; line-height: 1.55; color: #46484F;">
+      <div><b style="color: #191A1D;">Gate volume.</b> If the inbox gets noisy, reviewers rubber-stamp — the failure mode approval queues die of (<a href="https://www.stackai.com/insights/human-in-the-loop-ai-agents-how-to-design-approval-workflows-for-safe-and-scalable-automation">StackAI</a>). Track approve-without-open rate as the canary metric.</div>
+      <div><b style="color: #191A1D;">Batch approvals.</b> Related pending actions should present together, not one by one (<a href="https://arxiv.org/pdf/2606.24937">gate principles</a>) — pairs with the team lead's missing bulk actions.</div>
+      <div><b style="color: #191A1D;">Draft edits as eval data.</b> When staff rewrite a draft before sending, the diff is the cheapest training signal the AI screens never see — the feedback-loop chapter of <a href="https://pair.withgoogle.com/guidebook-v2/chapters">PAIR</a>.</div>
+      <div><b style="color: #191A1D;">Overconfidence drift.</b> Displayed confidence must keep matching observed accuracy or trust collapses (<a href="https://www.arxiv.org/pdf/2402.07632">miscalibration study, 2024</a>) — surface calibration on the agents screen, not just eval scores.</div>
+      <div><b style="color: #191A1D;">Global search.</b> ⌘K jumps tickets; it should reach customers, knowledge and policies from the same box.</div>
+    </div>
+  </div>
+
+  <div style="margin: 44px 0 0; border-top: 1px solid #E4E3DF; padding-top: 20px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .14em; color: #6C6E76; margin-bottom: 12px;">SOURCES</div>
+    <div style="display: grid; gap: 6px; font-size: 12.5px; line-height: 1.5; color: #6C6E76;">
+      <div>1 · Google PAIR, <a href="https://pair.withgoogle.com/chapter/explainability-trust/">People + AI Guidebook — Explainability + Trust</a> (2019, rev. v2)</div>
+      <div>2 · Amershi et al., <a href="https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/">Guidelines for Human-AI Interaction</a>, CHI 2019 · <a href="https://www.microsoft.com/en-us/haxtoolkit/ai-guidelines/">HAX Toolkit</a></div>
+      <div>3 · Apple, <a href="https://developer.apple.com/design/human-interface-guidelines/machine-learning">HIG — Machine Learning</a> (current)</div>
+      <div>4 · Zhang, Liao &amp; Bellamy, <a href="https://arxiv.org/pdf/2001.02114">Effect of Confidence and Explanation on Accuracy and Trust Calibration</a>, FAT* 2020</div>
+      <div>5 · <a href="https://www.arxiv.org/pdf/2402.07632">Understanding the Effects of Miscalibrated AI Confidence on User Trust</a>, 2024</div>
+      <div>6 · <a href="https://arxiv.org/pdf/2501.16693">Explainability and AI Confidence in Clinical Decision Support</a>, 2025</div>
+      <div>7 · <a href="https://dl.acm.org/doi/10.1145/3708319.3734178">The Impact of Confidence Ratings on User Trust in LLMs</a>, UMAP 2025</div>
+      <div>8 · <a href="https://uxuiprinciples.com/en/principles/confidence-indicator-display">How to Display AI Confidence Scores</a> — MIT CSAIL 2024, NN/g 2023 synthesis</div>
+      <div>9 · <a href="https://arxiv.org/pdf/2606.24937">The Hitchhiker's Guide to Agentic AI</a>, 2026 — approval-gate design</div>
+      <div>10 · <a href="https://www.stackai.com/insights/human-in-the-loop-ai-agents-how-to-design-approval-workflows-for-safe-and-scalable-automation">StackAI — Human-in-the-Loop Approval Workflows</a>, Mar 2026</div>
+      <div>11 · <a href="https://hatchworks.com/blog/ai-agents/agent-ux-patterns/">HatchWorks — Agent UX Patterns</a>, Mar 2026</div>
+      <div>12 · <a href="https://www.featurebase.app/blog/ticket-handling-best-practices">Featurebase — Ticket Handling Best Practices</a>, May 2026 · <a href="https://www.supportbench.com/support-queue-strategy-triage-routing-ownership/">Supportbench — Queue Strategy</a>, Feb 2026</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,118 @@
+{
+  "realm": "command-inbox",
+  "enabled": true,
+  "displayName": "Command Inbox (local)",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 43200,
+  "organizationsEnabled": true,
+  "passwordPolicy": "length(12) and notUsername and notEmail",
+  "clients": [
+    {
+      "clientId": "command-inbox",
+      "name": "Command Inbox API (backend-for-frontend)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-dev-client-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:8080/v1/auth/oidc/callback",
+        "http://localhost:5173/v1/auth/oidc/callback",
+        "http://localhost:4000/v1/auth/oidc/callback"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/*##http://localhost:5173/*",
+        "backchannel.logout.session.required": "true"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "email",
+        "basic"
+      ],
+      "optionalClientScopes": [
+        "organization",
+        "offline_access"
+      ],
+      "protocolMappers": [
+        {
+          "name": "identity provider",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "config": {
+            "user.session.note": "identity_provider",
+            "claim.name": "identity_provider",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "p.sharma@bank.example",
+      "email": "p.sharma@bank.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "P.",
+      "lastName": "Sharma",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "r.menon@bank.example",
+      "email": "r.menon@bank.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "R.",
+      "lastName": "Menon",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "a.kapoor@bank.example",
+      "email": "a.kapoor@bank.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "A.",
+      "lastName": "Kapoor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
