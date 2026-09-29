@@ -123,3 +123,5 @@ jobs:
         with: { context: ., file: infra/docker/api.Dockerfile, push: false, tags: command-inbox-api:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
       - uses: docker/build-push-action@v6
         with: { context: ., file: infra/docker/web.Dockerfile, push: false, tags: command-inbox-web:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: infra/docker/console.Dockerfile, push: false, tags: command-inbox-console:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }

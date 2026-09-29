@@ -97,6 +97,15 @@ services:
       api: { condition: service_healthy }
     restart: unless-stopped
 
+  # The platform console (operators): http://localhost:8082. Development sign-in lists the demo operators.
+  console:
+    build: { context: ., dockerfile: infra/docker/console.Dockerfile }
+    ports:
+      - '8082:8082'
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
   mailpit:
     image: axllent/mailpit:v1.27
     ports: ['8025:8025']

@@ -35,7 +35,8 @@ policy code, never by a model.
 docker compose up --build
 ```
 
-Open <http://localhost:8080> and pick a demo user. Compose starts Postgres, runs migrations and the seed
+Open <http://localhost:8080> and pick a demo user. The platform console is on <http://localhost:8082> and
+transactional email lands in Mailpit on <http://localhost:8025>. Compose starts Postgres, runs migrations and the seed
 (only into an empty database), then starts the API, a separate job worker and the web app behind nginx.
 
 Optional profiles add the rest of the production shape (combine freely):
