@@ -49,6 +49,7 @@ from command_inbox.domain.risk import CHECKER_ESCALATION_MIN, RECALL_WINDOW_SEC,
 from command_inbox.domain.transitions import is_open
 from command_inbox.modules.gateway.gate import current_action, current_draft
 from command_inbox.modules.gateway.schemas import ApproveResult, ReplyScheduled
+from command_inbox.modules.pilot.service import require_sends_allowed
 from command_inbox.modules.tickets.ops import (
     lock_ticket,
     record_ticket_event,
@@ -193,6 +194,7 @@ async def _set_draft(tx: AsyncSession, draft_id: str, **values: Any) -> None:
 
 
 async def approve(tx: AsyncSession, ctx: Ctx, ticket_id: str, opened_evidence: bool) -> ApproveResult:
+    await require_sends_allowed(tx, ctx.org_id)
     t = await lock_ticket(tx, ctx.org_id, ticket_id)
     if not is_open(t.status):
         raise conflict("ticket_closed", "This ticket is already closed.")
@@ -580,6 +582,7 @@ async def edit_draft(tx: AsyncSession, ctx: Ctx, ticket_id: str, body: str) -> N
 async def reply(tx: AsyncSession, ctx: Ctx, ticket_id: str, body: str) -> ReplyScheduled:
     """A free-text reply from the composer: sent after the same 60 s recall window as drafts."""
     require(ctx, "ticket.reply", "send replies")
+    await require_sends_allowed(tx, ctx.org_id)
     t = await lock_ticket(tx, ctx.org_id, ticket_id)
     await require_clearance(tx, ctx, t.department_id, CLEARANCE["resolve"], "reply for this team")
     send_after = clock.now() + timedelta(seconds=RECALL_WINDOW_SEC)

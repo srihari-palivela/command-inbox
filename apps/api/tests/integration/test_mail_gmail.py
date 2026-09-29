@@ -15,7 +15,7 @@ import respx
 from joserfc import jwt
 from joserfc.jwk import KeySet, RSAKey
 
-from tests.integration.admin_support import admin_conn, drain
+from tests.integration.admin_support import admin_conn, drain, set_stage
 from tests.integration.conftest import Client
 from tests.integration.gmail_fake import FakeGmail
 from tests.integration.test_mail_graph import _box, _messages, _sync, bank  # noqa: F401
@@ -99,6 +99,7 @@ async def test_gmail_ingest_resync_and_reply_in_thread(bank, gmail, monkeypatch)
     await _sync(admin, mid)
     assert (await admin.send("PUT", f"/v1/mailboxes/{mid}/sending", {"enabled": True})).status_code == 200
     ticket_id = str(next(r for r in rows if r["provider_message_id"] == m.id)["ticket_id"])
+    await set_stage(tid, "assisted")  # replies go out from assisted mode on
     r = await admin.send("POST", f"/v1/tickets/{ticket_id}/replies", {"body": "We are sending a new card."})
     assert r.status_code == 200, r.text
     conn = await admin_conn()

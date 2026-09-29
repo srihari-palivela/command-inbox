@@ -980,6 +980,8 @@ class Org(Base):
     siem_last_error: Mapped[str | None] = mapped_column(Text)
     # SCIM: IdP group name → workspace role.
     scim_group_roles: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    # Pilot targets, the pre-pilot baseline and the named Risk approvers (migration 0014).
+    pilot_settings: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
 
 class ModelSpend(Base):
@@ -2077,3 +2079,68 @@ class ScimGroup(Base):
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
     )
+
+
+class PilotStageRequest(Base):
+    __tablename__ = "pilot_stage_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('pending', 'approved', 'rejected', 'withdrawn')", name="pilot_stage_requests_state_ck"
+        ),
+        PrimaryKeyConstraint("id", name="pilot_stage_requests_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="pilot_stage_requests_org_id_fkey"),
+        Index(
+            "pilot_stage_requests_pending_uq",
+            "org_id",
+            unique=True,
+            postgresql_where=text("state = 'pending'::text"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    from_stage: Mapped[str] = mapped_column(Text, nullable=False)
+    to_stage: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'::text"))
+    requested_by: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    requested_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    decided_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    decided_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    decision_note: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+
+
+class PilotIncident(Base):
+    __tablename__ = "pilot_incidents"
+    __table_args__ = (
+        CheckConstraint("severity IN ('P1', 'P2', 'P3', 'P4')", name="pilot_incidents_severity_ck"),
+        CheckConstraint(
+            "kind IN ('hard_stop_miss', 'wrong_reply', 'data_exposure', 'outage', 'other')",
+            name="pilot_incidents_kind_ck",
+        ),
+        PrimaryKeyConstraint("id", name="pilot_incidents_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="pilot_incidents_org_id_fkey"),
+        Index("pilot_incidents_org_opened_idx", "org_id", text("opened_at DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    severity: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    ticket_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    opened_by: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    opened_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    resolved_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    resolved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    resolution: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))

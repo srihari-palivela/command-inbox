@@ -156,6 +156,14 @@ audit log to their SIEM (signed batches) and download a signed audit export. Ope
 in the console; `--profile observability` adds Prometheus (SLO rules, :9090) and Alertmanager (:9093).
 Runbooks: `docs/operations/runbooks.md`.
 
+### The pilot
+
+**Pilot** (admins) moves the workspace through onboarding → shadow → assisted → live. Each step forward is
+asked for with the gates as evidence and signed off by a second person, or by a named Risk approver. Stepping
+back is immediate. Nothing is sent from Command Inbox before assisted. The screen shows the pilot KPIs against
+the baseline, the AI compared with people's labels and overrides, and the incident log (a P1 alerts admins).
+Playbook: `docs/operations/pilot-playbook.md`.
+
 ### Deploying and security
 
 `infra/helm/command-inbox` deploys one bank's stack (API, workers, web, console; migrations run as a

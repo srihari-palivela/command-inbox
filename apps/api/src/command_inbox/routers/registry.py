@@ -31,6 +31,7 @@ ROUTERS: list[tuple[str, str]] = [
     ("command_inbox.modules.members.router", "router"),
     ("command_inbox.modules.deployments.router", "router"),
     ("command_inbox.modules.evals.router", "router"),
+    ("command_inbox.modules.pilot.router", "router"),
     # provisioning from the bank's identity provider (bearer token, not a session)
     ("command_inbox.modules.scim.router", "router"),
     # the platform console (operators only)

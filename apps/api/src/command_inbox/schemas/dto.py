@@ -70,6 +70,11 @@ HealthLevel = Literal["healthy", "degraded", "down", "unknown"]
 KnowledgeDocStatus = Literal["pending", "approved", "rejected", "retired", "stale"]
 KnowledgeParseStatus = Literal["none", "queued", "scanning", "parsing", "ready", "failed", "infected"]
 ModelProviderKey = Literal["anthropic", "openai"]
+PilotStage = Literal["onboarding", "shadow", "assisted", "live"]
+PilotGateState = Literal["pass", "fail", "pending"]
+PilotRequestState = Literal["pending", "approved", "rejected", "withdrawn"]
+IncidentSeverity = Literal["P1", "P2", "P3", "P4"]
+IncidentKind = Literal["hard_stop_miss", "wrong_reply", "data_exposure", "outage", "other"]
 FacetCounts = dict[str, dict[str, int | float]]
 
 
@@ -1755,3 +1760,129 @@ class ScimSettingsDTO(CamelModel):
 class ScimTokenDTO(CamelModel):
     token: str
     settings: ScimSettingsDTO
+
+
+class PilotGateDTO(CamelModel):
+    key: str
+    label: str
+    state: PilotGateState
+    value: str
+    target: str
+
+
+class PilotTargetsDTO(CamelModel):
+    acceptance: int | float
+    light_edit_max: int | float
+    agreement: int | float
+    shadow_days: int | float
+    assisted_days: int | float
+    min_labelled: int | float
+    min_drafts: int | float
+
+
+class PilotBaselineDTO(CamelModel):
+    on_time_rate: int | float | None
+    first_reply_minutes: int | float | None
+    captured_at: str | None
+    source: Literal["records", "manual"] | None
+    days: int | float | None
+
+
+class PilotKpisDTO(CamelModel):
+    window_start: str
+    days: int | float
+    drafts_decided: int | float
+    drafts_accepted: int | float
+    acceptance_rate: int | float | None
+    labelled: int | float
+    category_agreement: int | float | None
+    lane_compared: int | float
+    lane_agreement: int | float | None
+    hard_stop_misses: int | float
+    on_time_rate: int | float | None
+    median_first_reply_minutes: int | float | None
+    p1_incidents: int | float
+    open_incidents: int | float
+
+
+class PilotRequestDTO(CamelModel):
+    id: str
+    from_stage: str
+    to_stage: str
+    reason: str
+    state: PilotRequestState
+    requested_by: UserRef | None
+    requested_at: str
+    decided_by: UserRef | None
+    decided_at: str | None
+    decision_note: str
+    evidence: list[PilotGateDTO]
+    can_decide: bool
+    can_withdraw: bool
+
+
+class PilotDTO(CamelModel):
+    stage: WorkspaceStatus
+    stage_since: str
+    days_in_stage: int | float
+    next: PilotStage | None
+    gates: list[PilotGateDTO]
+    ready: bool
+    pending: PilotRequestDTO | None
+    history: list[PilotRequestDTO]
+    kpis: PilotKpisDTO
+    targets: PilotTargetsDTO
+    baseline: PilotBaselineDTO
+    risk_approvers: list[UserRef]
+    sends_allowed: bool
+    can_request: bool
+    can_step_back: bool
+    can_edit_settings: bool
+
+
+class ShadowReportDTOLanes(CamelModel):
+    ai: str
+    final: str
+    count: int | float
+
+
+class ShadowReportDTOCategories(CamelModel):
+    key: str
+    labelled: int | float
+    agreed: int | float
+
+
+class ShadowReportDTODisagreements(CamelModel):
+    ticket_id: str
+    number: int | float
+    subject: str
+    kind: Literal["category", "lane", "hard_stop_miss"]
+    ai_category: str | None
+    human_category: str | None
+    ai_lane: str
+    final_lane: str
+    ai_hard_stop: str | None
+
+
+class ShadowReportDTO(CamelModel):
+    days: int | float
+    compared: int | float
+    labelled: int | float
+    lanes: list[ShadowReportDTOLanes]
+    categories: list[ShadowReportDTOCategories]
+    disagreements: list[ShadowReportDTODisagreements]
+
+
+class PilotIncidentDTO(CamelModel):
+    id: str
+    severity: IncidentSeverity
+    kind: IncidentKind
+    title: str
+    detail: str
+    ticket_id: str | None
+    ticket_number: int | float | None
+    opened_by: UserRef | None
+    opened_at: str
+    resolved_by: UserRef | None
+    resolved_at: str | None
+    resolution: str

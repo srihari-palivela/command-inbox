@@ -912,7 +912,7 @@ PM/implementation lead. Estimates are elapsed weeks with workstreams in parallel
 | **4. Agents and studio** ✅ (see §9.1) | 3 | §9 studio (unify agents into deployments, node editor, test bench, labelling queue), `LLMProvider` with Anthropic and OpenAI per tenant and node, budgets; CRUD for departments, query types, SLA policies; starter pack. No connectors (D5). | A bank admin configures a deployment from the starter pack, labels 300 real mails, and publishes via evals and four-eyes; the same eval set runs on both providers and the comparison is recorded. |
 | **5. Monitoring and operations** ✅ (see §11.4) | 3 (overlaps 4) | §11 metrics rollups replacing seeded metrics, SLA sweep, alerts, agent quality dashboards, mailbox health alerts, console fleet health; retention sweep, audit export and SIEM, per-tenant rate limits. | Every dashboard number traces to records; alert tests fire; retention verified on a test tenant. |
 | **6. Hardening and assurance** ✅ (see §13.5) | 3 | §12–§13: Helm + Terraform, staging and prod-bank stacks, backups and DR drill, load test (10× the pilot volume), external pen test and fixes, threat model, DPIA, security pack, runbooks, on-call. | Pen test has no open high/critical findings; DR drill meets RPO/RTO; load test meets the SLOs; the bank's TPRM questionnaire is answered. |
-| **7. Pilot at bank #1** | 6–10 | Shadow (≥ 2 weeks) → assisted (draft-for-approval, 4+ weeks) → targeted partial autonomy on low-risk categories only after Risk sign-off. | Agreed KPIs: acceptance ≥ 70% of drafts unedited or lightly edited, zero hard-stop misses, SLA improvement vs baseline, and no P1 incidents. |
+| **7. Pilot at bank #1** — tooling ✅ (see §16.2) | 6–10 | Shadow (≥ 2 weeks) → assisted (draft-for-approval, 4+ weeks) → targeted partial autonomy on low-risk categories only after Risk sign-off. | Agreed KPIs: acceptance ≥ 70% of drafts unedited or lightly edited, zero hard-stop misses, SLA improvement vs baseline, and no P1 incidents. |
 
 **Critical path:** Phase 1 identity → Phase 2 M365 connector → shadow start. The bank's own lead times often
 dominate:
@@ -922,6 +922,19 @@ dominate:
 - DPA and TPRM
 
 Start those in week 1.
+
+### 16.2 Status after Phase 7 (pilot tooling delivered)
+
+The pilot itself runs at the bank. The product now carries it end to end; the playbook is
+`docs/operations/pilot-playbook.md`.
+
+| Area | Delivered | Still open |
+|---|---|---|
+| Stages | onboarding → shadow → assisted → live on the workspace, shown in the console. Nothing is sent from Command Inbox before assisted (approve and reply refuse with `pilot_shadow`). Stepping back is immediate and audited. | Per-mailbox stages (today the whole workspace moves together). |
+| Sign-off | Moving forward is a request with the gates as stored evidence, then a four-eyes sign-off: never the requester, and a named Risk approver when the workspace has any. Gates are re-checked at sign-off. | Partial autonomy on low-risk categories (off in v1 per D5). |
+| Gates and KPIs | Per-workspace targets (defaults: acceptance ≥ 70% with light edits ≤ 20%, agreement ≥ 85%, 14 days shadow, 28 days assisted, 100 labels, 200 drafts). The baseline is measured from records or entered by hand. Other gates: zero hard-stop misses, on-time and first reply vs the baseline, zero P1s. | — |
+| Shadow comparison | AI lane against final lane, per-category agreement with labels, disagreements with links. The AI's own category and hard stop are kept immutably on each `triage.completed` audit event. | CSV export of the comparison. |
+| Incidents | P1–P4 incident log (hard-stop miss, wrong reply, data exposure, outage, other) linked to tickets. An open P1 raises an alert and emails admins; closing it resolves the alert. | Paging integration for P1s. |
 
 ### 16.1 What we need from bank #1 (start in week 1)
 

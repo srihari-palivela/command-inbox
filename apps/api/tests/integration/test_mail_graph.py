@@ -16,7 +16,7 @@ import pytest
 import respx
 from sqlalchemy import select, update
 
-from tests.integration.admin_support import admin_conn, drain
+from tests.integration.admin_support import admin_conn, drain, set_stage
 from tests.integration.conftest import Client
 from tests.integration.graph_fake import FakeGraph
 from tests.integration.test_platform_console import _accept, _console, _operator, _tenant_body, _token_for
@@ -167,6 +167,7 @@ async def test_connect_ingest_and_reply_in_thread(bank, graph, monkeypatch):
 
     # A person approves a reply; it goes out in the customer's thread, from the mailbox, once.
     ticket_id = str(rows[m.id]["ticket_id"])
+    await set_stage(tid, "assisted")  # replies go out from assisted mode on
     r = await admin.send("POST", f"/v1/tickets/{ticket_id}/replies", {"body": "Your statement is attached."})
     assert r.status_code == 200, r.text
     conn = await admin_conn()

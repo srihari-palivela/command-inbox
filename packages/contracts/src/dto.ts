@@ -1487,3 +1487,130 @@ export interface ScimTokenDTO {
   token: string;
   settings: ScimSettingsDTO;
 }
+
+// ── Pilot at a bank ─────────────────────────────────────────────────────────────
+/** onboarding → shadow → assisted → live. Replies go out only from assisted on, always after a person approves. */
+export type PilotStage = 'onboarding' | 'shadow' | 'assisted' | 'live';
+/** pending: not enough records yet to judge. */
+export type PilotGateState = 'pass' | 'fail' | 'pending';
+export type PilotRequestState = 'pending' | 'approved' | 'rejected' | 'withdrawn';
+export type IncidentSeverity = 'P1' | 'P2' | 'P3' | 'P4';
+export type IncidentKind = 'hard_stop_miss' | 'wrong_reply' | 'data_exposure' | 'outage' | 'other';
+
+export interface PilotGateDTO {
+  key: string;
+  label: string;
+  state: PilotGateState;
+  value: string;
+  target: string;
+}
+
+export interface PilotTargetsDTO {
+  /** Share of decided drafts sent unedited or lightly edited. */
+  acceptance: number;
+  /** Largest edit distance (0–1) that still counts as a light edit. */
+  lightEditMax: number;
+  /** AI vs people agreement on category and lane in shadow. */
+  agreement: number;
+  shadowDays: number;
+  assistedDays: number;
+  minLabelled: number;
+  minDrafts: number;
+}
+
+export interface PilotBaselineDTO {
+  onTimeRate: number | null;
+  firstReplyMinutes: number | null;
+  capturedAt: string | null;
+  source: 'records' | 'manual' | null;
+  days: number | null;
+}
+
+export interface PilotKpisDTO {
+  windowStart: string;
+  days: number;
+  draftsDecided: number;
+  draftsAccepted: number;
+  acceptanceRate: number | null;
+  labelled: number;
+  categoryAgreement: number | null;
+  laneCompared: number;
+  laneAgreement: number | null;
+  hardStopMisses: number;
+  onTimeRate: number | null;
+  medianFirstReplyMinutes: number | null;
+  p1Incidents: number;
+  openIncidents: number;
+}
+
+export interface PilotRequestDTO {
+  id: string;
+  fromStage: string;
+  toStage: string;
+  reason: string;
+  state: PilotRequestState;
+  requestedBy: UserRef | null;
+  requestedAt: string;
+  decidedBy: UserRef | null;
+  decidedAt: string | null;
+  decisionNote: string;
+  /** The gates as they stood when the request was made. */
+  evidence: PilotGateDTO[];
+  canDecide: boolean;
+  canWithdraw: boolean;
+}
+
+export interface PilotDTO {
+  stage: WorkspaceStatus;
+  stageSince: string;
+  daysInStage: number;
+  next: PilotStage | null;
+  /** The gates for moving to `next`. */
+  gates: PilotGateDTO[];
+  ready: boolean;
+  pending: PilotRequestDTO | null;
+  history: PilotRequestDTO[];
+  kpis: PilotKpisDTO;
+  targets: PilotTargetsDTO;
+  baseline: PilotBaselineDTO;
+  /** People who may sign off a move forward; empty means any other admin. */
+  riskApprovers: UserRef[];
+  sendsAllowed: boolean;
+  canRequest: boolean;
+  canStepBack: boolean;
+  canEditSettings: boolean;
+}
+
+export interface ShadowReportDTO {
+  days: number;
+  compared: number;
+  labelled: number;
+  lanes: { ai: string; final: string; count: number }[];
+  categories: { key: string; labelled: number; agreed: number }[];
+  disagreements: {
+    ticketId: string;
+    number: number;
+    subject: string;
+    kind: 'category' | 'lane' | 'hard_stop_miss';
+    aiCategory: string | null;
+    humanCategory: string | null;
+    aiLane: string;
+    finalLane: string;
+    aiHardStop: string | null;
+  }[];
+}
+
+export interface PilotIncidentDTO {
+  id: string;
+  severity: IncidentSeverity;
+  kind: IncidentKind;
+  title: string;
+  detail: string;
+  ticketId: string | null;
+  ticketNumber: number | null;
+  openedBy: UserRef | null;
+  openedAt: string;
+  resolvedBy: UserRef | null;
+  resolvedAt: string | null;
+  resolution: string;
+}

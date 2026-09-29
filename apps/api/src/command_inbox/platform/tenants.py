@@ -1,7 +1,7 @@
 """Tenant lifecycle, as the platform console drives it.
 
     draft ─provision─▶ provisioning ─steps done─▶ provisioned ─first admin accepts─▶ onboarding
-    onboarding → shadow → assisted → live            (moved by the bank's own go-live steps, later phases)
+    onboarding → shadow → assisted → live            (moved by the bank's pilot sign-off: modules/pilot)
     any open status ─suspend─▶ suspended ─resume─▶ the status it had
     draft / provisioned / onboarding / suspended ─archive─▶ archived
 

@@ -822,6 +822,10 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
                 "configHash": loaded.config_hash,
                 "predictionSet": choice.get("prediction_set") or [],
                 "escalated": bool(choice.get("escalate")),
+                # The AI's own answer, kept immutable for the pilot's shadow comparison.
+                "category": meta.category.key if meta and not meta.is_fallback else None,
+                "bucket": bucket,
+                "hardStop": guard.get("stop") or None,
             },
             feed=Feed("stop", f"QRY-{locked.number} · hard stop") if guard.get("stop") else None,
         )

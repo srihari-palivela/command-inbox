@@ -195,6 +195,17 @@ export const SCREENS = {
     },
     () => import('../features/admin/EvalsScreen'),
   ),
+  pilot: screen(
+    {
+      key: 'pilot',
+      path: '/admin/pilot',
+      label: 'Pilot',
+      meta: 'stages, sign-off, KPIs, incidents',
+      cap: 'insights.view',
+      visible: (c) => c.has('autonomy.change'),
+    },
+    () => import('../features/admin/PilotScreen'),
+  ),
   onboarding: screen(
     {
       key: 'onboarding',
@@ -273,6 +284,7 @@ export const NAV: NavGroup[] = [
     label: 'Administration',
     items: [
       SCREENS.onboarding,
+      SCREENS.pilot,
       SCREENS.organisation,
       SCREENS.deployments,
       SCREENS.evals,

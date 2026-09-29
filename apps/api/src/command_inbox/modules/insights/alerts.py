@@ -4,7 +4,8 @@ Conditions watched per workspace:
 - mail past its deadline, and mail due within the last fifth of its target, grouped by owning team;
 - a connected mailbox degraded or down (its health model, §7.5);
 - model spend at 80% and 100% of the monthly budget;
-- approved knowledge expiring within 14 days.
+- approved knowledge expiring within 14 days;
+- an open P1 incident in the pilot's incident log.
 
 A new alert lands in the in-app notifications; the serious ones (a mailbox down, the budget spent, mail
 newly past its deadline) are also emailed to the workspace's admins. While a condition holds, its alert's
@@ -29,13 +30,13 @@ from command_inbox.db.engine import rows, tenant_tx
 from command_inbox.db.models import Alert, Mailbox, Membership, Notification, Org, User
 
 log = structlog.get_logger(__name__)
-SWEPT_PREFIXES = ("sla:", "mailbox:", "budget:", "knowledge:", "siem:")
+SWEPT_PREFIXES = ("sla:", "mailbox:", "budget:", "knowledge:", "siem:", "pilot:")
 
 
 @dataclass(frozen=True, slots=True)
 class Condition:
     key: str
-    kind: str  # late | capacity | health | budget | knowledge
+    kind: str  # late | capacity | health | budget | knowledge | incident
     sev_label: str
     bucket: str
     text: str
@@ -272,6 +273,29 @@ async def conditions(tx: AsyncSession, org_id: str) -> list[Condition]:
                 action_label="Upload new versions",
                 owner="Knowledge managers",
                 ref="/setup/knowledge",
+            )
+        )
+
+    [p1] = await rows(
+        tx,
+        """select count(*) as n from pilot_incidents
+            where org_id = :org and severity = 'P1' and resolved_at is null""",
+        {"org": org_id},
+    )
+    if p1["n"]:
+        out.append(
+            Condition(
+                key="pilot:p1",
+                kind="incident",
+                sev_label="P1 incident",
+                bucket="Pilot",
+                text=f"{_plural(p1['n'], 'P1 incident')} open in the pilot's incident log. Consider stepping the "
+                "pilot back until it is resolved.",
+                action_label="Open the pilot",
+                owner="Admins",
+                ref="/admin/pilot",
+                email=True,
+                urgent=True,
             )
         )
     return out

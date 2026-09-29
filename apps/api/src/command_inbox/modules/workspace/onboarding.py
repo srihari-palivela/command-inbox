@@ -222,17 +222,18 @@ async def checklist(tx: AsyncSession, ctx: Ctx) -> dto.OnboardingDTO:
             if org.status == "shadow"
             else "not_started",
             org.status,
-            None,
+            "/admin/pilot",
         )
     )
     steps.append(
         _step(
             "go_live",
             "Go-live",
-            "A second admin approves. Replies start as drafts for your people to approve.",
-            "done" if org.status == "live" else "not_started",
-            "",
-            None,
+            "Risk signs off assisted mode, then live once the pilot's KPIs hold. Replies are always drafts "
+            "for your people to approve.",
+            "done" if org.status == "live" else "in_progress" if org.status == "assisted" else "not_started",
+            org.status if org.status in ("assisted", "live") else "",
+            "/admin/pilot",
         )
     )
     done = sum(1 for s in steps if s.state == "done")

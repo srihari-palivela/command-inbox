@@ -323,3 +323,50 @@ class OperationsBody(CamelModel):
 
 class ScimGroupRolesBody(CamelModel):
     group_roles: Annotated[dict[str, Literal["staff", "lead", "admin"]], Field(max_length=50)]
+
+
+# ── Pilot at a bank ─────────────────────────────────────────────────────────────
+PilotStageKey = Literal["onboarding", "shadow", "assisted", "live"]
+
+
+class PilotStageBody(CamelModel):
+    to_stage: PilotStageKey
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class PilotDecisionBody(CamelModel):
+    approve: bool
+    note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] = ""
+
+
+class PilotTargetsBody(CamelModel):
+    acceptance: Annotated[float, Field(ge=0.5, le=1)]
+    light_edit_max: Annotated[float, Field(ge=0, le=0.5)]
+    agreement: Annotated[float, Field(ge=0.5, le=1)]
+    shadow_days: Annotated[int, Field(ge=1, le=90)]
+    assisted_days: Annotated[int, Field(ge=1, le=180)]
+    min_labelled: Annotated[int, Field(ge=1, le=5000)]
+    min_drafts: Annotated[int, Field(ge=1, le=5000)]
+
+
+class PilotSettingsBody(CamelModel):
+    targets: PilotTargetsBody
+    risk_approvers: Annotated[list[Uuid], Field(max_length=10)]
+
+
+class PilotBaselineBody(CamelModel):
+    days: Annotated[int, Field(ge=7, le=180)] | None = None
+    on_time_rate: Annotated[float, Field(ge=0, le=1)] | None = None
+    first_reply_minutes: Annotated[float, Field(ge=0, le=100_000)] | None = None
+
+
+class PilotIncidentBody(CamelModel):
+    severity: Literal["P1", "P2", "P3", "P4"]
+    kind: Literal["hard_stop_miss", "wrong_reply", "data_exposure", "outage", "other"]
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    detail: Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)] = ""
+    ticket_number: Annotated[int, Field(ge=1)] | None = None
+
+
+class PilotResolveBody(CamelModel):
+    resolution: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]

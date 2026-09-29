@@ -428,3 +428,50 @@ export const ScimGroupRolesBody = z.object({
   groupRoles: z.record(z.string().trim().min(1).max(200), Role),
 });
 export type ScimGroupRolesBody = z.infer<typeof ScimGroupRolesBody>;
+
+// ── Pilot at a bank ─────────────────────────────────────────────────────────────
+export const PilotStageKey = z.enum(['onboarding', 'shadow', 'assisted', 'live']);
+
+/** Ask for the next stage (a second person signs off) or step back (at once). */
+export const PilotStageBody = z.object({ toStage: PilotStageKey, reason: trimmed(1000) });
+export type PilotStageBody = z.infer<typeof PilotStageBody>;
+
+export const PilotDecisionBody = z.object({
+  approve: z.boolean(),
+  note: z.string().trim().max(1000).default(''),
+});
+export type PilotDecisionBody = z.infer<typeof PilotDecisionBody>;
+
+export const PilotSettingsBody = z.object({
+  targets: z.object({
+    acceptance: z.number().min(0.5).max(1),
+    lightEditMax: z.number().min(0).max(0.5),
+    agreement: z.number().min(0.5).max(1),
+    shadowDays: z.number().int().min(1).max(90),
+    assistedDays: z.number().int().min(1).max(180),
+    minLabelled: z.number().int().min(1).max(5000),
+    minDrafts: z.number().int().min(1).max(5000),
+  }),
+  riskApprovers: z.array(z.string().uuid()).max(10),
+});
+export type PilotSettingsBody = z.infer<typeof PilotSettingsBody>;
+
+/** From the workspace's own records (`days` before now), or figures the bank measured before the pilot. */
+export const PilotBaselineBody = z.object({
+  days: z.number().int().min(7).max(180).optional(),
+  onTimeRate: z.number().min(0).max(1).optional(),
+  firstReplyMinutes: z.number().min(0).max(100_000).optional(),
+});
+export type PilotBaselineBody = z.infer<typeof PilotBaselineBody>;
+
+export const PilotIncidentBody = z.object({
+  severity: z.enum(['P1', 'P2', 'P3', 'P4']),
+  kind: z.enum(['hard_stop_miss', 'wrong_reply', 'data_exposure', 'outage', 'other']),
+  title: trimmed(200),
+  detail: z.string().trim().max(4000).default(''),
+  ticketNumber: z.number().int().min(1).nullable().default(null),
+});
+export type PilotIncidentBody = z.infer<typeof PilotIncidentBody>;
+
+export const PilotResolveBody = z.object({ resolution: trimmed(2000) });
+export type PilotResolveBody = z.infer<typeof PilotResolveBody>;
