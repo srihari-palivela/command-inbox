@@ -100,7 +100,7 @@ E2E_RESET=1 pnpm e2e    # Playwright; starts the Python API and the SPA, resets 
 ```
 
 API integration tests clone a seeded template database (`ci_template` by default: create it with
-`uv run command-inbox-seed --database-url postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template`).
+`uv run command-inbox-seed --demo --database-url postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template`).
 CI (`.github/workflows/ci.yml`) also checks contract drift (`scripts/gen_dto.py --check`), model/migration
 drift (`alembic check`), dependency advisories (`pip-audit`) and both container builds.
 

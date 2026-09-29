@@ -62,7 +62,7 @@ jobs:
       - run: |
           psql "$PG_ADMIN/postgres" -c "CREATE ROLE ci_app LOGIN PASSWORD 'ci_app'"
           psql "$PG_ADMIN/postgres" -c "CREATE DATABASE ci_template"
-          uv run command-inbox-seed --database-url postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template
+          uv run command-inbox-seed --demo --database-url postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template
       # Models and migrations agree.
       - run: uv run alembic check
         env:

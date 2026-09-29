@@ -32,8 +32,8 @@ def _url(db: str) -> str:
 
 
 async def _fresh_seeded(db: str) -> str:
+    from command_inbox.migrate import migrate
     from command_inbox.seed import seed
-    from command_inbox.seed.cli import migrate
 
     conn = await asyncpg.connect(f"{ADMIN_BASE}/postgres")
     try:

@@ -51,7 +51,7 @@ services:
     image: command-inbox-api
     environment: *api-env
     # Migrates, then seeds only an empty database, so restarts keep your data.
-    command: ['command-inbox-seed', '--if-empty']
+    command: ['command-inbox-seed', '--demo', '--if-empty']
     depends_on:
       db: { condition: service_healthy }
     restart: 'no'
