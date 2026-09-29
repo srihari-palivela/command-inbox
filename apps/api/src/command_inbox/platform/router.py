@@ -15,7 +15,7 @@ from command_inbox.core.crypto import decrypt, encrypt
 from command_inbox.core.errors import AppError, forbidden, unauthorized
 from command_inbox.db.engine import global_tx
 from command_inbox.db.models import PlatformOperator
-from command_inbox.platform import oidc, tenants
+from command_inbox.platform import fleet, oidc, tenants
 from command_inbox.platform.audit import platform_audit, verify_platform_chain
 from command_inbox.platform.rbac import CAPABILITIES, OperatorCtx, require_platform
 from command_inbox.platform.schemas import CreateTenantBody, DevLoginBody, ReinviteBody, TenantReasonBody
@@ -273,3 +273,8 @@ async def verify(op: OperatorCtx = Depends(current_operator)) -> pdto.PlatformAu
 
 
 __all__ = ["CAPABILITIES", "CSRF_EXEMPT", "PUBLIC", "router"]
+
+
+@router.get("/fleet", response_model=pdto.FleetDTO)
+async def fleet_health(op: OperatorCtx = Depends(current_operator)) -> pdto.FleetDTO:
+    return await fleet.fleet(op)

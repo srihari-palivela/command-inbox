@@ -14,6 +14,7 @@ export function Shell({ me }: { me: PlatformMeDTO }) {
   const caps = new Set(me.operator.capabilities);
   const nav = [
     { to: '/tenants', label: 'Tenants', show: caps.has('tenants.view') },
+    { to: '/fleet', label: 'Fleet health', show: caps.has('tenants.view') },
     { to: '/audit', label: 'Audit log', show: caps.has('audit.view') },
   ].filter((i) => i.show);
 

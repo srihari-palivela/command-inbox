@@ -383,3 +383,15 @@ async def test_first_admin_gets_a_bootstrap_sign_in_until_bank_sso_is_live(app, 
     assert calls[0]["email"] == invited and calls[0]["redirect_uri"].endswith(f"/accept?token={token}")
     r = await anon.post("/v1/auth/invitation/setup", json={"token": token})
     assert r.status_code == 409 and r.json()["code"] == "bootstrap_limit"
+
+
+async def test_fleet_health_aggregates_every_tenant_without_content(ops):
+    r = await ops["support"].get("/v1/platform/fleet")
+    assert r.status_code == 200, r.text
+    f = r.json()
+    slugs = {t["slug"] for t in f["tenants"]}
+    assert {"apex", "meridian"} <= slugs
+    apex = next(t for t in f["tenants"] if t["slug"] == "apex")
+    assert apex["spendCapMinor"] > 0 and apex["openAlerts"] >= 0
+    assert all(set(q) == {"kind", "due", "running", "failed24h", "oldestDueSeconds"} for q in f["queue"])
+    assert "subject" not in r.text and "body" not in r.text

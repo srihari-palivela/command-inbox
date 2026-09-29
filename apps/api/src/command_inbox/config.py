@@ -139,6 +139,7 @@ class Settings(BaseSettings):
     langfuse_host: str | None = None
 
     embedded_worker: bool = True
+    worker_metrics_port: int = 4001  # the separate worker process serves /metrics here; 0 disables
 
     @property
     def is_prod(self) -> bool:

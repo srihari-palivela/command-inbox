@@ -5,7 +5,8 @@
 #   --profile sso            Keycloak on :8081: realm "command-inbox" (users p.sharma / r.menon / a.kapoor, password "demo")
 #                            and realm "operators" for the console (owner@ / ops@ / support@platform.example,
 #                            password "operator-local")
-#   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local)
+#   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local),
+#                            Prometheus on :9090 with the SLO rules and Alertmanager on :9093
 #   --profile local-llm      llama.cpp server for the System 1 decision engine on :8090 (put a GGUF in ./models)
 #   --profile av             ClamAV for scanning knowledge uploads (set CLAMAV_HOST=clamav); first start downloads
 #                            signatures and needs ~1.5 GB of memory. Without it uploads are marked "not virus-scanned".
@@ -188,6 +189,21 @@ services:
     command: ['-c', 'mkdir -p /data/langfuse && minio server /data --console-address ":9001"']
     environment: { MINIO_ROOT_USER: minio, MINIO_ROOT_PASSWORD: minio-local-secret }
     volumes: [langfuse-s3:/data]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [observability]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+    ports: ['9090:9090']
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    profiles: [observability]
+    volumes:
+      - ./infra/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports: ['9093:9093']
 
   langfuse-worker:
     profiles: [observability]

@@ -25,6 +25,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from command_inbox.core.clock import clock
+from command_inbox.core.telemetry import ingest_lag
 from command_inbox.db.engine import tenant_tx
 from command_inbox.db.models import MailAttachment, Mailbox, MailMessage, MailSyncEvent
 from command_inbox.mail.types import INTENT_HEADER, TEST_HEADER, RawMessage
@@ -233,6 +234,7 @@ async def process(org_id: str, mailbox: Mailbox, raw: RawMessage) -> Outcome:
         values: dict[str, object] = {"last_message_at": now}
         if raw.received_at:
             values["lag_seconds"] = max(0, int((now - raw.received_at).total_seconds()))
+            ingest_lag.labels(mailbox.provider).observe(values["lag_seconds"])
         if kind == "test":
             values["last_test_ok_at"] = now
         await tx.execute(

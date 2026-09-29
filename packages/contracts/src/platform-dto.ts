@@ -150,3 +150,40 @@ export interface InvitationPreviewDTO {
   /** Before the bank's SSO is connected, a first-time sign-in (password + authenticator) can be created. */
   canBootstrap: boolean;
 }
+
+// ── Fleet health ────────────────────────────────────────────────────────────────
+export interface FleetQueueDTO {
+  kind: string;
+  due: number;
+  running: number;
+  failed24h: number;
+  oldestDueSeconds: number | null;
+}
+
+export interface FleetTenantDTO {
+  id: string;
+  name: string;
+  slug: string;
+  status: TenantStatus;
+  currency: string;
+  locale: string;
+  mailboxes: number;
+  /** Connected mailboxes that need a reconnect or have not synced for 15 minutes. */
+  mailboxesUnhealthy: number;
+  /** Provider subscriptions or watches that lapse within 24 hours. */
+  streamsExpiring: number;
+  lastMailAt: string | null;
+  triaged24h: number;
+  /** Share of the last day's triage that fell back to the deterministic model. */
+  degradedRate24h: number | null;
+  openAlerts: number;
+  spendMonthMinor: number;
+  spendCapMinor: number;
+  siemFailing: boolean;
+}
+
+export interface FleetDTO {
+  generatedAt: string;
+  queue: FleetQueueDTO[];
+  tenants: FleetTenantDTO[];
+}

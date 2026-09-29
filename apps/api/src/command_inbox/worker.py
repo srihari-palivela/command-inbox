@@ -74,6 +74,10 @@ async def _main() -> None:
     configure_logging()
     configure_tracing(service_name=settings.otel_service_name.replace("-api", "-worker"))
     worker = build_worker()
+    if settings.worker_metrics_port:
+        from prometheus_client import start_http_server
+
+        start_http_server(settings.worker_metrics_port)  # /metrics for Prometheus (jobs, sends, ingest lag)
     await hub.start()
     hub.on_job(worker.poke)
     worker.start()

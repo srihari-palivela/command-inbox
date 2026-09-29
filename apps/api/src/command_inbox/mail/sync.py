@@ -25,6 +25,7 @@ from command_inbox.config import settings
 from command_inbox.core.clock import clock
 from command_inbox.core.crypto import sha256
 from command_inbox.core.jobs import JobRow, enqueue
+from command_inbox.core.telemetry import mail_sends
 from command_inbox.db.engine import global_tx, tenant_tx
 from command_inbox.db.models import Mailbox, MailMessage, MailSendIntent, MailSyncEvent
 from command_inbox.mail import pipeline
@@ -416,6 +417,7 @@ async def _mark_sent(
             .where(MailSendIntent.id == it.id)
             .values(state="sent", sent_at=clock.now(), provider_message_id=provider_id, error="")
         )
+        mail_sends.labels(conn.provider if hasattr(conn, "provider") else "mail", "sent").inc()
         tx.add(
             MailSyncEvent(
                 org_id=org_id,
@@ -434,6 +436,7 @@ async def _mark_sent(
 async def _send_failed(org_id: str, it: MailSendIntent, err: Exception, *, final: bool) -> None:
     from command_inbox.modules.tickets.ops import system_note
 
+    mail_sends.labels("mail", "failed" if final else "retry").inc()
     async with tenant_tx(org_id) as tx:
         await tx.execute(
             update(MailSendIntent)

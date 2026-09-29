@@ -10,6 +10,7 @@ const TenantsScreen = lazy(() => import('../features/tenants/TenantsScreen'));
 const NewTenantScreen = lazy(() => import('../features/tenants/NewTenantScreen'));
 const TenantDetailScreen = lazy(() => import('../features/tenants/TenantDetailScreen'));
 const AuditScreen = lazy(() => import('../features/audit/AuditScreen'));
+const FleetScreen = lazy(() => import('../features/fleet/FleetScreen'));
 
 function Gate() {
   const me = useMe();
@@ -53,6 +54,7 @@ const router = createBrowserRouter([
       { path: 'tenants/new', element: <NewTenantScreen /> },
       { path: 'tenants/:id', element: <TenantDetailScreen /> },
       { path: 'audit', element: <AuditScreen /> },
+      { path: 'fleet', element: <FleetScreen /> },
       { path: '*', element: <Navigate to="/tenants" replace /> },
     ],
   },

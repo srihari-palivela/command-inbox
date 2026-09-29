@@ -146,6 +146,16 @@ Offline evals: `cd apps/api && uv run command-inbox-evals run --deployment KEY`.
 
 Teams, query types and reply-time targets are edited under **Who owns what**.
 
+### Monitoring and operations
+
+**Monitoring** (leads and admins) shows the pipeline, reply times against targets, what happened to drafts,
+quality per deployment version and model, spend, knowledge and mailbox health — all counted from records by
+an hourly rollup. A per-minute sweep raises alerts (deadlines, mailbox health, budget, knowledge expiry, SIEM)
+in the app and emails admins about serious ones. Under **Organisation**, admins set retention, stream the
+audit log to their SIEM (signed batches) and download a signed audit export. Operators see **Fleet health**
+in the console; `--profile observability` adds Prometheus (SLO rules, :9090) and Alertmanager (:9093).
+Runbooks: `docs/operations/runbooks.md`.
+
 ## Tests
 
 ```sh

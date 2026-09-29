@@ -44,7 +44,7 @@ from command_inbox.agents.providers.types import (
     Usage,
 )
 from command_inbox.config import settings
-from command_inbox.core.telemetry import model_cost
+from command_inbox.core.telemetry import model_cost, system2_fallbacks
 
 log = structlog.get_logger(__name__)
 T = TypeVar("T")
@@ -173,6 +173,7 @@ class ProviderRouter:
     ) -> Staged[T]:
         self.degraded = True
         self.reasons.append(f"{stage}: {why}"[:200])
+        system2_fallbacks.labels(stage).inc()
         log.warning("system 2 degraded to the heuristic provider", stage=stage, reason=why[:200])
         return await fn(heuristic)
 

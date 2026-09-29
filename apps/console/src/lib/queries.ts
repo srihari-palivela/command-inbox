@@ -32,6 +32,7 @@ export const keys = {
   tenant: (id: string) => ['tenant', id] as const,
   audit: (tenantId?: string) => ['audit', tenantId ?? 'all'] as const,
   auditAll: ['audit'] as const,
+  fleet: ['fleet'] as const,
 };
 
 export function useMe() {

@@ -188,3 +188,36 @@ class InvitationPreviewDTO(CamelModel):
     state: Literal["pending", "accepted", "expired", "revoked"]
     sign_in: Literal["sso", "direct"]
     can_bootstrap: bool
+
+
+class FleetQueueDTO(CamelModel):
+    kind: str
+    due: int | float
+    running: int | float
+    failed24h: int | float = Field(alias="failed24h")
+    oldest_due_seconds: int | float | None
+
+
+class FleetTenantDTO(CamelModel):
+    id: str
+    name: str
+    slug: str
+    status: TenantStatus
+    currency: str
+    locale: str
+    mailboxes: int | float
+    mailboxes_unhealthy: int | float
+    streams_expiring: int | float
+    last_mail_at: str | None
+    triaged24h: int | float = Field(alias="triaged24h")
+    degraded_rate24h: int | float | None = Field(alias="degradedRate24h")
+    open_alerts: int | float
+    spend_month_minor: int | float
+    spend_cap_minor: int | float
+    siem_failing: bool
+
+
+class FleetDTO(CamelModel):
+    generated_at: str
+    queue: list[FleetQueueDTO]
+    tenants: list[FleetTenantDTO]
