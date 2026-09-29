@@ -213,3 +213,14 @@ async def last_outbox_id() -> int:
         return int(await conn.fetchval("select coalesce(max(id), 0) from outbox"))
     finally:
         await conn.close()
+
+
+async def set_stage(org_id: str, stage: str) -> None:
+    """Put a workspace at a pilot stage directly (the sign-off itself is covered by test_pilot)."""
+    conn = await admin_conn()
+    try:
+        await conn.execute(
+            "update orgs set status = $2, status_changed_at = now() where id = $1", org_id, stage
+        )
+    finally:
+        await conn.close()

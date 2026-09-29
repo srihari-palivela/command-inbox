@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16 # Postgres 16 + the vector extension
         env: { POSTGRES_PASSWORD: postgres }
         ports: ['5432:5432']
         options: >-
@@ -62,7 +62,7 @@ jobs:
       - run: |
           psql "$PG_ADMIN/postgres" -c "CREATE ROLE ci_app LOGIN PASSWORD 'ci_app'"
           psql "$PG_ADMIN/postgres" -c "CREATE DATABASE ci_template"
-          uv run command-inbox-seed --database-url postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template
+          uv run command-inbox-seed --demo --database-url postgresql+asyncpg://postgres:postgres@localhost:5432/ci_template
       # Models and migrations agree.
       - run: uv run alembic check
         env:
@@ -82,7 +82,7 @@ jobs:
     needs: check
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16 # Postgres 16 + the vector extension
         env: { POSTGRES_PASSWORD: postgres }
         ports: ['5432:5432']
         options: >-
@@ -112,14 +112,53 @@ jobs:
           retention-days: 7
 
   docker:
-    name: Container images
+    name: Container images, scan and SBOM
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     needs: check
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
-        with: { context: ., file: infra/docker/api.Dockerfile, push: false, tags: command-inbox-api:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
+        with: { context: ., file: infra/docker/api.Dockerfile, push: false, load: true, tags: command-inbox-api:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
       - uses: docker/build-push-action@v6
-        with: { context: ., file: infra/docker/web.Dockerfile, push: false, tags: command-inbox-web:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
+        with: { context: ., file: infra/docker/web.Dockerfile, push: false, load: true, tags: command-inbox-web:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: infra/docker/console.Dockerfile, push: false, load: true, tags: command-inbox-console:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
+      # Report fixable high and critical vulnerabilities on every change; the release workflow blocks on them.
+      - name: Scan images (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with: { image-ref: command-inbox-api:ci, severity: 'HIGH,CRITICAL', ignore-unfixed: true, exit-code: '0' }
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with: { image-ref: command-inbox-web:ci, severity: 'HIGH,CRITICAL', ignore-unfixed: true, exit-code: '0', skip-setup-trivy: true }
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with: { image-ref: command-inbox-console:ci, severity: 'HIGH,CRITICAL', ignore-unfixed: true, exit-code: '0', skip-setup-trivy: true }
+      - name: SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with: { image: command-inbox-api:ci, format: spdx-json, output-file: sbom-api.spdx.json }
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: 'sbom-*.spdx.json' }
+
+  security:
+    name: Static analysis (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: { image: semgrep/semgrep }
+    steps:
+      - uses: actions/checkout@v4
+      # Blocks on ERROR-severity findings; the rest are reported (ruff's bandit rules gate Python too).
+      - run: semgrep scan --error --severity ERROR --config p/python --config p/typescript --config p/owasp-top-ten --config p/secrets --exclude 'apps/*/e2e' --exclude 'apps/api/tests' --exclude 'docs'
+
+  infra:
+    name: Helm and Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint infra/helm/command-inbox
+      - run: helm template ci infra/helm/command-inbox --kube-version 1.30.0 --set serviceMonitor.enabled=true > /dev/null
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive infra/terraform
+      - run: terraform init -backend=false -input=false && terraform validate
+        working-directory: infra/terraform/aws/stack

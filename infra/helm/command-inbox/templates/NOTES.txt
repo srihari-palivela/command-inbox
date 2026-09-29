@@ -1,0 +1,8 @@
+Command Inbox {{ .Chart.AppVersion }} for {{ .Release.Name }}.
+
+Web:      https://{{ .Values.ingress.hosts.web }}
+Webhooks: https://{{ .Values.ingress.hosts.hooks }}  (set MAIL_WEBHOOK_BASE_URL to this)
+Console:  https://{{ .Values.ingress.hosts.console }}
+
+Schema migrations ran in the pre-upgrade hook job. Create the first platform owner with:
+  kubectl exec deploy/{{ include "ci.name" . }}-api -- command-inbox-operator add owner@vendor.example --name "…" --role platform_owner

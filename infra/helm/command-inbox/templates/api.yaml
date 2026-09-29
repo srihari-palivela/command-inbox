@@ -1,0 +1,60 @@
+{{- range $component := list "api" "hooks" }}
+{{- if or (eq $component "api") $.Values.hooks.enabled }}
+{{- $cfg := index $.Values $component }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ci.name" $ }}-{{ $component }}
+  labels:
+    {{- include "ci.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  selector:
+    matchLabels: {{- include "ci.selector" (dict "root" $ "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ci.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $component }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+    spec:
+      {{- include "ci.pod" $ | nindent 6 }}
+      containers:
+        - name: api
+          image: {{ include "ci.image" (dict "root" $ "name" $.Values.image.api) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command: ["command-inbox-api"]
+          {{- include "ci.env" $ | nindent 10 }}
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: command-inbox-{{ $component }}
+          ports:
+            - {name: http, containerPort: {{ $.Values.api.port }}}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+            failureThreshold: 6
+          resources: {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext: {{- toYaml $.Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ci.name" $ }}-{{ $component }}
+  labels: {{- include "ci.labels" $ | nindent 4 }}
+spec:
+  selector: {{- include "ci.selector" (dict "root" $ "component" $component) | nindent 4 }}
+  ports:
+    - {name: http, port: 80, targetPort: http}
+{{- end }}
+{{- end }}

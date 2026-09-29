@@ -4,6 +4,7 @@ import { ApiError } from '../../lib/api';
 import { useMe } from '../../lib/queries';
 import { cx } from '../../ui';
 import s from './bits.module.css';
+import { num } from '../../lib/format';
 
 /** The signed-in person's capabilities; the server still enforces every one of them. */
 export function useCan(): (cap: Capability) => boolean {
@@ -49,7 +50,7 @@ export const stagger = (i: number, step = 0.05, base = 0): CSSProperties => ({
 });
 
 export function fmtNum(n: number): string {
-  return Number.isInteger(n) ? n.toLocaleString('en-IN') : String(Math.round(n * 100) / 100);
+  return Number.isInteger(n) ? num(n) : String(Math.round(n * 100) / 100);
 }
 
 export const AVAIL: Record<StaffDTO['availability'], { dot: string; fg: string; label: string }> = {

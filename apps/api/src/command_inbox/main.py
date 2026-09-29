@@ -25,6 +25,7 @@ from command_inbox.core.errors import AppError
 from command_inbox.core.events import hub
 from command_inbox.core.telemetry import configure_logging, configure_tracing, http_duration, sse_clients
 from command_inbox.db.engine import dispose, engine
+from command_inbox.platform.sessions import PLATFORM_COOKIE, resolve_platform_session
 
 log = structlog.get_logger(__name__)
 
@@ -36,10 +37,21 @@ PUBLIC_PATHS = {
     "/v1/auth/oidc/login",
     "/v1/auth/oidc/callback",
     "/v1/intake/messages",
+    "/v1/auth/invitation",
+    "/v1/auth/invitation/accept",
+    "/v1/auth/invitation/setup",
+    "/v1/dev/mailbox",
 }
-PUBLIC_PREFIXES = ("/v1/oauth/",)
+PUBLIC_PREFIXES = ("/v1/oauth/", "/v1/hooks/")
 # State-changing but authenticated another way (no session yet, or a signed webhook). Exact paths only.
-CSRF_EXEMPT = {"/v1/auth/login", "/v1/intake/messages"}
+# Provider webhooks (/v1/hooks/*) are authenticated per message (clientState / OIDC), never by a session.
+CSRF_EXEMPT_PREFIXES = ("/v1/hooks/",)
+CSRF_EXEMPT = {
+    "/v1/auth/login",
+    "/v1/intake/messages",
+    "/v1/auth/invitation/accept",
+    "/v1/auth/invitation/setup",
+}
 
 
 def is_public(path: str) -> bool:
@@ -118,7 +130,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.web_origin],
+        allow_origins=[settings.web_origin, settings.console_origin],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -132,6 +144,24 @@ def create_app() -> FastAPI:
         structlog.contextvars.bind_contextvars(request_id=rid)
         path = request.url.path
         try:
+            if path.startswith("/v1/platform/"):
+                # The console: operator sessions only; a tenant session is never looked at here.
+                from command_inbox.platform.router import CSRF_EXEMPT as P_EXEMPT
+                from command_inbox.platform.router import PUBLIC as P_PUBLIC
+
+                ptoken = request.cookies.get(PLATFORM_COOKIE)
+                presolved = await resolve_platform_session(ptoken, rid) if ptoken else None
+                if presolved:
+                    request.state.operator, request.state.csrf_token = presolved
+                    structlog.contextvars.bind_contextvars(operator_id=presolved[0].id)
+                elif path not in P_PUBLIC:
+                    return problem(401, "unauthenticated", "Sign in to continue", request)
+                if request.method in UNSAFE and presolved and path not in P_EXEMPT:
+                    header = request.headers.get("x-csrf-token", "")
+                    if not header or not safe_equal(header, request.state.csrf_token):
+                        return problem(403, "csrf", "Missing or invalid CSRF token", request)
+                response = await call_next(request)
+                return _finish(request, response, rid, started)
             token = request.cookies.get(SESSION_COOKIE)
             if token:
                 resolved = await resolve_session(token, rid)
@@ -144,13 +174,33 @@ def create_app() -> FastAPI:
             ctx = getattr(request.state, "ctx", None)
             if path.startswith("/v1/") and ctx is None and not is_public(path):
                 return problem(401, "unauthenticated", "Sign in to continue", request)
-            if request.method in UNSAFE and ctx is not None and path not in CSRF_EXEMPT:
+            if ctx is not None and path.startswith("/v1/"):
+                from command_inbox.core.ratelimit import limiter
+
+                allowed, wait = await limiter.allow(ctx.org_id)
+                if allowed and settings.api_rate_per_user_per_minute > 0:
+                    allowed, wait = limiter.hit(
+                        f"user:{ctx.org_id}:{ctx.user.id}", settings.api_rate_per_user_per_minute
+                    )
+                if not allowed:
+                    limited = problem(429, "rate_limited", "Too many requests. Try again shortly.", request)
+                    limited.headers["retry-after"] = str(wait)
+                    return limited
+            if (
+                request.method in UNSAFE
+                and ctx is not None
+                and path not in CSRF_EXEMPT
+                and not path.startswith(CSRF_EXEMPT_PREFIXES)
+            ):
                 header = request.headers.get("x-csrf-token", "")
                 if not header or not safe_equal(header, request.state.csrf_token):
                     return problem(403, "csrf", "Missing or invalid CSRF token", request)
             response = await call_next(request)
         finally:
             structlog.contextvars.clear_contextvars()
+        return _finish(request, response, rid, started)
+
+    def _finish(request: Request, response: Response, rid: str, started: float) -> Response:
         route = request.scope.get("route")
         http_duration.labels(
             request.method, getattr(route, "path", "unmatched"), str(response.status_code)
@@ -159,6 +209,8 @@ def create_app() -> FastAPI:
         response.headers.setdefault("x-content-type-options", "nosniff")
         response.headers.setdefault("referrer-policy", "same-origin")
         response.headers.setdefault("x-frame-options", "DENY")
+        # The API serves JSON and files, never documents: nothing may load or frame it.
+        response.headers.setdefault("content-security-policy", "default-src 'none'; frame-ancestors 'none'")
         response.headers.setdefault("cache-control", "no-store")
         return response
 

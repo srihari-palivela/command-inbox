@@ -49,9 +49,32 @@ from command_inbox.schemas.requests import FilterKey, TicketFilters
 
 # ruff: noqa: F401
 
+WorkspaceStatus = Literal[
+    "draft",
+    "provisioning",
+    "provisioned",
+    "onboarding",
+    "shadow",
+    "assisted",
+    "live",
+    "suspended",
+    "archived",
+]
 GateMode = Literal["action", "draft", "manual"]
 GateState = Literal["open", "awaiting_checker", "scheduled", "executing", "done", "rejected", "taken"]
 ApproveOutcome = Literal["awaiting_checker", "scheduled", "sending", "taken"]
+MailConnection = Literal[
+    "not_connected", "connecting", "syncing", "live", "degraded", "reauth_required", "disconnected"
+]
+HealthLevel = Literal["healthy", "degraded", "down", "unknown"]
+KnowledgeDocStatus = Literal["pending", "approved", "rejected", "retired", "stale"]
+KnowledgeParseStatus = Literal["none", "queued", "scanning", "parsing", "ready", "failed", "infected"]
+ModelProviderKey = Literal["anthropic", "openai"]
+PilotStage = Literal["onboarding", "shadow", "assisted", "live"]
+PilotGateState = Literal["pass", "fail", "pending"]
+PilotRequestState = Literal["pending", "approved", "rejected", "withdrawn"]
+IncidentSeverity = Literal["P1", "P2", "P3", "P4"]
+IncidentKind = Literal["hard_stop_miss", "wrong_reply", "data_exposure", "outage", "other"]
 FacetCounts = dict[str, dict[str, int | float]]
 
 
@@ -70,6 +93,52 @@ class OrgDTO(CamelModel):
     bg: str
     plan: str
     confidence_bar: int | float
+    locale: str
+    currency: str
+    time_zone: str
+    status: WorkspaceStatus
+
+
+class WorkspaceProfileDTO(CamelModel):
+    name: str
+    legal_name: str
+    support_email: str
+    locale: str
+    currency: str
+    time_zone: str
+    email_domains: list[str]
+    region: str
+    data_residency: str
+    status: WorkspaceStatus
+    sso: WorkspaceSsoDTO
+
+
+class WorkspaceSsoDTO(CamelModel):
+    provider: Literal["entra", "google"] | None
+    directory_id: str
+    client_id: str
+    has_secret: bool
+    state: Literal["not_connected", "saved", "connected", "failed"]
+    detail: str
+    idp_alias: str | None
+    redirect_uri: str | None
+    sso_members: int | float
+
+
+class OnboardingStepDTO(CamelModel):
+    key: str
+    title: str
+    description: str
+    state: Literal["not_started", "in_progress", "done", "later"]
+    detail: str
+    to: str | None
+
+
+class OnboardingDTO(CamelModel):
+    status: WorkspaceStatus
+    steps: list[OnboardingStepDTO]
+    done: int | float
+    total: int | float
 
 
 class MembershipDTO(CamelModel):
@@ -105,7 +174,11 @@ class MeDTOUser(UserRef):
 
 class MeDTOWorker(CamelModel):
     state: Literal["live", "degraded", "paused"]
-    provider: Literal["claude", "heuristic"]
+    provider: Literal["claude", "openai", "heuristic"]
+
+
+class MeDTOFeatures(CamelModel):
+    telephony: bool
 
 
 class MeDTO(CamelModel):
@@ -119,6 +192,7 @@ class MeDTO(CamelModel):
     settings: SettingsDTO
     nav: NavCounts
     worker: MeDTOWorker
+    features: MeDTOFeatures
 
 
 class DemoUserDTO(CamelModel):
@@ -346,10 +420,10 @@ class PastTicketDTO(CamelModel):
 
 class CustomerDTO(CamelModel):
     id: str
-    cif: str
+    cif: str | None
     name: str
     email: str
-    since_year: int | float
+    since_year: int | float | None
     segment: str
     account: str
     history: list[PastTicketDTO]
@@ -652,12 +726,13 @@ class QueryTypeSpeedDTO(CamelModel):
 class AlertDTO(CamelModel):
     id: str
     sev_label: str
-    sev_kind: Literal["late", "pattern", "drift", "capacity"]
+    sev_kind: Literal["late", "pattern", "drift", "capacity", "health", "budget", "knowledge"]
     bucket: str
     text: str
     action_label: str
     owner: str
     at: str
+    ref: str | None | None = None
 
 
 class CustomKpiDTO(CamelModel):
@@ -702,14 +777,6 @@ class ResultsDTOCoverage(CamelModel):
     volume: int | float
 
 
-class ResultsDTOPhases(CamelModel):
-    n: int | float
-    label: str
-    scope: str
-    state: str
-    current: bool
-
-
 class ResultsDTOPools(CamelModel):
     label: str
     metric: str
@@ -723,7 +790,6 @@ class ResultsDTO(CamelModel):
     capacity_multiple: int | float
     days: list[ResultsDTODays]
     coverage: list[ResultsDTOCoverage]
-    phases: list[ResultsDTOPhases]
     pools: list[ResultsDTOPools]
 
 
@@ -968,7 +1034,7 @@ class SearchResultDTOTickets(CamelModel):
 
 class SearchResultDTOCustomers(CamelModel):
     id: str
-    cif: str
+    cif: str | None
     name: str
     tickets: int | float
     latest_ticket_id: str | None
@@ -1133,6 +1199,8 @@ class EvalCaseDTOInput(CamelModel):
 class EvalCaseDTOExpected(CamelModel):
     category: str
     hard_stop: bool
+    lane: Literal["draft", "manual"] | None | None = None
+    draft_acceptable: bool | None | None = None
 
 
 class EvalCaseDTO(CamelModel):
@@ -1143,6 +1211,7 @@ class EvalCaseDTO(CamelModel):
     split: EvalSplit
     tags: list[str]
     source: str
+    ticket_id: str | None
     created_at: str
 
 
@@ -1163,6 +1232,18 @@ class EvalMetricsDTO(CamelModel):
     cost_per_thousand_mails_minor: int | float | None
     temperature: int | float
     conformal_qhat: int | float | None
+    system2_provider: str | None = None
+    system2_models: list[str] | None = None
+    adjudicated_cases: int | float | None = None
+    adjudication_accuracy: int | float | None | None = None
+    adjudication_unsure_rate: int | float | None | None = None
+    end_to_end_accuracy: int | float | None | None = None
+    drafts_scored: int | float | None = None
+    grounded_draft_rate: int | float | None | None = None
+    no_source_draft_rate: int | float | None | None = None
+    system2_cost_minor: int | float | None = None
+    system2_p95_latency_ms: int | float | None | None = None
+    system2_fallbacks: int | float | None = None
 
 
 class EvalGateDTO(CamelModel):
@@ -1192,6 +1273,7 @@ class EvalRunDTO(CamelModel):
     config_hash: str
     dataset_snapshot: str
     current: bool
+    provider: ModelProviderKey | None
     split: EvalRunDTOSplit
     metrics: EvalMetricsDTO | None
     gates: list[EvalGateDTO]
@@ -1280,3 +1362,527 @@ class ProblemDTO(CamelModel):
     detail: str | None = None
     code: str
     request_id: str | None = None
+
+
+class MailboxHealthSignalDTO(CamelModel):
+    key: Literal["stream", "lag", "sweep", "credential", "send", "throttling"]
+    label: str
+    level: HealthLevel
+    value: str
+
+
+class MailSyncEventDTO(CamelModel):
+    at: str
+    kind: str
+    ok: bool
+    summary: str
+
+
+class MailboxConnectionDTO(CamelModel):
+    id: str
+    address: str
+    provider: MailProvider
+    connection: MailConnection
+    account: str | None
+    mode: Literal["notifications", "polling"] | None
+    send_enabled: bool
+    level: HealthLevel
+    signals: list[MailboxHealthSignalDTO]
+    last_error: str
+    last_error_at: str | None
+    last_message_at: str | None
+    last_test_at: str | None
+    last_test_ok_at: str | None
+    messages24h: int | float = Field(alias="messages24h")
+    events: list[MailSyncEventDTO]
+
+
+class MailConnectorsDTOProviders(CamelModel):
+    microsoft: bool
+    google: bool
+
+
+class MailConnectorsDTO(CamelModel):
+    providers: MailConnectorsDTOProviders
+    webhooks: bool
+    mailbox_limit: int | float
+    mailboxes: list[MailboxConnectionDTO]
+
+
+class KnowledgeDocumentDTO(CamelModel):
+    id: str
+    title: str
+    filename: str
+    version: int | float
+    replaces_id: str | None
+    status: KnowledgeDocStatus
+    parse_status: KnowledgeParseStatus
+    parse_error: str
+    av_status: Literal["not_scanned", "clean", "infected", "error"]
+    department_id: str | None
+    department: str | None
+    size: int | float
+    chunk_count: int | float
+    effective_from: str | None
+    expires_at: str | None
+    uploaded_by: str | None
+    approved_by: str | None
+    approved_at: str | None
+    created_at: str
+    can_approve: bool
+
+
+class KnowledgeChunkDTO(CamelModel):
+    id: str
+    ordinal: int | float
+    section: str
+    page: int | float | None
+    text: str
+    tokens: int | float
+
+
+class KnowledgeDocumentDetailDTO(KnowledgeDocumentDTO):
+    chunks: list[KnowledgeChunkDTO]
+
+
+class KnowledgeHitDTO(CamelModel):
+    chunk_id: str
+    doc_id: str
+    title: str
+    section: str
+    page: int | float | None
+    text: str
+    score: int | float
+    similarity: int | float
+    text_match: bool
+
+
+class KnowledgeSearchDTO(CamelModel):
+    query: str
+    hits: list[KnowledgeHitDTO]
+
+
+class ModelProviderDTO(CamelModel):
+    key: ModelProviderKey
+    name: str
+    configured: bool
+    allowed: bool
+    is_default: bool
+    default_model: str
+    spent_minor: int | float
+    calls: int | float
+
+
+class ModelPolicyDTO(CamelModel):
+    providers: list[ModelProviderDTO]
+    monthly_budget_minor: int | float | None
+    spent_minor: int | float
+    month: str
+    budget_reached: bool
+    can_edit: bool
+
+
+class DepartmentAdminDTO(CamelModel):
+    id: str
+    name: str
+    risk: bool
+    owner: UserRef | None
+    query_types: int | float
+    open_tickets: int | float
+    deletable: bool
+
+
+class QueryTypeAdminDTO(CamelModel):
+    id: str
+    name: str
+    department_id: str | None
+    default_lane: Lane
+    live: bool
+    tickets: int | float
+    deletable: bool
+
+
+class TaxonomyAdminDTO(CamelModel):
+    departments: list[DepartmentAdminDTO]
+    query_types: list[QueryTypeAdminDTO]
+    can_edit: bool
+
+
+class SlaPolicyDTO(CamelModel):
+    id: str
+    name: str
+    priority: Priority | None
+    segment: str | None
+    escalation: bool
+    minutes: int | float
+
+
+class SlaPoliciesDTO(CamelModel):
+    policies: list[SlaPolicyDTO]
+    using_defaults: bool
+    segments: list[str]
+    can_edit: bool
+
+
+class BenchSpanDTO(CamelModel):
+    agent: str
+    model: str
+    action: str
+    output: str
+    latency_ms: int | float
+    tokens: int | float | None
+    cost_minor: int | float | None
+    status: SpanStatus
+
+
+class BenchRunDTODraftCitations(CamelModel):
+    n: int | float
+    title: str
+    section: str
+
+
+class BenchRunDTODraft(CamelModel):
+    body: str
+    coverage: Literal["full", "partial", "none"]
+    citations: list[BenchRunDTODraftCitations]
+    flagged: list[str]
+
+
+class BenchRunDTOBrief(CamelModel):
+    summary: str
+
+
+class BenchRunDTOFields(CamelModel):
+    label: str
+    value: str
+    inferred: bool
+
+
+class BenchRunDTO(CamelModel):
+    version_id: str
+    version: int | float
+    state: DeploymentVersionState
+    lane: Lane
+    lane_note: str
+    category: str | None
+    confidence: int | float
+    hard_stop: str | None
+    draft: BenchRunDTODraft | None
+    brief: BenchRunDTOBrief | None
+    fields: list[BenchRunDTOFields]
+    spans: list[BenchSpanDTO]
+    cost_minor: int | float
+    latency_ms: int | float
+    degraded: list[str]
+
+
+class BenchResultDTO(CamelModel):
+    runs: list[BenchRunDTO]
+
+
+class LabelCandidateDTOSuggested(CamelModel):
+    category: str | None
+    hard_stop: bool
+    lane: Lane
+
+
+class LabelCandidateDTO(CamelModel):
+    ticket_id: str
+    number: int | float
+    subject: str
+    body: str
+    received_at: str
+    suggested: LabelCandidateDTOSuggested
+
+
+class LabellingQueueDTOCategories(CamelModel):
+    key: str
+    name: str
+
+
+class LabellingQueueDTO(CamelModel):
+    dataset_id: str
+    categories: list[LabellingQueueDTOCategories]
+    candidates: list[LabelCandidateDTO]
+    labelled: int | float
+    calibration: int | float
+    test: int | float
+
+
+class MonitoringCountDTO(CamelModel):
+    key: str
+    label: str
+    count: int | float
+    href: str | None
+
+
+class NodeQualityDTO(CamelModel):
+    agent: str
+    model: str
+    calls: int | float
+    p50_ms: int | float | None
+    p95_ms: int | float | None
+    cost_minor: int | float
+    flagged: int | float
+
+
+class VersionQualityDTO(CamelModel):
+    deployment: str
+    version: int | float | None
+    mails: int | float
+    degraded_rate: int | float | None
+    escalation_rate: int | float | None
+    cost_per_mail_minor: int | float | None
+
+
+class MonitoringDTOSlaByPriority(CamelModel):
+    priority: Priority
+    total: int | float
+    breached: int | float
+
+
+class MonitoringDTOSla(CamelModel):
+    first_reply_median_min: int | float | None
+    resolve_median_hours: int | float | None
+    breached: MonitoringCountDTO
+    at_risk: MonitoringCountDTO
+    by_priority: list[MonitoringDTOSlaByPriority]
+
+
+class MonitoringDTODraftsRejectReasons(CamelModel):
+    reason: str
+    count: int | float
+
+
+class MonitoringDTODrafts(CamelModel):
+    sent: int | float
+    unedited: int | float
+    edited: int | float
+    discarded: int | float
+    mean_edit_distance: int | float | None
+    reject_reasons: list[MonitoringDTODraftsRejectReasons]
+
+
+class MonitoringDTOSpend(CamelModel):
+    month_minor: int | float
+    cap_minor: int | float | None
+
+
+class MonitoringDTOKnowledgeMostCited(CamelModel):
+    doc_id: str
+    title: str
+    citations: int | float
+
+
+class MonitoringDTOKnowledge(CamelModel):
+    approved: int | float
+    pending: int | float
+    stale: int | float
+    expiring_soon: int | float
+    open_gaps: int | float
+    most_cited: list[MonitoringDTOKnowledgeMostCited]
+
+
+class MonitoringDTOMailboxes(CamelModel):
+    id: str
+    address: str
+    level: str
+    lag_seconds: int | float | None
+    messages24h: int | float = Field(alias="messages24h")
+
+
+class MonitoringDTO(CamelModel):
+    days: int | float
+    since: str
+    funnel: list[MonitoringCountDTO]
+    sla: MonitoringDTOSla
+    drafts: MonitoringDTODrafts
+    versions: list[VersionQualityDTO]
+    nodes: list[NodeQualityDTO]
+    spend: MonitoringDTOSpend
+    knowledge: MonitoringDTOKnowledge
+    mailboxes: list[MonitoringDTOMailboxes]
+    open_alerts: int | float
+
+
+class OperationsDTOSiem(CamelModel):
+    url: str | None
+    has_secret: bool
+    delivered_seq: int | float
+    pending: int | float
+    last_ok_at: str | None
+    last_error: str | None
+
+
+class OperationsDTO(CamelModel):
+    retention_mail_days: int | float | None
+    retention_trace_days: int | float | None
+    siem: OperationsDTOSiem
+    audit_events: int | float
+    can_edit: bool
+
+
+class AuditManifestDTOFiles(CamelModel):
+    name: str
+    sha256: str
+    bytes: int | float
+
+
+class AuditManifestDTO(CamelModel):
+    tenant: str
+    generated_at: str
+    since: str | None
+    until: str | None
+    events: int | float
+    first_seq: int | float | None
+    last_seq: int | float | None
+    last_hash: str | None
+    files: list[AuditManifestDTOFiles]
+    signature: str
+
+
+class ScimSettingsDTOGroups(CamelModel):
+    name: str
+    members: int | float
+
+
+class ScimSettingsDTO(CamelModel):
+    base_url: str
+    enabled: bool
+    token_created_at: str | None
+    last_used_at: str | None
+    group_roles: dict[str, Role]
+    groups: list[ScimSettingsDTOGroups]
+    provisioned_members: int | float
+    can_edit: bool
+
+
+class ScimTokenDTO(CamelModel):
+    token: str
+    settings: ScimSettingsDTO
+
+
+class PilotGateDTO(CamelModel):
+    key: str
+    label: str
+    state: PilotGateState
+    value: str
+    target: str
+
+
+class PilotTargetsDTO(CamelModel):
+    acceptance: int | float
+    light_edit_max: int | float
+    agreement: int | float
+    shadow_days: int | float
+    assisted_days: int | float
+    min_labelled: int | float
+    min_drafts: int | float
+
+
+class PilotBaselineDTO(CamelModel):
+    on_time_rate: int | float | None
+    first_reply_minutes: int | float | None
+    captured_at: str | None
+    source: Literal["records", "manual"] | None
+    days: int | float | None
+
+
+class PilotKpisDTO(CamelModel):
+    window_start: str
+    days: int | float
+    drafts_decided: int | float
+    drafts_accepted: int | float
+    acceptance_rate: int | float | None
+    labelled: int | float
+    category_agreement: int | float | None
+    lane_compared: int | float
+    lane_agreement: int | float | None
+    hard_stop_misses: int | float
+    on_time_rate: int | float | None
+    median_first_reply_minutes: int | float | None
+    p1_incidents: int | float
+    open_incidents: int | float
+
+
+class PilotRequestDTO(CamelModel):
+    id: str
+    from_stage: str
+    to_stage: str
+    reason: str
+    state: PilotRequestState
+    requested_by: UserRef | None
+    requested_at: str
+    decided_by: UserRef | None
+    decided_at: str | None
+    decision_note: str
+    evidence: list[PilotGateDTO]
+    can_decide: bool
+    can_withdraw: bool
+
+
+class PilotDTO(CamelModel):
+    stage: WorkspaceStatus
+    stage_since: str
+    days_in_stage: int | float
+    next: PilotStage | None
+    gates: list[PilotGateDTO]
+    ready: bool
+    pending: PilotRequestDTO | None
+    history: list[PilotRequestDTO]
+    kpis: PilotKpisDTO
+    targets: PilotTargetsDTO
+    baseline: PilotBaselineDTO
+    risk_approvers: list[UserRef]
+    sends_allowed: bool
+    can_request: bool
+    can_step_back: bool
+    can_edit_settings: bool
+
+
+class ShadowReportDTOLanes(CamelModel):
+    ai: str
+    final: str
+    count: int | float
+
+
+class ShadowReportDTOCategories(CamelModel):
+    key: str
+    labelled: int | float
+    agreed: int | float
+
+
+class ShadowReportDTODisagreements(CamelModel):
+    ticket_id: str
+    number: int | float
+    subject: str
+    kind: Literal["category", "lane", "hard_stop_miss"]
+    ai_category: str | None
+    human_category: str | None
+    ai_lane: str
+    final_lane: str
+    ai_hard_stop: str | None
+
+
+class ShadowReportDTO(CamelModel):
+    days: int | float
+    compared: int | float
+    labelled: int | float
+    lanes: list[ShadowReportDTOLanes]
+    categories: list[ShadowReportDTOCategories]
+    disagreements: list[ShadowReportDTODisagreements]
+
+
+class PilotIncidentDTO(CamelModel):
+    id: str
+    severity: IncidentSeverity
+    kind: IncidentKind
+    title: str
+    detail: str
+    ticket_id: str | None
+    ticket_number: int | float | None
+    opened_by: UserRef | None
+    opened_at: str
+    resolved_by: UserRef | None
+    resolved_at: str | None
+    resolution: str

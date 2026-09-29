@@ -4,16 +4,67 @@ import { TEAM_ROLE_LABEL } from '../lib/presentation';
 import { useDemo, useLogin } from '../lib/queries';
 import { Button, Input } from '../ui';
 
+/**
+ * The demo picker is compiled in only for development builds (and the local compose stack, which sets
+ * VITE_DEMO_SIGNIN). A production bundle carries no demo sign-in path at all, whatever the API says.
+ */
+const DEMO_SIGNIN = import.meta.env.DEV || import.meta.env.VITE_DEMO_SIGNIN === 'true';
+
+/** What the SSO callback reports back as `?error=`, in words a person can act on. */
+const SSO_ERRORS: Record<string, string> = {
+  sso: 'Sign-in did not complete. Try again.',
+  unauthorized: 'Sign-in did not complete. Try again.',
+  email_unverified: 'Your account has no verified email address. Contact your IT team.',
+  identity_conflict: 'This email is linked to a different sign-in identity. Contact your administrator.',
+  idp_untrusted: "Your organisation's sign-in is not trusted for this account. Contact your administrator.",
+  no_membership: "You don't have access to any workspace yet. Ask your administrator for an invitation.",
+  invite_email_mismatch:
+    'That invitation was sent to a different email address. Sign in with the account it was sent to.',
+  invitation_accepted: 'That invitation was already used. Sign in to continue.',
+  invitation_expired: 'That invitation has expired. Ask your administrator for a new one.',
+  invitation_revoked: 'That invitation was withdrawn. Ask your administrator for a new one.',
+  tenant_unavailable: 'This workspace is not open for sign-in at the moment.',
+};
+
+/** Read `?error=` once and drop it from the address bar so a reload starts clean. */
+function takeSsoError(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('error');
+  if (!code) return null;
+  params.delete('error');
+  const rest = params.toString();
+  window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+  return SSO_ERRORS[code] ?? 'Sign-in did not complete. Try again.';
+}
+
 export function SignIn() {
   const demo = useDemo();
   const login = useLogin();
-  const [email, setEmail] = useState('p.sharma@bank.example');
-  const submit = (e?: FormEvent, as?: string) => {
-    e?.preventDefault();
-    login.mutate(as ?? email.trim());
+  const [email, setEmail] = useState('');
+  const [notice, setNotice] = useState<string | null>(takeSsoError);
+  const [redirecting, setRedirecting] = useState(false);
+  const sso = demo.data?.sso ?? false;
+  const demoPicker = DEMO_SIGNIN && (demo.data?.demoMode ?? false);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setNotice(null);
+    const address = email.trim();
+    if (sso) {
+      // The API picks the bank's identity provider from the email's domain (home-realm discovery).
+      const next = window.location.pathname === '/' ? '/inbox' : window.location.pathname;
+      const params = new URLSearchParams({ login_hint: address, next });
+      setRedirecting(true);
+      window.location.assign(`/v1/auth/oidc/login?${params.toString()}`);
+    } else if (demoPicker) {
+      login.mutate(address);
+    } else {
+      setNotice('Single sign-on is not set up for this installation yet. Contact your administrator.');
+    }
   };
   const error =
-    login.error instanceof ApiError ? login.error.problem.title : login.error ? 'Could not sign in.' : null;
+    notice ??
+    (login.error instanceof ApiError ? login.error.problem.title : login.error ? 'Could not sign in.' : null);
 
   return (
     <div
@@ -60,7 +111,7 @@ export function SignIn() {
           </div>
           <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>Command Inbox</span>
         </div>
-        <div style={{ marginTop: 'auto', maxWidth: 460 }}>
+        <div style={{ marginTop: 'auto', marginBottom: 'auto', maxWidth: 460 }}>
           <h1
             style={{
               margin: '0 0 16px',
@@ -73,23 +124,9 @@ export function SignIn() {
             The AI addresses the query. You stay accountable.
           </h1>
           <p style={{ fontSize: 15, lineHeight: 1.6, color: '#a9abb2' }}>
-            Customer mail is read, sorted and answered against your own approved material. Every reply and
-            every action carries a named human approver.
+            Customer mail is read, sorted and answered against your own approved material. Every reply carries
+            a named human approver.
           </p>
-        </div>
-        <div style={{ marginTop: 'auto', display: 'flex', gap: 34, paddingTop: 40 }}>
-          {[
-            ['−72%', 'time to resolve'],
-            ['3.6×', 'queries per person'],
-            ['100%', 'decisions traced'],
-          ].map(([n, l]) => (
-            <div key={l}>
-              <div className="mono" style={{ fontSize: 22, fontWeight: 600 }}>
-                {n}
-              </div>
-              <div style={{ fontSize: 12, color: '#a9abb2', marginTop: 3 }}>{l}</div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -101,7 +138,8 @@ export function SignIn() {
             Sign in
           </h2>
           <p style={{ margin: '0 0 22px', fontSize: 13, color: 'var(--muted)' }}>
-            Use your bank account. Access is granted by your administrator.
+            Enter your work email. You will continue with your organisation's sign-in. Access is granted by
+            your administrator.
           </p>
           <label style={{ display: 'grid', gap: 5, marginBottom: 9 }}>
             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Work email</span>
@@ -110,6 +148,7 @@ export function SignIn() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
+              autoFocus
               required
               style={{ height: 40 }}
             />
@@ -134,27 +173,19 @@ export function SignIn() {
             type="submit"
             variant="dark"
             size="lg"
-            loading={login.isPending}
-            style={{ width: '100%', marginBottom: 9 }}
+            loading={login.isPending || redirecting}
+            disabled={demo.isPending}
+            style={{ width: '100%' }}
           >
-            Continue with Microsoft Entra ID
-          </Button>
-          <Button
-            type="submit"
-            variant="secondary"
-            size="lg"
-            style={{ width: '100%', fontWeight: 500 }}
-            disabled={login.isPending}
-          >
-            Use a one-time passcode instead
+            Continue
           </Button>
 
-          {demo.data?.demoMode && (
+          {demoPicker && demo.data && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11, margin: '22px 0 12px' }}>
                 <div style={{ flex: 1, height: 1, background: 'var(--line-faint)' }} />
                 <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                  Demo workspace · sign in as
+                  Development only · sign in as
                 </span>
                 <div style={{ flex: 1, height: 1, background: 'var(--line-faint)' }} />
               </div>
@@ -170,8 +201,9 @@ export function SignIn() {
                       key={u.email}
                       type="button"
                       onClick={() => {
+                        setNotice(null);
                         setEmail(u.email);
-                        submit(undefined, u.email);
+                        login.mutate(u.email);
                       }}
                       style={{
                         display: 'flex',
@@ -217,7 +249,7 @@ export function SignIn() {
             </>
           )}
           <p style={{ margin: '20px 0 0', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
-            By signing in you accept that every action you approve is recorded against your name in the audit
+            By signing in you accept that every reply you approve is recorded against your name in the audit
             log.
           </p>
         </form>

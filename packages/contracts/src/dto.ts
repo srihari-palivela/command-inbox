@@ -53,6 +53,69 @@ export interface OrgDTO {
   bg: string;
   plan: string;
   confidenceBar: number;
+  /** BCP 47 locale, ISO 4217 currency and IANA time zone the tenant's people read figures in. */
+  locale: string;
+  currency: string;
+  timeZone: string;
+  status: WorkspaceStatus;
+}
+
+/** The tenant's lifecycle (the platform console moves it up to onboarding; the bank's go-live steps after). */
+export type WorkspaceStatus =
+  | 'draft'
+  | 'provisioning'
+  | 'provisioned'
+  | 'onboarding'
+  | 'shadow'
+  | 'assisted'
+  | 'live'
+  | 'suspended'
+  | 'archived';
+
+export interface WorkspaceProfileDTO {
+  name: string;
+  legalName: string;
+  supportEmail: string;
+  locale: string;
+  currency: string;
+  timeZone: string;
+  emailDomains: string[];
+  region: string;
+  dataResidency: string;
+  status: WorkspaceStatus;
+  sso: WorkspaceSsoDTO;
+}
+
+export interface WorkspaceSsoDTO {
+  provider: 'entra' | 'google' | null;
+  /** Entra: the directory (tenant) ID. Google: the Workspace primary domain. */
+  directoryId: string;
+  clientId: string;
+  hasSecret: boolean;
+  state: 'not_connected' | 'saved' | 'connected' | 'failed';
+  detail: string;
+  idpAlias: string | null;
+  /** The redirect URI to register in the bank's Entra app or Google OAuth client. */
+  redirectUri: string | null;
+  /** People of this workspace who have signed in through single sign-on. */
+  ssoMembers: number;
+}
+
+export interface OnboardingStepDTO {
+  key: string;
+  title: string;
+  description: string;
+  state: 'not_started' | 'in_progress' | 'done' | 'later';
+  detail: string;
+  /** Where in the app the admin does this step. */
+  to: string | null;
+}
+
+export interface OnboardingDTO {
+  status: WorkspaceStatus;
+  steps: OnboardingStepDTO[];
+  done: number;
+  total: number;
 }
 
 export interface MembershipDTO {
@@ -90,7 +153,9 @@ export interface MeDTO {
   demoMode: boolean;
   settings: SettingsDTO;
   nav: NavCounts;
-  worker: { state: 'live' | 'degraded' | 'paused'; provider: 'claude' | 'heuristic' };
+  worker: { state: 'live' | 'degraded' | 'paused'; provider: 'claude' | 'openai' | 'heuristic' };
+  /** Optional product areas switched on for this installation. */
+  features: { telephony: boolean };
 }
 
 export interface DemoUserDTO {
@@ -309,10 +374,11 @@ export interface PastTicketDTO {
 
 export interface CustomerDTO {
   id: string;
-  cif: string;
+  /** null: an unmatched sender, not yet linked to a customer record. */
+  cif: string | null;
   name: string;
   email: string;
-  sinceYear: number;
+  sinceYear: number | null;
   segment: string;
   account: string;
   history: PastTicketDTO[];
@@ -543,12 +609,14 @@ export interface QueryTypeSpeedDTO {
 export interface AlertDTO {
   id: string;
   sevLabel: string;
-  sevKind: 'late' | 'pattern' | 'drift' | 'capacity';
+  sevKind: 'late' | 'pattern' | 'drift' | 'capacity' | 'health' | 'budget' | 'knowledge';
   bucket: string;
   text: string;
   actionLabel: string;
   owner: string;
   at: string;
+  /** Where the records behind it are (system alerts). */
+  ref?: string | null;
 }
 
 export interface CustomKpiDTO {
@@ -582,7 +650,6 @@ export interface ResultsDTO {
   capacityMultiple: number;
   days: { label: string; baseline: number; actual: number }[];
   coverage: { lane: Lane; pct: number; volume: number }[];
-  phases: { n: number; label: string; scope: string; state: string; current: boolean }[];
   pools: { label: string; metric: string; note: string }[];
 }
 
@@ -753,7 +820,13 @@ export interface CopilotAnswerDTO {
 
 export interface SearchResultDTO {
   tickets: { id: string; number: string; subject: string; lane: Lane }[];
-  customers: { id: string; cif: string; name: string; tickets: number; latestTicketId: string | null }[];
+  customers: {
+    id: string;
+    cif: string | null;
+    name: string;
+    tickets: number;
+    latestTicketId: string | null;
+  }[];
   knowledge: { id: string; title: string; section: string; status: string }[];
   policies: { id: string; text: string; kind: string }[];
 }
@@ -887,10 +960,18 @@ export interface EvalCaseDTO {
   id: string;
   datasetId: string;
   input: { subject: string; body: string; fromEmail: string | null };
-  expected: { category: string; hardStop: boolean };
+  expected: {
+    category: string;
+    hardStop: boolean;
+    /** What a person says should happen; absent on cases labelled before it was asked. */
+    lane?: 'draft' | 'manual' | null;
+    draftAcceptable?: boolean | null;
+  };
   split: EvalSplit;
   tags: string[];
   source: string;
+  /** The real mail a labelled case came from. */
+  ticketId: string | null;
   createdAt: string;
 }
 
@@ -911,6 +992,23 @@ export interface EvalMetricsDTO {
   costPerThousandMailsMinor: number | null;
   temperature: number;
   conformalQhat: number | null;
+  // System 2 (absent on runs from before it was scored). See evals/system2.py.
+  /** The provider pinned for this run, else the providers the configuration names. */
+  system2Provider?: string;
+  system2Models?: string[];
+  adjudicatedCases?: number;
+  adjudicationAccuracy?: number | null;
+  adjudicationUnsureRate?: number | null;
+  /** System 1 where it was sure, the adjudicator where it was not; unsure counts as not right. */
+  endToEndAccuracy?: number | null;
+  draftsScored?: number;
+  /** Drafts whose every sentence is supported by the passages they cite. */
+  groundedDraftRate?: number | null;
+  noSourceDraftRate?: number | null;
+  system2CostMinor?: number;
+  system2P95LatencyMs?: number | null;
+  /** Calls answered by the deterministic fallback instead of the provider. */
+  system2Fallbacks?: number;
 }
 
 export interface EvalGateDTO {
@@ -936,6 +1034,8 @@ export interface EvalRunDTO {
   datasetSnapshot: string;
   /** False once the version's config changed after this run: it no longer counts for publishing. */
   current: boolean;
+  /** System 2 pinned to one provider (a comparison run; never counts for publishing). */
+  provider: ModelProviderKey | null;
   split: { calibration: number; test: number };
   metrics: EvalMetricsDTO | null;
   gates: EvalGateDTO[];
@@ -1018,4 +1118,499 @@ export interface ProblemDTO {
   detail?: string;
   code: string;
   requestId?: string;
+}
+
+// ── Mailbox connections (Microsoft 365 / Google Workspace) ─────────────────────
+export type MailConnection =
+  'not_connected' | 'connecting' | 'syncing' | 'live' | 'degraded' | 'reauth_required' | 'disconnected';
+
+export type HealthLevel = 'healthy' | 'degraded' | 'down' | 'unknown';
+
+export interface MailboxHealthSignalDTO {
+  key: 'stream' | 'lag' | 'sweep' | 'credential' | 'send' | 'throttling';
+  label: string;
+  level: HealthLevel;
+  value: string;
+}
+
+export interface MailSyncEventDTO {
+  at: string;
+  kind: string;
+  ok: boolean;
+  summary: string;
+}
+
+export interface MailboxConnectionDTO {
+  id: string;
+  address: string;
+  provider: MailProvider;
+  connection: MailConnection;
+  account: string | null;
+  /** How new mail is noticed: provider notifications (with a sweep) or polling. */
+  mode: 'notifications' | 'polling' | null;
+  sendEnabled: boolean;
+  level: HealthLevel;
+  signals: MailboxHealthSignalDTO[];
+  lastError: string;
+  lastErrorAt: string | null;
+  lastMessageAt: string | null;
+  lastTestAt: string | null;
+  lastTestOkAt: string | null;
+  messages24h: number;
+  events: MailSyncEventDTO[];
+}
+
+export interface MailConnectorsDTO {
+  /** Which providers this stack has an app registration for. */
+  providers: { microsoft: boolean; google: boolean };
+  /** Whether providers can notify us (a public HTTPS webhook URL is configured); otherwise we poll. */
+  webhooks: boolean;
+  mailboxLimit: number;
+  mailboxes: MailboxConnectionDTO[];
+}
+
+// ── Knowledge documents (upload, approval, retrieval) ─────────────────────────
+export type KnowledgeDocStatus = 'pending' | 'approved' | 'rejected' | 'retired' | 'stale';
+export type KnowledgeParseStatus =
+  'none' | 'queued' | 'scanning' | 'parsing' | 'ready' | 'failed' | 'infected';
+
+export interface KnowledgeDocumentDTO {
+  id: string;
+  title: string;
+  filename: string;
+  version: number;
+  replacesId: string | null;
+  status: KnowledgeDocStatus;
+  parseStatus: KnowledgeParseStatus;
+  parseError: string;
+  avStatus: 'not_scanned' | 'clean' | 'infected' | 'error';
+  departmentId: string | null;
+  department: string | null;
+  size: number;
+  chunkCount: number;
+  effectiveFrom: string | null;
+  expiresAt: string | null;
+  uploadedBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  /** Whether the signed-in person may approve it (approve clearance for its department). */
+  canApprove: boolean;
+}
+
+export interface KnowledgeChunkDTO {
+  id: string;
+  ordinal: number;
+  section: string;
+  page: number | null;
+  text: string;
+  tokens: number;
+}
+
+export interface KnowledgeDocumentDetailDTO extends KnowledgeDocumentDTO {
+  chunks: KnowledgeChunkDTO[];
+}
+
+export interface KnowledgeHitDTO {
+  chunkId: string;
+  docId: string;
+  title: string;
+  section: string;
+  page: number | null;
+  text: string;
+  score: number;
+  similarity: number;
+  textMatch: boolean;
+}
+
+export interface KnowledgeSearchDTO {
+  query: string;
+  /** Empty: no approved source answers this; a draft would say so and raise a gap. */
+  hits: KnowledgeHitDTO[];
+}
+
+// ── Model providers (System 2) ────────────────────────────────────────────────
+export type ModelProviderKey = 'anthropic' | 'openai';
+
+export interface ModelProviderDTO {
+  key: ModelProviderKey;
+  name: string;
+  /** This installation has credentials for it. */
+  configured: boolean;
+  /** The workspace's policy allows it. */
+  allowed: boolean;
+  /** Nodes that name no provider use this one. */
+  isDefault: boolean;
+  defaultModel: string;
+  spentMinor: number;
+  calls: number;
+}
+
+export interface ModelPolicyDTO {
+  providers: ModelProviderDTO[];
+  /** Null: no monthly cap. Minor units of the workspace currency. */
+  monthlyBudgetMinor: number | null;
+  spentMinor: number;
+  /** First day of the current month (UTC), YYYY-MM-DD. */
+  month: string;
+  budgetReached: boolean;
+  canEdit: boolean;
+}
+
+// ── Teams, query types and reply-time targets (admin) ─────────────────────────
+export interface DepartmentAdminDTO {
+  id: string;
+  name: string;
+  risk: boolean;
+  owner: UserRef | null;
+  queryTypes: number;
+  openTickets: number;
+  /** A team with tickets, query types, mailboxes or documents cannot be deleted (rename it instead). */
+  deletable: boolean;
+}
+
+export interface QueryTypeAdminDTO {
+  id: string;
+  name: string;
+  departmentId: string | null;
+  defaultLane: Lane;
+  live: boolean;
+  tickets: number;
+  deletable: boolean;
+}
+
+export interface TaxonomyAdminDTO {
+  departments: DepartmentAdminDTO[];
+  queryTypes: QueryTypeAdminDTO[];
+  canEdit: boolean;
+}
+
+export interface SlaPolicyDTO {
+  id: string;
+  name: string;
+  /** Null matches any priority. */
+  priority: Priority | null;
+  /** Null matches any customer segment. */
+  segment: string | null;
+  /** Applies to escalations (a regulator named, a repeat contact) before any other rule. */
+  escalation: boolean;
+  minutes: number;
+}
+
+export interface SlaPoliciesDTO {
+  policies: SlaPolicyDTO[];
+  /** No policies of its own: the built-in defaults apply (shown as the policies). */
+  usingDefaults: boolean;
+  /** Segments seen on this workspace's tickets, for the picker. */
+  segments: string[];
+  canEdit: boolean;
+}
+
+// ── Test bench ─────────────────────────────────────────────────────────────────
+export interface BenchSpanDTO {
+  agent: string;
+  model: string;
+  action: string;
+  output: string;
+  latencyMs: number;
+  tokens: number | null;
+  costMinor: number | null;
+  status: SpanStatus;
+}
+
+export interface BenchRunDTO {
+  versionId: string;
+  version: number;
+  state: DeploymentVersionState;
+  lane: Lane;
+  laneNote: string;
+  /** The category's display name; null when nothing was chosen. */
+  category: string | null;
+  confidence: number;
+  hardStop: string | null;
+  /** Text as the models saw and wrote it: personal data stays masked ([PHONE_1] and so on). */
+  draft: {
+    body: string;
+    coverage: 'full' | 'partial' | 'none';
+    citations: { n: number; title: string; section: string }[];
+    flagged: string[];
+  } | null;
+  brief: { summary: string } | null;
+  fields: { label: string; value: string; inferred: boolean }[];
+  spans: BenchSpanDTO[];
+  costMinor: number;
+  latencyMs: number;
+  /** Why a model stage fell back to the deterministic provider (policy, budget, outage). */
+  degraded: string[];
+}
+
+export interface BenchResultDTO {
+  runs: BenchRunDTO[];
+}
+
+// ── Labelling queue (real mail → eval cases) ─────────────────────────────────
+export interface LabelCandidateDTO {
+  ticketId: string;
+  number: number;
+  /** Masked: personal data is replaced before a case is stored or shown here. */
+  subject: string;
+  body: string;
+  receivedAt: string;
+  /** What the AI did with it, as a starting point (never a default answer). */
+  suggested: { category: string | null; hardStop: boolean; lane: Lane };
+}
+
+export interface LabellingQueueDTO {
+  datasetId: string;
+  categories: { key: string; name: string }[];
+  candidates: LabelCandidateDTO[];
+  labelled: number;
+  calibration: number;
+  test: number;
+}
+
+// ── Monitoring: every number from records, each linked to them ───────────────
+export interface MonitoringCountDTO {
+  key: string;
+  label: string;
+  count: number;
+  /** A screen that lists the records behind the number. */
+  href: string | null;
+}
+
+export interface NodeQualityDTO {
+  agent: string;
+  model: string;
+  calls: number;
+  p50Ms: number | null;
+  p95Ms: number | null;
+  costMinor: number;
+  flagged: number;
+}
+
+export interface VersionQualityDTO {
+  deployment: string;
+  version: number | null;
+  mails: number;
+  /** Share of runs that fell back to the deterministic model (outage, policy, budget). */
+  degradedRate: number | null;
+  /** Share of runs where the classifier was unsure and asked System 2. */
+  escalationRate: number | null;
+  costPerMailMinor: number | null;
+}
+
+export interface MonitoringDTO {
+  days: number;
+  since: string;
+  funnel: MonitoringCountDTO[];
+  sla: {
+    firstReplyMedianMin: number | null;
+    resolveMedianHours: number | null;
+    breached: MonitoringCountDTO;
+    atRisk: MonitoringCountDTO;
+    byPriority: { priority: Priority; total: number; breached: number }[];
+  };
+  drafts: {
+    sent: number;
+    unedited: number;
+    edited: number;
+    discarded: number;
+    /** Normalised character edit distance of sent drafts, 0 (untouched) to 1 (rewritten). */
+    meanEditDistance: number | null;
+    rejectReasons: { reason: string; count: number }[];
+  };
+  versions: VersionQualityDTO[];
+  nodes: NodeQualityDTO[];
+  spend: { monthMinor: number; capMinor: number | null };
+  knowledge: {
+    approved: number;
+    pending: number;
+    stale: number;
+    expiringSoon: number;
+    openGaps: number;
+    mostCited: { docId: string; title: string; citations: number }[];
+  };
+  mailboxes: { id: string; address: string; level: string; lagSeconds: number | null; messages24h: number }[];
+  openAlerts: number;
+}
+
+// ── Operations: retention, audit export, SIEM ─────────────────────────────────
+export interface OperationsDTO {
+  /** Customer mail text of tickets closed longer ago than this is removed; null keeps it. */
+  retentionMailDays: number | null;
+  /** Model traces older than this are deleted; null keeps them. */
+  retentionTraceDays: number | null;
+  siem: {
+    url: string | null;
+    hasSecret: boolean;
+    /** Audit events delivered so far (sequence number) and how many are waiting. */
+    deliveredSeq: number;
+    pending: number;
+    lastOkAt: string | null;
+    lastError: string | null;
+  };
+  auditEvents: number;
+  canEdit: boolean;
+}
+
+export interface AuditManifestDTO {
+  tenant: string;
+  generatedAt: string;
+  since: string | null;
+  until: string | null;
+  events: number;
+  firstSeq: number | null;
+  lastSeq: number | null;
+  /** The hash-chain value of the last event exported: ties the export to the live chain. */
+  lastHash: string | null;
+  files: { name: string; sha256: string; bytes: number }[];
+  /** HMAC-SHA256 over the canonical manifest without this field, with the workspace's export key. */
+  signature: string;
+}
+
+// ── SCIM provisioning ───────────────────────────────────────────────────────────
+export interface ScimSettingsDTO {
+  /** The SCIM base URL to give the identity provider. */
+  baseUrl: string;
+  enabled: boolean;
+  tokenCreatedAt: string | null;
+  lastUsedAt: string | null;
+  /** Identity-provider group name → role; empty keeps roles managed in the app. */
+  groupRoles: Record<string, Role>;
+  groups: { name: string; members: number }[];
+  provisionedMembers: number;
+  canEdit: boolean;
+}
+
+export interface ScimTokenDTO {
+  /** Shown once; only its hash is stored. */
+  token: string;
+  settings: ScimSettingsDTO;
+}
+
+// ── Pilot at a bank ─────────────────────────────────────────────────────────────
+/** onboarding → shadow → assisted → live. Replies go out only from assisted on, always after a person approves. */
+export type PilotStage = 'onboarding' | 'shadow' | 'assisted' | 'live';
+/** pending: not enough records yet to judge. */
+export type PilotGateState = 'pass' | 'fail' | 'pending';
+export type PilotRequestState = 'pending' | 'approved' | 'rejected' | 'withdrawn';
+export type IncidentSeverity = 'P1' | 'P2' | 'P3' | 'P4';
+export type IncidentKind = 'hard_stop_miss' | 'wrong_reply' | 'data_exposure' | 'outage' | 'other';
+
+export interface PilotGateDTO {
+  key: string;
+  label: string;
+  state: PilotGateState;
+  value: string;
+  target: string;
+}
+
+export interface PilotTargetsDTO {
+  /** Share of decided drafts sent unedited or lightly edited. */
+  acceptance: number;
+  /** Largest edit distance (0–1) that still counts as a light edit. */
+  lightEditMax: number;
+  /** AI vs people agreement on category and lane in shadow. */
+  agreement: number;
+  shadowDays: number;
+  assistedDays: number;
+  minLabelled: number;
+  minDrafts: number;
+}
+
+export interface PilotBaselineDTO {
+  onTimeRate: number | null;
+  firstReplyMinutes: number | null;
+  capturedAt: string | null;
+  source: 'records' | 'manual' | null;
+  days: number | null;
+}
+
+export interface PilotKpisDTO {
+  windowStart: string;
+  days: number;
+  draftsDecided: number;
+  draftsAccepted: number;
+  acceptanceRate: number | null;
+  labelled: number;
+  categoryAgreement: number | null;
+  laneCompared: number;
+  laneAgreement: number | null;
+  hardStopMisses: number;
+  onTimeRate: number | null;
+  medianFirstReplyMinutes: number | null;
+  p1Incidents: number;
+  openIncidents: number;
+}
+
+export interface PilotRequestDTO {
+  id: string;
+  fromStage: string;
+  toStage: string;
+  reason: string;
+  state: PilotRequestState;
+  requestedBy: UserRef | null;
+  requestedAt: string;
+  decidedBy: UserRef | null;
+  decidedAt: string | null;
+  decisionNote: string;
+  /** The gates as they stood when the request was made. */
+  evidence: PilotGateDTO[];
+  canDecide: boolean;
+  canWithdraw: boolean;
+}
+
+export interface PilotDTO {
+  stage: WorkspaceStatus;
+  stageSince: string;
+  daysInStage: number;
+  next: PilotStage | null;
+  /** The gates for moving to `next`. */
+  gates: PilotGateDTO[];
+  ready: boolean;
+  pending: PilotRequestDTO | null;
+  history: PilotRequestDTO[];
+  kpis: PilotKpisDTO;
+  targets: PilotTargetsDTO;
+  baseline: PilotBaselineDTO;
+  /** People who may sign off a move forward; empty means any other admin. */
+  riskApprovers: UserRef[];
+  sendsAllowed: boolean;
+  canRequest: boolean;
+  canStepBack: boolean;
+  canEditSettings: boolean;
+}
+
+export interface ShadowReportDTO {
+  days: number;
+  compared: number;
+  labelled: number;
+  lanes: { ai: string; final: string; count: number }[];
+  categories: { key: string; labelled: number; agreed: number }[];
+  disagreements: {
+    ticketId: string;
+    number: number;
+    subject: string;
+    kind: 'category' | 'lane' | 'hard_stop_miss';
+    aiCategory: string | null;
+    humanCategory: string | null;
+    aiLane: string;
+    finalLane: string;
+    aiHardStop: string | null;
+  }[];
+}
+
+export interface PilotIncidentDTO {
+  id: string;
+  severity: IncidentSeverity;
+  kind: IncidentKind;
+  title: string;
+  detail: string;
+  ticketId: string | null;
+  ticketNumber: number | null;
+  openedBy: UserRef | null;
+  openedAt: string;
+  resolvedBy: UserRef | null;
+  resolvedAt: string | null;
+  resolution: string;
 }

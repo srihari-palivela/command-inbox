@@ -17,6 +17,8 @@ import structlog
 from sqlalchemy import delete, select
 
 from command_inbox.agents.config import DeploymentConfig
+from command_inbox.agents.providers import AgentSpec
+from command_inbox.agents.specs import catalogue_agent
 from command_inbox.core.audit import audit
 from command_inbox.core.clock import clock
 from command_inbox.core.context import SYSTEM_ACTOR
@@ -24,10 +26,11 @@ from command_inbox.core.crypto import canonical_json, sha256
 from command_inbox.core.jobs import JobRow
 from command_inbox.core.outbox import publish
 from command_inbox.db.engine import tenant_tx
-from command_inbox.db.models import DeploymentVersion, EvalCase, EvalResult, EvalRun
+from command_inbox.db.models import Agent, DeploymentVersion, EvalCase, EvalResult, EvalRun, Org
 from command_inbox.evals import metrics as m
 from command_inbox.evals.engine import CaseInput, Scorer, fit_temperature, load_scorer
 from command_inbox.evals.gates import all_passed, evaluate_gates
+from command_inbox.evals.system2 import System2Case, score_system2
 from command_inbox.schemas import dto
 
 log = structlog.get_logger(__name__)
@@ -244,8 +247,19 @@ async def execute_run(org_id: str, run_id: str) -> str | None:
             await _finish(tx, run, state="error", error=problem)
             return "error"
         run.state, run.started_at = "running", clock.now()
+        pinned = run.provider
+        catalogue, allowed = await _system2_context(tx, org_id)
 
     outcome = await evaluate(config, cases)
+    s2 = await score_system2(
+        config,
+        outcome.cases,
+        catalogue=catalogue,
+        provider=pinned,
+        allowed=allowed,
+        retrieve=_retriever(org_id),
+    )
+    outcome.metrics.update(s2.metrics)
 
     async with tenant_tx(org_id) as tx:
         run = (
@@ -273,6 +287,7 @@ async def execute_run(org_id: str, run_id: str) -> str | None:
                         "hardStops": o.hard_stops,
                         "lane": o.lane,
                         "escalated": o.escalated,
+                        **({"system2": _s2_json(s2.cases[o.case.id])} if o.case.id in s2.cases else {}),
                     },
                     scores={"correct": o.correct, "hardStopExpected": o.case.hard_stop},
                     passed=o.correct and (bool(o.hard_stops) or not o.case.hard_stop),
@@ -288,6 +303,39 @@ async def execute_run(org_id: str, run_id: str) -> str | None:
             gates=[g.model_dump(mode="json", by_alias=True) for g in outcome.gates],
         )
         return run.state
+
+
+async def _system2_context(tx: Any, org_id: str) -> tuple[dict[str, AgentSpec], list[str]]:
+    """The workspace's agent catalogue (older workspaces) and its provider allow-list."""
+    rows = list((await tx.execute(select(Agent).where(Agent.org_id == org_id))).scalars())
+    catalogue = {
+        role: spec
+        for role in ("adjudicator", "drafter")
+        if (spec := catalogue_agent(rows, set(), role)) is not None
+    }
+    allowed = (await tx.execute(select(Org.allowed_providers).where(Org.id == org_id))).scalar_one()
+    return catalogue, list(allowed or [])
+
+
+def _retriever(org_id: str) -> Any:
+    async def retrieve_passages(query: str) -> list[tuple[str, str, str]]:
+        from command_inbox.knowledge.retrieve import retrieve
+
+        async with tenant_tx(org_id) as tx:
+            hits = await retrieve(tx, org_id, query, k=6)
+        return [(h.title, h.section, h.text) for h in hits]
+
+    return retrieve_passages
+
+
+def _s2_json(c: System2Case) -> dict[str, Any]:
+    return {
+        "adjudicated": c.adjudicated,
+        "adjudicationCorrect": c.adjudication_correct,
+        "draftGrounded": c.draft_grounded,
+        "draftSources": c.draft_sources,
+        "unsupported": [u[:200] for u in c.unsupported[:3]],
+    }
 
 
 async def _finish(

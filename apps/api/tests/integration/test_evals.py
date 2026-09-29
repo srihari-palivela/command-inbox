@@ -41,7 +41,12 @@ async def test_dataset_and_case_management(app):
     r = await a.send("POST", f"/v1/evals/datasets/{ds['id']}/cases", {"cases": cases})
     assert r.status_code == 200 and len(r.json()) == 3
     added = r.json()
-    assert added[0]["expected"] == {"category": "cheque_stop", "hardStop": False}
+    assert added[0]["expected"] == {
+        "category": "cheque_stop",
+        "hardStop": False,
+        "lane": None,
+        "draftAcceptable": None,
+    }
     assert added[0]["input"]["fromEmail"] == "customer@mail.example"
     snap1 = (await a.get(f"/v1/evals/datasets/{ds['id']}")).json()
     assert snap1["splits"] == {"calibration": 1, "test": 2}

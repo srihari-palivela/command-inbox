@@ -56,13 +56,18 @@ class ThreadInput:
 
 @dataclass(frozen=True, slots=True)
 class AgentSpec:
-    """Which configured agent runs a stage: its display name, model and system prompt."""
+    """Which configured agent runs a stage: its display name, provider, model and system prompt.
+
+    `provider` is a deployment-config key ("anthropic" | "openai"); empty means the platform default.
+    """
 
     name: str
     model: str
     prompt: str
     cost_per_1k_minor: int = 0
     effort: str | None = None
+    provider: str = ""
+    max_tokens: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +142,7 @@ class Staged[T]:
 @runtime_checkable
 class Provider(Protocol):
     @property
-    def name(self) -> str: ...  # "claude" | "heuristic"
+    def name(self) -> str: ...  # "claude" | "openai" | "heuristic"
 
     async def extract_fields(
         self, thread: ThreadInput, template: TemplateSpec, agent: AgentSpec

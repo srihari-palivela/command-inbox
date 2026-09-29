@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from typing import Literal
 
 from sqlalchemy import delete, select, update
@@ -21,10 +22,11 @@ from command_inbox.db.models import (
     Department,
     Kpi,
     Notification,
+    Org,
     QueryType,
     Ticket,
 )
-from command_inbox.modules.insights.jsfmt import en_in, js_fixed, js_round, js_str, num
+from command_inbox.modules.insights.jsfmt import grouped, js_fixed, js_round, js_str, num
 from command_inbox.modules.people.service import list_staff
 from command_inbox.rbac.policy import require
 from command_inbox.schemas import dto
@@ -37,7 +39,7 @@ METRIC_LABEL: dict[str, str] = {
     "reopen": "Reopen rate (%)",
     "auto": "Handled end-to-end by AI (%)",
     "csat": "CSAT after close (of 5)",
-    "cost": "Model spend per query (₹)",
+    "cost": "Model spend per query",
     "awo": "Approved without opening the evidence (%)",
 }
 LOWER_IS_BETTER = {"fr", "tat", "reopen", "cost", "awo"}
@@ -85,6 +87,36 @@ async def _live_metrics(tx: AsyncSession, org_id: str) -> dict[str, float]:
     return out
 
 
+def trend_digest(values: list[float], *, lower_better: bool) -> str:
+    """A factual one-line reading of a weekly series: direction, size and span. Never a narrative."""
+    points = len(values)
+    if points == 0:
+        return "No data yet: this fills in as mail is handled."
+    if points == 1:
+        return "One week of data so far."
+    first, last = values[0], values[-1]
+    if first == last:
+        return f"Unchanged over {points} weeks."
+    rising = sum(1 for a, b in pairwise(values) if b > a)
+    falling = sum(1 for a, b in pairwise(values) if b < a)
+    direction = "Down" if last < first else "Up"
+    good = (last < first) == lower_better
+    size = f"{abs((last - first) / first * 100):.0f}%" if first else f"{abs(last - first):g}"
+    streak = ""
+    run = 0
+    for a, b in zip(reversed(values[:-1]), reversed(values[1:]), strict=False):
+        if (b < a) == (last < first) and a != b:
+            run += 1
+        else:
+            break
+    if run >= 3:
+        streak = f"; {run} weeks in a row"
+    return (
+        f"{direction} {size} over {points} weeks ({falling} weeks down, {rising} up){streak}"
+        f" — {'better' if good else 'worse'}."
+    )
+
+
 def _tile(
     key: str,
     label: str,
@@ -120,42 +152,44 @@ def _tile(
 async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
     require(ctx, "insights.view", "view performance")
     org = ctx.org_id
+    locale = (await tx.execute(select(Org.locale).where(Org.id == org))).scalar_one()
     [vol] = await rows(
         tx, "select coalesce(sum(volume_24h), 0)::int as n from mailboxes where org_id = :org", {"org": org}
     )
+    weekly = {k: await series(tx, org, f"weekly.{k}") for k in ("fr", "tat", "missed", "reopen")}
     tiles = [
         _tile(
             "fr",
             "Time to first reply",
-            await series(tx, org, "weekly.fr"),
+            weekly["fr"],
             "min typical",
-            "Fell every week for 12 weeks; the floor is now auto-acknowledgement, not people.",
+            trend_digest(weekly["fr"], lower_better=True),
             lower_better=True,
         ),
         _tile(
             "tat",
             "Time to fully resolve",
-            await series(tx, org, "weekly.tat"),
+            weekly["tat"],
             "hours",
-            "Improvement is flattening — the remaining hours sit in disputes, not in drafting.",
+            trend_digest(weekly["tat"], lower_better=True),
             decimals=1,
             lower_better=True,
         ),
         _tile(
             "missed",
             "Missed deadlines",
-            await series(tx, org, "weekly.missed"),
-            f"of {en_in(vol['n'])}",
-            "All misses this week are disputes tickets past the provisional-credit window.",
+            weekly["missed"],
+            f"of {grouped(vol['n'], locale)}",
+            trend_digest(weekly["missed"], lower_better=True),
             bad=True,
             lower_better=True,
         ),
         _tile(
             "reopen",
             "Reopen rate",
-            await series(tx, org, "weekly.reopen"),
+            weekly["reopen"],
             "%",
-            "Creeping up 8 weeks straight — reopens cluster on fee answers citing the stale schedule.",
+            trend_digest(weekly["reopen"], lower_better=True),
             decimals=1,
             lower_better=True,
         ),
@@ -172,9 +206,9 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
     query_types = [
         dto.QueryTypeSpeedDTO(
             id=q.id,
-            name="Lending & foreclosure" if q.name == "Foreclosure quotes" else q.name,
+            name=q.name,
             department=dept or "Unowned",
-            lane="manual" if q.name == "Foreclosure quotes" else q.default_lane,
+            lane=q.default_lane,
             volume=q.monthly_volume,
             baseline_hours=num(q.baseline_hours or 0),
             actual_hours=num(q.actual_hours or 0),
@@ -248,7 +282,8 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
                 text=a.text_,
                 action_label=a.action_label,
                 owner=a.owner,
-                at=iso_ms(a.created_at),
+                at=iso_ms(a.updated_at or a.created_at),
+                ref=a.ref,
             )
             for a in alerts
         ],
@@ -260,20 +295,6 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
         ],
         approve_without_open_pct=num(await approve_without_open_pct(tx, org)),
     )
-
-
-_PHASES = [
-    (1, "Drafts only", "The AI writes, a human sends every reply", "Complete", False),
-    (2, "Actions that can be undone", "Statements, certificates, cheque books", "Live now", True),
-    (
-        3,
-        "Actions where money moves",
-        "Fee reversals and provisional credit, with approval",
-        "Next · gated on Risk",
-        False,
-    ),
-    (4, "Wider autonomy", "One risk group at a time, approval everywhere else", "Gated on Risk", False),
-]
 
 
 async def results(tx: AsyncSession, ctx: Ctx) -> dto.ResultsDTO:
@@ -309,27 +330,11 @@ async def results(tx: AsyncSession, ctx: Ctx) -> dto.ResultsDTO:
             )
             for lane in ("auto", "draft", "manual")
         ],
-        phases=[
-            dto.ResultsDTOPhases(n=n, label=label, scope=scope, state=state, current=cur)
-            for n, label, scope, state, cur in _PHASES
-        ],
         pools=[
             dto.ResultsDTOPools(
                 label="Capacity released",
                 metric=f"{js_fixed(baseline_hours / now_hours, 1) if now_hours else '—'}× per FTE",
                 note="Same headcount, more queries closed per person per day at the current coverage mix.",
-            ),
-            dto.ResultsDTOPools(
-                label="Complaint deflection",
-                metric="−38% repeat contacts",
-                note="Second and third emails on the same thread fall sharply once first response drops "
-                "under 15 minutes.",
-            ),
-            dto.ResultsDTOPools(
-                label="Audit position",
-                metric="100% traced",
-                note="Every suggestion, approval, edit and execution carries an actor, a timestamp and a "
-                "source. No silent automation.",
             ),
         ],
     )

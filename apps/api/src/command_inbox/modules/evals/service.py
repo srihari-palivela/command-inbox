@@ -175,11 +175,15 @@ def _case_dto(row: EvalCase) -> dto.EvalCaseDTO:
             subject=str(i.get("subject", "")), body=str(i.get("body", "")), from_email=i.get("fromEmail")
         ),
         expected=dto.EvalCaseDTOExpected(
-            category=str(e.get("category", "")), hard_stop=bool(e.get("hardStop"))
+            category=str(e.get("category", "")),
+            hard_stop=bool(e.get("hardStop")),
+            lane=e.get("lane"),
+            draft_acceptable=e.get("draftAcceptable"),
         ),
         split=row.split,  # type: ignore[arg-type]
         tags=list(row.tags or []),
         source=row.source,
+        ticket_id=row.ticket_id,
         created_at=iso_ms(row.created_at),
     )
 
@@ -187,7 +191,7 @@ def _case_dto(row: EvalCase) -> dto.EvalCaseDTO:
 def _case_fields(body: EvalCaseBody) -> dict[str, Any]:
     return {
         "input": body.input.model_dump(mode="json", by_alias=True),
-        "expected": body.expected.model_dump(mode="json", by_alias=True),
+        "expected": body.expected.model_dump(mode="json", by_alias=True, exclude_none=True),
         "split": body.split,
         "tags": body.tags,
     }
@@ -333,6 +337,7 @@ async def _run_dtos(tx: AsyncSession, runs: list[EvalRun]) -> list[dto.EvalRunDT
                 config_hash=r.config_hash,
                 dataset_snapshot=r.dataset_snapshot,
                 current=bool(r.config_hash) and r.config_hash == v.config_hash,
+                provider=r.provider,  # type: ignore[arg-type]
                 split=dto.EvalRunDTOSplit(calibration=split.get("calibration", 0), test=split.get("test", 0)),
                 metrics=dto.EvalMetricsDTO.model_validate(r.metrics) if r.metrics else None,
                 gates=[dto.EvalGateDTO.model_validate(g) for g in r.gates or []],
@@ -438,6 +443,7 @@ async def start_run(tx: AsyncSession, ctx: Ctx, body: StartEvalRunBody) -> dto.E
         dataset_snapshot=dataset_snapshot(cases),
         split={"calibration": len(cases) - tests, "test": tests},
         created_by=ctx.user.id,
+        provider=body.provider,
     )
     tx.add(run)
     await tx.flush()

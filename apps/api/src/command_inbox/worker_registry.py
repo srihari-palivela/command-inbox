@@ -14,6 +14,18 @@ HANDLERS: list[tuple[str, str, str]] = [
     ("escalate_checker", "command_inbox.modules.gateway.jobs", "run_escalate_checker"),
     ("knowledge_sync", "command_inbox.modules.setup.jobs", "run_knowledge_sync"),
     ("eval_run", "command_inbox.evals.runner", "run_eval_job"),
+    ("send_email", "command_inbox.core.email", "run_send_email"),
+    ("provision_tenant", "command_inbox.platform.provisioning", "run_provision_tenant"),
+    ("mail_connect", "command_inbox.mail.sync", "run_mail_connect"),
+    ("mail_sync", "command_inbox.mail.sync", "run_mail_sync"),
+    ("mail_renew", "command_inbox.mail.sync", "run_mail_renew"),
+    ("mail_send", "command_inbox.mail.sync", "run_mail_send"),
+    ("mail_test", "command_inbox.mail.sync", "run_mail_test"),
+    ("knowledge_ingest", "command_inbox.knowledge.service", "run_knowledge_ingest"),
+    ("metrics_rollup", "command_inbox.modules.insights.rollup", "run_rollup_job"),
+    ("sla_sweep", "command_inbox.modules.insights.alerts", "run_sla_sweep"),
+    ("retention_sweep", "command_inbox.modules.workspace.operations", "run_retention_sweep"),
+    ("siem_push", "command_inbox.modules.workspace.operations", "run_siem_push"),
 ]
 
 
@@ -27,7 +39,7 @@ def register_all(worker: Worker) -> Worker:
             worker.register(kind, getattr(importlib.import_module(module), attr))
         except ModuleNotFoundError:
             continue
-    worker.register("rerank", _noop).register("sla_sweep", _noop).register("retention_sweep", _noop)
+    worker.register("rerank", _noop)
     return worker
 
 

@@ -26,11 +26,13 @@ import {
   type NumberSpec,
 } from '../model';
 import s from '../admin.module.css';
+import { AgentsSection } from './AgentsSection';
 
-type Section = 'taxonomy' | 'hardStops' | 'thresholds' | 'gates' | 'json';
-const SECTIONS: Section[] = ['taxonomy', 'hardStops', 'thresholds', 'gates', 'json'];
+type Section = 'taxonomy' | 'hardStops' | 'agents' | 'thresholds' | 'gates' | 'json';
+const SECTIONS: Section[] = ['taxonomy', 'hardStops', 'agents', 'thresholds', 'gates', 'json'];
 const PREFIX: Record<Exclude<Section, 'json'>, string> = {
   taxonomy: 'taxonomy',
+  agents: 'flow',
   hardStops: 'rules.hardStops',
   thresholds: 'thresholds',
   gates: 'gates',
@@ -170,6 +172,7 @@ export function ConfigEditor({
           items={[
             { key: 'taxonomy', label: 'Categories', badge: badge('taxonomy') },
             { key: 'hardStops', label: 'Hard stops', badge: badge('hardStops') },
+            { key: 'agents', label: 'Agents', badge: badge('agents') },
             { key: 'thresholds', label: 'Thresholds', badge: badge('thresholds') },
             { key: 'gates', label: 'Eval gates', badge: badge('gates') },
             { key: 'json', label: 'JSON', badge: badge('json') },
@@ -179,6 +182,7 @@ export function ConfigEditor({
           <legend className="sr-only">Configuration</legend>
           {tab === 'taxonomy' && <Categories config={config} update={update} errors={errors} />}
           {tab === 'hardStops' && <HardStops config={config} update={update} errors={errors} />}
+          {tab === 'agents' && <AgentsSection config={config} update={update} errors={errors} />}
           {tab === 'thresholds' && (
             <Numbers
               specs={THRESHOLDS}

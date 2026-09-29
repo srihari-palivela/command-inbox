@@ -20,7 +20,7 @@ async def test_performance_and_results_for_a_lead(lead):
     assert len(perf["metrics"]) == 8 and perf["staff"]
     res = (await lead.get("/v1/insights/results")).json()
     assert [c["lane"] for c in res["coverage"]] == ["auto", "draft", "manual"]
-    assert len(res["phases"]) == 4 and len(res["pools"]) == 3
+    assert "phases" not in res and [p["label"] for p in res["pools"]] == ["Capacity released"]
 
 
 async def test_kpi_create_and_delete(lead, staff):

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import operator
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Annotated, Any, TypedDict
@@ -17,6 +18,7 @@ from langchain_core.runnables import RunnableConfig
 from command_inbox.agents.config import Category, DeploymentConfig
 from command_inbox.agents.decision import ResilientEngine
 from command_inbox.agents.providers import AgentSpec, ProviderRouter, Usage
+from command_inbox.domain.sla import SlaRule
 
 
 def _merge(a: dict[str, Any] | None, b: dict[str, Any] | None) -> dict[str, Any]:
@@ -55,6 +57,7 @@ class FlowState(TypedDict, total=False):
     lane_note: str
     want_draft: bool
     draft: Any  # DraftResult | None
+    grounding: list[Any]  # the DocRows the draft was written from, in citation-number order
     brief: Any  # BriefResult | None
     chain: str | None
     route: dict[str, Any]
@@ -94,6 +97,7 @@ class DocRow:
     owner: str
     department_id: str | None
     verified_at: datetime | None
+    chunk_id: str | None = None  # set when the row is a retrieved passage of an uploaded document
 
 
 @dataclass(slots=True)
@@ -120,8 +124,11 @@ class RunDeps:
     dial: dict[str, int]
     docs: list[DocRow]
     agents: dict[str, AgentSpec]
+    # Hybrid retrieval over approved knowledge: (query, department id) → passages. None: use `docs` as is.
+    retrieve: Callable[[str, str | None], Awaitable[list[DocRow]]] | None = None
     sender_verified: bool = True
     force_lane: str | None = None
+    sla_rules: tuple[SlaRule, ...] = ()
     vault: dict[str, str] = field(default_factory=dict)
     started: float = field(default_factory=time.perf_counter)
 

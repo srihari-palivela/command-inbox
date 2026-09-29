@@ -34,10 +34,58 @@ export interface HardStopConfig {
   threshold?: number | string;
 }
 
+export type ProviderKey = '' | 'anthropic' | 'openai';
+
+/** A model node's agent (NodeAgent in agents/config.py). Empty fields inherit. */
+export interface NodeAgentConfig {
+  name?: string;
+  provider?: ProviderKey;
+  model?: string;
+  prompt?: string;
+  maxTokens?: number | null;
+  effort?: 'low' | 'medium' | 'high' | null;
+  costPer1kMinor?: number | null;
+  styleGuide?: string;
+  signature?: string;
+}
+
+export interface FlowNodeConfig {
+  type: string;
+  params?: Record<string, unknown>;
+  agent?: NodeAgentConfig | null;
+}
+
+/** The model nodes, the role that runs each, and what it does, in flow order. */
+export const MODEL_NODES: { type: string; title: string; what: string }[] = [
+  {
+    type: 'adjudicate',
+    title: 'Adjudicator',
+    what: 'Decides the category when the classifier is unsure, choosing only among its candidates.',
+  },
+  { type: 'extract_fields', title: 'Field extractor', what: 'Pulls the fields an action template needs.' },
+  {
+    type: 'draft_reply',
+    title: 'Reply drafter',
+    what: 'Writes the reply from approved knowledge, citing it.',
+  },
+  {
+    type: 'brief',
+    title: 'Case briefer',
+    what: 'Summarises mail a person handles, with suggested next steps.',
+  },
+];
+
 /** Only the parts the structured editor touches are typed; everything else round-trips untouched. */
 export interface DeploymentConfig {
   taxonomy: { categories: CategoryConfig[]; fallback?: string };
   rules?: { hardStops?: HardStopConfig[]; [k: string]: unknown };
+  flow?: { template?: string; nodes: FlowNodeConfig[] };
+  models?: {
+    system2Provider?: ProviderKey;
+    system2Model?: string;
+    maxCostMinorPerMail?: number;
+    [k: string]: unknown;
+  };
   thresholds?: Record<string, number | string>;
   gates?: Record<string, number | string>;
   [k: string]: unknown;

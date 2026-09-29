@@ -67,6 +67,16 @@ async def has_data(database_url: str | None = None) -> bool:
         await engine.dispose()
 
 
+async def _index_knowledge(tx: AsyncSession, now: datetime) -> None:
+    """Chunk and embed the demo documents like uploads, so demo drafts cite retrieved passages."""
+    from command_inbox.knowledge.parse import Block
+    from command_inbox.knowledge.service import index_blocks
+
+    docs = (await tx.execute(select(m.KnowledgeDoc).order_by(m.KnowledgeDoc.title))).scalars().all()
+    for doc in docs:
+        await index_blocks(tx, doc.org_id, doc, [Block(doc.section, doc.body)], now=now)
+
+
 async def seed_tx(tx: AsyncSession, now: datetime | None = None) -> SeedResult:
     sc = SeedClock(now or clock.now())
     w = Writer(tx, sc)
@@ -75,6 +85,8 @@ async def seed_tx(tx: AsyncSession, now: datetime | None = None) -> SeedResult:
         headcount = {"apex": 34, "meridian": 11}
         orgs = await w.insert(m.Org, [{**o, "headcount": headcount.get(o["slug"], 6)} for o in d.ORGS])
         org = {o["slug"]: o["id"] for o in orgs}
+        # Demo platform operators for the console (fictional, like everything in this seed).
+        await w.insert(m.PlatformOperator, d.OPERATORS)
         users = await w.insert(
             m.User,
             [{"email": p["email"], "name": p["name"], "initials": initials_of(p["name"])} for p in d.PEOPLE],
@@ -117,6 +129,7 @@ async def seed_tx(tx: AsyncSession, now: datetime | None = None) -> SeedResult:
         # Appended last so every row the TypeScript seed writes (including audit sequence numbers) matches.
         await seed_deployments(w, org, uid)
         await tx.flush()
+        await _index_knowledge(tx, sc.now)
         return result
     finally:
         w.detach()

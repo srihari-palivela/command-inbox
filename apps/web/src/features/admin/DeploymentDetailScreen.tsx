@@ -13,6 +13,7 @@ import { isForbidden, NoAccess, ProblemAlert, Tone, useCaps, useInlineAction } f
 import { ConfigEditor } from './deployments/ConfigEditor';
 import { Mailboxes } from './deployments/Mailboxes';
 import { Rollout } from './deployments/Rollout';
+import { TestBench } from './deployments/TestBench';
 import { RolloutPills } from './DeploymentsScreen';
 import { StartRunModal } from './evals/StartRunModal';
 import { RUN_STATE, shortHash, VERSION_STATE } from './model';
@@ -150,6 +151,14 @@ function Detail({ d }: { d: DeploymentDetailDTO }) {
                 version={selected}
                 editable={selected.state === 'draft' && canEdit}
               />
+              {canEdit && (
+                <TestBench
+                  key={`bench:${selected.id}:${selected.configHash}`}
+                  deploymentId={d.id}
+                  version={selected}
+                  hasLive={!!d.activeVersionId && d.activeVersionId !== selected.id}
+                />
+              )}
             </>
           ) : (
             <Card>

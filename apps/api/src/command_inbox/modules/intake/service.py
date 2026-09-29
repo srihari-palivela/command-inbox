@@ -180,7 +180,8 @@ async def _ingest_tx(
         await outbox.publish(tx, org_id, "ticket.updated", {"ticketId": existing.id})
         return IngestResult(ticket_id=existing.id, number=existing.number, created=False, duplicate=False)
 
-    # Customer match by email; unknown senders get a provisional record.
+    # Customer match by email. An unknown sender gets an unmatched record: no CIF, nothing invented, until a
+    # person links it to the real customer.
     customer = (
         (
             await tx.execute(
@@ -193,11 +194,11 @@ async def _ingest_tx(
     if customer is None:
         customer = Customer(
             org_id=org_id,
-            cif=f"CIF P-{str(int(now.timestamp() * 1000))[-7:]}",
+            cif=None,
             name=inp.from_name,
             email=inp.from_email,
-            segment="Retail",
-            since_year=now.year,
+            segment="",
+            since_year=None,
             account="",
         )
         tx.add(customer)

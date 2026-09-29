@@ -37,11 +37,95 @@ class Settings(BaseSettings):
     # Demo mode: passwordless sign-in as a seeded person and the "view as" switch. Never in production.
     demo_mode: bool = False
 
+    # Scripted telephony (calls from a ticket) is a prototype, not in v1: off unless explicitly switched on.
+    feature_telephony: bool = False
+
     # Identity: Keycloak (OIDC). The app keeps its own server-side session after the code exchange.
     oidc_issuer: str | None = None  # e.g. http://localhost:8081/realms/command-inbox
     oidc_client_id: str = "command-inbox"
     oidc_client_secret: str | None = None
     oidc_scopes: str = "openid email profile organization"
+
+    # Platform console (operators). Its own origin, cookie and Keycloak realm; no tenant user can reach it.
+    console_origin: str = "http://localhost:5174"
+    platform_oidc_issuer: str | None = None  # e.g. http://localhost:8081/realms/operators
+    platform_oidc_client_id: str = "command-inbox-console"
+    platform_oidc_client_secret: str | None = None
+    # Operators must sign in with a second factor: the ID token's `acr` must be one of these levels (Keycloak
+    # "acr.loa.map" of the operators realm) or its `amr` must name a second factor. On by default in production.
+    platform_require_mfa: bool | None = None
+    platform_mfa_acr: list[str] = ["mfa", "2", "3", "phr", "phrh"]
+    platform_session_idle_minutes: int = 20
+    platform_session_ttl_hours: int = 8
+
+    # Keycloak admin API (service account with realm-management rights on the tenant realm). Provisioning
+    # creates each tenant's Keycloak Organization with it; unset, that step is recorded as skipped.
+    keycloak_admin_url: str | None = None  # e.g. http://localhost:8081
+    keycloak_realm: str = "command-inbox"
+    keycloak_admin_client_id: str = "command-inbox-provisioner"
+    keycloak_admin_client_secret: str | None = None
+
+    # Transactional email (invitations). Unset SMTP_HOST in development: messages are logged, not sent.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_starttls: bool = True
+    mail_from: str = "Command Inbox <no-reply@localhost>"
+
+    # Key management: tenant data keys are wrapped by a key-encryption key (KEK). "local" derives the KEK from
+    # ENCRYPTION_KEY (development and single-host installs); "vault" uses HashiCorp Vault Transit; "aws" uses
+    # AWS KMS (a customer-managed key, which may be the bank's own: BYOK). Keys wrapped by an earlier provider
+    # stay readable (each records its KEK) until `command-inbox-operator keys rewrap` moves them.
+    kms_provider: Literal["local", "vault", "aws"] = "local"
+    vault_addr: str | None = None  # e.g. https://vault.bank.internal:8200
+    vault_token: str | None = None  # or VAULT_TOKEN from the Kubernetes auth sidecar
+    vault_transit_key: str = "command-inbox"
+    vault_namespace: str | None = None
+    aws_kms_key_id: str | None = None  # key ARN or alias ARN
+    aws_region: str | None = None
+
+    # Mailbox connectors (decision D3: delegated OAuth for one account; the app registrations belong to the bank).
+    # Microsoft: a single-tenant app in the bank's Entra (MS_TENANT = its directory ID; "organizations" for dev).
+    ms_client_id: str | None = None
+    ms_client_secret: str | None = None
+    ms_tenant: str = "organizations"
+    graph_base_url: str = "https://graph.microsoft.com/v1.0"
+    # Google: an Internal OAuth client in the bank's Cloud project, plus a Pub/Sub topic and push subscription.
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_pubsub_topic: str | None = None  # projects/<project>/topics/<topic>
+    google_push_audience: str | None = None  # the audience set on the push subscription
+    google_push_service_account: str | None = None  # the service account the push subscription signs as
+    # Where providers deliver change notifications (must be public HTTPS). Unset: mailboxes are polled.
+    mail_webhook_base_url: str | None = None
+    mail_poll_seconds: int = 60
+    mail_sweep_minutes: int = 10
+
+    # Knowledge. Embeddings from a self-hosted model (bge-m3 / e5-large behind an OpenAI-compatible
+    # /v1/embeddings endpoint) or a provider's; "hash" is lexical and for development only.
+    embedding_provider: Literal["hash", "openai_compatible"] = "hash"
+    embedding_url: str | None = None
+    embedding_model: str = "bge-m3"
+    embedding_api_key: str | None = None
+    embedding_send_dimensions: bool = False  # OpenAI v3 models: ask for 1024 dimensions
+    # Optional cross-encoder reranker (Text Embeddings Inference `/rerank`); unset: fused ranking only.
+    rerank_url: str | None = None
+    # Below this cosine similarity (and with no full-text match) there is no source: raise a gap instead.
+    retrieval_min_similarity: float = 0.2
+    # ClamAV (clamd). Required in production: uploads and attachments are scanned before parsing.
+    clamav_host: str | None = None
+    clamav_port: int = 3310
+    knowledge_max_upload_mb: int = 20
+    # Per-workspace API requests per minute per API process (a tenant's limits.apiPerMinute overrides it);
+    # 0 disables the limit.
+    api_rate_per_minute: int = 3000
+    api_rate_per_user_per_minute: int = (
+        600  # one person (or a stolen session) cannot use the whole tenant limit
+    )
+    # Private ranges workspace-configured endpoints (SIEM) may reach, e.g. ["10.20.0.0/16"].
+    outbound_allow_cidrs: list[str] = []
+    invitation_ttl_hours: int = 72
 
     encryption_key: str = "dev-only-key-change-me-dev-only-key-change-me"
     intake_webhook_secret: str = "dev-intake-secret"  # noqa: S105 - development default, rejected in production
@@ -49,8 +133,15 @@ class Settings(BaseSettings):
     # Models. Generation (drafts, extraction, summaries, copilot) uses Claude when a key is set; the
     # categorisation decision engine runs an open-weight model we host (llama.cpp or vLLM).
     anthropic_api_key: str | None = None
-    llm_provider: Literal["auto", "claude", "heuristic"] = "auto"
-    copilot_model: str = "claude-opus-5"
+    # The platform default System 2 provider; deployments may pick another per node (tenant policy allowing).
+    # "claude" is the older name for "anthropic".
+    llm_provider: Literal["auto", "anthropic", "claude", "openai", "heuristic"] = "auto"
+    copilot_model: str = "claude-opus-5"  # the default Anthropic model
+    openai_api_key: str | None = None
+    openai_base_url: str | None = None  # regional endpoint or an approved proxy
+    openai_model: str = "gpt-5"
+    # Model price list for budgets: model id → minor units of the tenant currency per 1,000 tokens (JSON).
+    model_prices: dict[str, int] = {}
     decision_engine: Literal["auto", "heuristic", "llamacpp", "vllm"] = "auto"
     decision_engine_url: str | None = None  # e.g. http://localhost:8090 (llama.cpp) or http://vllm:8000
     decision_model: str = "qwen3-4b-instruct"
@@ -65,14 +156,34 @@ class Settings(BaseSettings):
     langfuse_host: str | None = None
 
     embedded_worker: bool = True
+    worker_metrics_port: int = 4001  # the separate worker process serves /metrics here; 0 disables
 
     @property
     def is_prod(self) -> bool:
         return self.env == "production"
 
     @property
+    def operator_mfa_required(self) -> bool:
+        return self.is_prod if self.platform_require_mfa is None else self.platform_require_mfa
+
+    @property
+    def configured_providers(self) -> list[str]:
+        """System 2 providers this installation can call (a key is set)."""
+        return [
+            p for p, key in (("anthropic", self.anthropic_api_key), ("openai", self.openai_api_key)) if key
+        ]
+
+    @property
+    def default_provider(self) -> Literal["anthropic", "openai", "heuristic"]:
+        if self.llm_provider in ("anthropic", "claude"):
+            return "anthropic"
+        if self.llm_provider in ("openai", "heuristic"):
+            return self.llm_provider
+        return "anthropic" if self.anthropic_api_key else "openai" if self.openai_api_key else "heuristic"
+
+    @property
     def use_claude(self) -> bool:
-        return self.llm_provider == "claude" or (self.llm_provider == "auto" and bool(self.anthropic_api_key))
+        return self.default_provider == "anthropic"
 
     @property
     def oidc_enabled(self) -> bool:
@@ -84,6 +195,12 @@ class Settings(BaseSettings):
             problems = []
             if self.encryption_key.startswith("dev-only"):
                 problems.append("ENCRYPTION_KEY must be set")
+            if self.kms_provider == "vault" and not (
+                self.vault_addr and self.vault_addr.startswith("https://")
+            ):
+                problems.append("VAULT_ADDR must be an https:// address")
+            if self.kms_provider == "aws" and not self.aws_kms_key_id:
+                problems.append("AWS_KMS_KEY_ID must be set")
             if self.intake_webhook_secret == "dev-intake-secret":  # noqa: S105
                 problems.append("INTAKE_WEBHOOK_SECRET must be set")
             if not self.cookie_secure:
@@ -94,6 +211,12 @@ class Settings(BaseSettings):
                 problems.append("OIDC_ISSUER must be set")
             if not self.oidc_client_secret:
                 problems.append("OIDC_CLIENT_SECRET must be set")
+            if not self.smtp_host:
+                problems.append("SMTP_HOST must be set (invitations are emailed)")
+            if not self.clamav_host:
+                problems.append("CLAMAV_HOST must be set (uploads are scanned before parsing)")
+            if self.embedding_provider == "hash":
+                problems.append("EMBEDDING_PROVIDER must be a real embedding model, not the lexical hash")
             if self.decision_engine in ("auto", "heuristic"):
                 problems.append("DECISION_ENGINE must be llamacpp or vllm (no silent keyword fallback)")
             if self.llm_provider == "auto":

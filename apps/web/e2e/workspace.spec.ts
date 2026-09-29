@@ -10,6 +10,7 @@ test('every screen a team lead can reach renders without errors', async ({ brows
     ['/boards', /Boards/],
     ['/performance', /Performance/],
     ['/results', /Results/],
+    ['/monitoring', /Monitoring/],
     ['/people', /Skills/],
     ['/learning', /Learning/],
     ['/settings', /Settings/],

@@ -31,7 +31,12 @@ async def clearance_of(tx: AsyncSession, org_id: str, user_id: str, department_i
 async def require_clearance(
     tx: AsyncSession, ctx: Ctx, department_id: str | None, minimum: int, doing: str
 ) -> None:
-    level = await clearance_of(tx, ctx.org_id, ctx.user.id, department_id)
+    # Mail no team owns yet (unrouted) stays workable: admins may approve, everyone else may resolve.
+    level = (
+        await clearance_of(tx, ctx.org_id, ctx.user.id, department_id)
+        if department_id
+        else (3 if ctx.role == "admin" else 2)
+    )
     if level < minimum:
         raise forbidden(
             f'You need "{CLEARANCE_LABEL[minimum]}" clearance for this team to {doing}. '

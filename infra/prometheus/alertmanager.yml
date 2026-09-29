@@ -1,0 +1,10 @@
+# Local default: alerts are visible in the Alertmanager UI only. An installation sets its receivers
+# (PagerDuty routing key, Opsgenie API key, email) from its secret manager.
+route:
+  receiver: default
+  group_by: [alertname]
+  routes:
+    - matchers: [severity="page"]
+      receiver: default
+receivers:
+  - name: default

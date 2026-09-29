@@ -43,6 +43,16 @@ JobKind = Literal[
     "call_progress",
     "eval_run",
     "retention_sweep",
+    "send_email",
+    "provision_tenant",
+    "mail_connect",
+    "mail_sync",
+    "mail_renew",
+    "mail_send",
+    "mail_test",
+    "knowledge_ingest",
+    "metrics_rollup",
+    "siem_push",
 ]
 
 
@@ -109,6 +119,9 @@ class Worker:
         """Called when a job exhausts its attempts (e.g. triage → hand the ticket to a person)."""
         self._on_final_failure = handler
         return self
+
+    def handles(self, kind: str) -> bool:
+        return kind in self._handlers
 
     def register(self, kind: str, handler: JobHandler) -> Worker:
         self._handlers[kind] = handler

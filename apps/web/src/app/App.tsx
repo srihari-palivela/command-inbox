@@ -1,9 +1,11 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, Navigate, RouterProvider, useRouteError } from 'react-router-dom';
+import { setTenantLocale } from '../lib/format';
 import { queryClient, useMe } from '../lib/queries';
 import { ErrorState, Skeleton, Toaster } from '../ui';
 import { DETAIL_ROUTES, SCREENS } from './routes';
 import { Shell } from './Shell';
+import { AcceptInvitation } from './AcceptInvitation';
 import { SignIn } from './SignIn';
 import { UiProvider } from './ui-context';
 
@@ -23,7 +25,18 @@ function Gate() {
       </div>
     );
   if (!me.data) return <SignIn />;
+  // Every formatter reads the workspace's locale, currency and time zone (re-set on a workspace switch).
+  setTenantLocale(me.data.org);
   return <Shell me={me.data} />;
+}
+
+/** Until go-live an admin lands on the onboarding checklist; everyone else (and admins after) on the inbox. */
+function Home() {
+  const me = useMe().data;
+  const onboarding =
+    !!me?.capabilities.includes('workspace.manage') &&
+    ['provisioned', 'onboarding', 'shadow'].includes(me.org.status);
+  return <Navigate to={onboarding ? '/onboarding' : '/inbox'} replace />;
 }
 
 function RouteError() {
@@ -46,12 +59,13 @@ const screenRoutes = Object.values(SCREENS).map((sc) => {
 const detailRoutes = DETAIL_ROUTES.map(({ path, component: C }) => ({ path, element: <C /> }));
 
 const router = createBrowserRouter([
+  { path: '/accept', element: <AcceptInvitation />, errorElement: <RouteError /> },
   {
     path: '/',
     element: <Gate />,
     errorElement: <RouteError />,
     children: [
-      { index: true, element: <Navigate to="/inbox" replace /> },
+      { index: true, element: <Home /> },
       ...screenRoutes,
       ...detailRoutes,
       { path: 'admin', element: <Navigate to="/admin/deployments" replace /> },

@@ -26,6 +26,10 @@ def org_dto(o: Org) -> dto.OrgDTO:
         bg=o.bg,
         plan=o.plan,
         confidence_bar=o.confidence_bar,
+        locale=o.locale,
+        currency=o.currency,
+        time_zone=o.time_zone,
+        status=o.status,  # type: ignore[arg-type]
     )
 
 
@@ -42,7 +46,7 @@ async def build_me(ctx: Ctx, csrf_token: str) -> dto.MeDTO:
                 select(Org, Membership.role)
                 .join(Membership, Membership.org_id == Org.id)
                 .where(Membership.user_id == ctx.user.id)
-                .order_by(Org.created_at)
+                .order_by(Org.created_at, Org.slug)
             )
         ).all()
     if org is None or membership is None:
@@ -120,6 +124,7 @@ async def build_me(ctx: Ctx, csrf_token: str) -> dto.MeDTO:
         settings=dto.SettingsDTO(prefs=(us.prefs if us else {}) or {}, signature=us.signature if us else ""),
         nav=nav,
         worker=dto.MeDTOWorker(state="degraded" if degraded else "live", provider=provider),
+        features=dto.MeDTOFeatures(telephony=settings.feature_telephony),
     )
 
 
@@ -130,7 +135,7 @@ async def first_org_for(user_id: str) -> str | None:
                 select(Membership.org_id)
                 .join(Org, Org.id == Membership.org_id)
                 .where(Membership.user_id == user_id)
-                .order_by(Org.created_at)
+                .order_by(Org.created_at, Org.slug)
                 .limit(1)
             )
         ).scalar_one_or_none()
@@ -181,27 +186,6 @@ async def switch_org(ctx: Ctx, org_id: str) -> None:
             raise forbidden("You are not a member of that workspace.")
         await g.execute(update(Session).where(Session.id == ctx.session_id).values(org_id=org_id))
     await _audit_session(ctx, org_id, "session.org_switched", f"{ctx.user.name} switched into this workspace")
-
-
-async def demo_switch_role(ctx: Ctx, role: str) -> None:
-    """Demo only. Each person holds one role, so "view as" signs this session in as the seeded holder of it."""
-    if not settings.demo_mode:
-        raise forbidden("Role switching is only available in demo mode.")
-    async with global_tx() as g:
-        target = (
-            await g.execute(
-                select(Membership.user_id)
-                .where(Membership.org_id == ctx.org_id, Membership.role == role)
-                .order_by(Membership.joined_at)
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        if target is None:
-            raise not_found(f"A {role} in this workspace")
-        await g.execute(update(Session).where(Session.id == ctx.session_id).values(user_id=target))
-    await _audit_session(
-        ctx, ctx.org_id, "session.demo_view_as", f"Demo: session switched to view as {role}", {"role": role}
-    )
 
 
 async def logout(ctx: Ctx) -> None:
@@ -285,7 +269,7 @@ async def demo_users() -> list[dto.DemoUserDTO]:
 
 async def org_choices(email: str | None) -> list[dto.OrgChoiceDTO]:
     async with global_tx() as g:
-        orgs = (await g.execute(select(Org).order_by(Org.created_at))).scalars().all()
+        orgs = (await g.execute(select(Org).order_by(Org.created_at, Org.slug))).scalars().all()
         user = (
             (await g.execute(select(User).where(User.email == email))).scalar_one_or_none() if email else None
         )

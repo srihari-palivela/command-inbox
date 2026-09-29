@@ -32,13 +32,26 @@ dependencies = [
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
     "joserfc>=1.7.5",
+    "pypdf>=6.19.0",
+    "python-docx>=1.2.0",
+    "openpyxl>=3.1.5",
+    "pgvector>=0.5.0",
+    "python-multipart>=0.0.32",
+    "openai>=1.100",
 ]
 
 [project.scripts]
 command-inbox-api = "command_inbox.main:run"
 command-inbox-worker = "command_inbox.worker:run"
 command-inbox-evals = "command_inbox.evals.cli:main"
+command-inbox-migrate = "command_inbox.migrate:main"
 command-inbox-seed = "command_inbox.seed.cli:main"
+command-inbox-operator = "command_inbox.platform.cli:main"
+
+[project.optional-dependencies]
+aws = [
+    "boto3>=1.40",
+]
 
 [build-system]
 requires = ["uv_build>=0.8.17,<0.9.0"]
@@ -53,6 +66,7 @@ dev = [
     "psycopg[binary]>=3.3.6",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
     "ruff>=0.16.9",
     "sqlacodegen>=4.0.4",
 ]

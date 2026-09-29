@@ -114,9 +114,47 @@ NodeType = Literal[
 REQUIRED_ORDER: tuple[NodeType, ...] = ("mask_pii", "hard_stop_guard", "lane_policy", "approval_gate")
 
 
+SYSTEM2_NODES: dict[str, str] = {
+    # node type → the agent role that runs it
+    "adjudicate": "adjudicator",
+    "extract_fields": "extractor",
+    "draft_reply": "drafter",
+    "brief": "summariser",
+}
+ProviderKey = Literal["", "anthropic", "openai"]  # "" = the deployment's (else the platform's) default
+
+
+class NodeAgent(CamelModel):
+    """The model settings of one System 2 node: this is what an "agent" is inside a deployment.
+
+    Empty fields inherit: provider from `models.system2Provider` (else the platform default), model from
+    `models.system2Model` (else the provider's default), prompt from the workspace's agent catalogue.
+    """
+
+    name: str = Field(default="", max_length=80)
+    provider: ProviderKey = ""
+    model: str = Field(default="", max_length=120)
+    prompt: str = Field(default="", max_length=12_000)
+    max_tokens: int | None = Field(default=None, ge=256, le=32_000)
+    effort: Literal["low", "medium", "high"] | None = None
+    cost_per_1k_minor: int | None = Field(default=None, ge=0, le=100_000, alias="costPer1kMinor")
+    # Drafting only: the house style and sign-off, appended to the prompt.
+    style_guide: str = Field(default="", max_length=4000)
+    signature: str = Field(default="", max_length=600)
+
+
 class FlowNode(CamelModel):
     type: NodeType
     params: dict[str, Any] = Field(default_factory=dict)
+    agent: NodeAgent | None = None
+
+    @model_validator(mode="after")
+    def _agent_on_model_nodes(self) -> FlowNode:
+        if self.agent is not None and self.type not in SYSTEM2_NODES:
+            raise ValueError(
+                f"the {self.type} node does not call a language model; it takes no agent settings"
+            )
+        return self
 
 
 class Flow(CamelModel):
@@ -147,6 +185,7 @@ class Models(CamelModel):
     temperature: float = Field(default=1.0, gt=0.05, le=10.0)  # fitted by calibration
     conformal_qhat: float | None = Field(default=None, ge=0.0, le=1.0)  # fitted by calibration
     system2_model: str = Field(default="", max_length=120)
+    system2_provider: ProviderKey = ""
     max_cost_minor_per_mail: int = Field(default=50, ge=0, le=10_000)
 
 
@@ -193,7 +232,14 @@ class DeploymentConfig(CamelModel):
 
     def config_hash(self) -> str:
         """Stable hash of the canonical config; eval runs and publishing are bound to it."""
-        raw = json.dumps(self.model_dump(mode="json", by_alias=True), sort_keys=True, separators=(",", ":"))
+        body = self.model_dump(mode="json", by_alias=True)
+        # Settings added later are left out while unset, so the hash of an older config does not change.
+        if not body["models"]["system2Provider"]:
+            del body["models"]["system2Provider"]
+        for node in body["flow"]["nodes"]:
+            if node["agent"] is None:
+                del node["agent"]
+        raw = json.dumps(body, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(raw.encode()).hexdigest()
 
 

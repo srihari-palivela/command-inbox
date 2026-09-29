@@ -50,6 +50,7 @@ CAPABILITIES: tuple[str, ...] = (
     "evals.run",
     "members.manage",
     "rbac.manage",
+    "workspace.manage",
 )
 
 # What a tenant admin may grant to or remove from staff and team leads.
@@ -82,6 +83,7 @@ ADMIN_ONLY: frozenset[str] = frozenset(
         "audit.verify",
         "members.manage",
         "rbac.manage",
+        "workspace.manage",
         "deployment.publish",
         "setup.edit",
     }
@@ -111,6 +113,7 @@ CAPABILITY_LABEL: dict[str, str] = {
     "evals.run": "Run evals",
     "members.manage": "Manage members and roles",
     "rbac.manage": "Change role permissions",
+    "workspace.manage": "Manage the organisation profile and sign-in",
 }
 
 

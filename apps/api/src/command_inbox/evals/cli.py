@@ -1,6 +1,7 @@
 """Offline eval runs (CI, release checks) without the worker.
 
     command-inbox-evals run --deployment KEY [--dataset NAME] [--org SLUG] [--version N]
+    command-inbox-evals retrieval --org SLUG --file cases.jsonl [--k 5] [--min-recall 0.85]
 
 Scores the deployment's draft (or, with none, its active) version on the dataset, stores the run exactly as
 the worker would (so a passing run counts for publishing), prints metrics and gates, and exits 1 if any
@@ -115,6 +116,24 @@ async def run(key: str, dataset: str | None, org_slug: str | None, version: int 
     return 0 if state == "passed" else 1
 
 
+async def retrieval(org_slug: str, cases: list[dict], k: int, min_recall: float) -> int:  # type: ignore[type-arg]
+    """Retrieval recall on labelled cases: {"question": ..., "expected": ["Document title", ...]}."""
+    from command_inbox.knowledge.evaluate import evaluate
+
+    async with global_tx() as g:
+        org = (await g.execute(select(Org).where(Org.slug == org_slug))).scalar_one_or_none()
+    if org is None:
+        raise CliError(f"no workspace {org_slug!r}")
+    async with tenant_tx(org.id) as tx:
+        report = await evaluate(tx, org.id, cases, k=k)
+    print(f"{org_slug}: recall@{k} {report.recall}  MRR {report.mrr}  ({len(report.cases)} questions)")
+    for miss in report.misses():
+        print(f"  MISS {miss.question!r}: expected {miss.expected}, got {miss.top}")
+    passed = report.recall >= min_recall
+    print(f"  [{'PASS' if passed else 'FAIL'}] recall@{k} {report.recall} >= {min_recall}")
+    return 0 if passed else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="command-inbox-evals", description="Run deployment evals offline.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -123,10 +142,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dataset", help="dataset name (default: the deployment's first dataset)")
     p.add_argument("--org", help="workspace slug (needed when the key exists in several workspaces)")
     p.add_argument("--version", type=int, help="version number (default: the draft, else the active version)")
+    r = sub.add_parser("retrieval", help="retrieval recall@k on a labelled question set (JSONL)")
+    r.add_argument("--org", required=True, help="workspace slug")
+    r.add_argument("--file", required=True, help='JSONL: {"question": ..., "expected": ["Document title"]}')
+    r.add_argument("--k", type=int, default=5)
+    r.add_argument("--min-recall", type=float, default=0.85)
     args = parser.parse_args(argv)
+    cases: list[dict] = []  # type: ignore[type-arg]
+    if args.command == "retrieval":
+        import json
+        from pathlib import Path
+
+        lines = Path(args.file).read_text(encoding="utf-8").splitlines()
+        cases = [json.loads(line) for line in lines if line.strip()]
 
     async def go() -> int:
         try:
+            if args.command == "retrieval":
+                return await retrieval(args.org, cases, args.k, args.min_recall)
             return await run(args.deployment, args.dataset, args.org, args.version)
         except CliError as err:
             print(f"command-inbox-evals: {err}", file=sys.stderr)

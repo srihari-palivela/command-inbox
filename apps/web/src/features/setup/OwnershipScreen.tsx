@@ -2,6 +2,7 @@ import { useMe, useTaxonomy } from '../../lib/queries';
 import { EmptyState, Loadable, Page, PageHeader, Skeleton } from '../../ui';
 import s from './ownership/Ownership.module.css';
 import { ContractCard, DepartmentColumn } from './ownership/parts';
+import { TeamsAdmin } from './ownership/TeamsAdmin';
 
 export default function OwnershipScreen() {
   const q = useTaxonomy();
@@ -47,6 +48,7 @@ export default function OwnershipScreen() {
               </div>
             )}
             <ContractCard contract={t.contract} />
+            {canEdit && <TeamsAdmin />}
           </>
         )}
       </Loadable>

@@ -1,0 +1,40 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ci.name" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "ci.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    # Schema first: expand/contract migrations only, so old pods keep working while new ones roll out.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: {{ .Values.migrate.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "ci.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      {{- include "ci.pod" . | nindent 6 }}
+      containers:
+        - name: migrate
+          image: {{ include "ci.image" (dict "root" . "name" .Values.image.api) }}
+          command: ["command-inbox-migrate"]
+          envFrom:
+            # The ConfigMap is created in the same release; a pre-install hook cannot rely on it yet.
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          env:
+            - {name: APP_ENV, value: {{ .Values.config.APP_ENV | quote }}}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+{{- end }}

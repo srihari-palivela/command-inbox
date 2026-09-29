@@ -228,8 +228,8 @@ async def test_knowledge_sync_enqueues_a_job_that_the_worker_completes(admin):
         ).scalar_one()
     assert state == "done"
     synced = next(s for s in (await admin.get("/v1/knowledge")).json()["sources"] if s["id"] == src["id"])
-    assert synced["health"] == "ok" and synced["docs"] == f"{12 + len('Ops wiki') % 20} documents"
-    assert synced["sync"].startswith("Synced ") and "pending approval" in synced["note"]
+    assert synced["health"] == "ok" and synced["docs"] == "0 documents"  # nothing invented
+    assert synced["sync"].startswith("Synced ") and "pending approval" not in synced["note"]
 
     r = await admin.send("POST", f"/v1/knowledge/sources/{src['id']}/sync")
     assert r.json() == {"message": "Sync queued for Ops wiki."}

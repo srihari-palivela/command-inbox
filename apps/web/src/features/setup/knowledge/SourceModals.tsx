@@ -1,7 +1,7 @@
 import type { KnowledgeKind } from '@ci/contracts';
 import { api } from '../../../lib/api';
 import { keys, useAction } from '../../../lib/queries';
-import { Button, Modal } from '../../../ui';
+import { Modal } from '../../../ui';
 import s from './Knowledge.module.css';
 import { SOURCE_KINDS } from './tones';
 
@@ -51,42 +51,6 @@ export function ConnectSourceModal({ open, onClose }: { open: boolean; onClose: 
           </button>
         ))}
       </div>
-    </Modal>
-  );
-}
-
-export function UploadModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const connect = useConnect(onClose);
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      width={480}
-      title="Upload documents"
-      subtitle="PDF, DOCX or XLSX — versioned on re-upload."
-      footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            variant="dark"
-            style={{ marginLeft: 'auto' }}
-            loading={connect.isPending}
-            onClick={() => connect.connect('Upload')}
-          >
-            Open an upload source
-          </Button>
-        </>
-      }
-    >
-      <p className={s.modalText}>
-        Direct uploads are a knowledge source like any other. What you upload lands as pending until a
-        knowledge manager approves it — the AI cannot quote it before then.
-      </p>
-      <ol className={s.steps}>
-        <li>An upload source is created for this workspace.</li>
-        <li>Drop files into it; each one is parsed for text inside the bank tenancy.</li>
-        <li>A knowledge manager approves each document before it becomes citable.</li>
-      </ol>
     </Modal>
   );
 }

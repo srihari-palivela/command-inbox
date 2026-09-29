@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, Request, Response
 
 from command_inbox.core.context import Ctx
+from command_inbox.core.errors import not_found
 from command_inbox.core.http import current_ctx, idempotent, in_tenant
+from command_inbox.modules.deployments import bench as bench_module
 from command_inbox.modules.deployments import service
 from command_inbox.modules.deployments.schemas import (
     BindMailboxesBody,
@@ -16,6 +20,7 @@ from command_inbox.modules.deployments.schemas import (
     RollbackBody,
 )
 from command_inbox.schemas import dto
+from command_inbox.schemas.requests import BenchBody
 
 router = APIRouter(prefix="/v1/deployments", tags=["deployments"])
 
@@ -108,3 +113,15 @@ def _uuid(value: str) -> str:
         return str(uuid.UUID(value))
     except ValueError:
         raise not_found("Deployment") from None
+
+
+@router.post("/{deployment_id}/versions/{version_id}/bench", response_model=dto.BenchResultDTO)
+async def bench(
+    deployment_id: str, version_id: str, body: BenchBody, ctx: Ctx = Depends(current_ctx)
+) -> dto.BenchResultDTO:
+    for value in (deployment_id, version_id):
+        try:
+            uuid.UUID(value)
+        except ValueError:
+            raise not_found("Deployment version") from None
+    return await bench_module.run_bench(ctx, deployment_id, version_id, body)

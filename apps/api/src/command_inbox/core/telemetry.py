@@ -134,7 +134,11 @@ def configure_tracing(app: Any | None = None, service_name: str | None = None) -
 
 # ── Prometheus metrics ─────────────────────────────────────────────────────────
 http_duration = Histogram(
-    "http_request_duration_seconds", "HTTP request latency", ["method", "route", "status"]
+    "http_request_duration_seconds",
+    "HTTP request latency",
+    ["method", "route", "status"],
+    # 3 s is the webhook SLO bound.
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 3.0, 5.0, 10.0),
 )
 jobs_processed = Counter("jobs_processed_total", "Jobs processed", ["kind", "outcome"])
 job_lag = Gauge("jobs_oldest_due_seconds", "Age of the oldest due job")
@@ -145,3 +149,15 @@ lane_decisions = Counter("triage_lane_total", "Lane decisions", ["deployment", "
 model_cost = Counter("model_cost_minor_total", "Model spend in minor currency units", ["agent", "model"])
 decision_latency = Histogram("decision_engine_seconds", "Decision engine latency", ["engine", "primitive"])
 sse_clients = Gauge("sse_clients", "Connected live-update clients")
+# SLO signals (plan §11.2): ingest lag, send success, and model fallbacks. Tenant ids are not labels
+# (cardinality); per-tenant views come from the database (console fleet health).
+ingest_lag = Histogram(
+    "mail_ingest_lag_seconds",
+    "Provider receipt to ticket",
+    ["provider"],
+    buckets=(1, 5, 15, 30, 60, 120, 300, 900, 3600),
+)
+mail_sends = Counter("mail_sends_total", "Replies sent through a connected mailbox", ["provider", "outcome"])
+system2_fallbacks = Counter(
+    "system2_fallbacks_total", "Model stages answered by the deterministic fallback", ["stage"]
+)

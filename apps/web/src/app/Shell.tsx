@@ -1,11 +1,11 @@
-import type { MeDTO, Role } from '@ci/contracts';
+import type { MeDTO } from '@ci/contracts';
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useLiveUpdates } from '../lib/live';
 import { useLogout, useSessionSwitch } from '../lib/queries';
 import { TEAM_ROLE_LABEL } from '../lib/presentation';
 import { toast } from '../lib/toast';
-import { MenuItem, Popover, Segmented, Skeleton } from '../ui';
+import { MenuItem, Popover, Skeleton } from '../ui';
 import { CommandPalette } from './CommandPalette';
 import { NotificationCenter } from './NotificationCenter';
 import { canSee, NAV } from './routes';
@@ -47,21 +47,6 @@ export function Shell({ me }: { me: MeDTO }) {
       },
     );
   };
-  const switchRole = (role: Role) => {
-    if (role === me.role) return;
-    switcher.mutate(
-      { role },
-      {
-        onSuccess: () => {
-          toast.show(
-            `Viewing as ${TEAM_ROLE_LABEL[role]} — signed in as the seeded ${TEAM_ROLE_LABEL[role].toLowerCase()} for this workspace.`,
-          );
-          navigate('/inbox');
-        },
-      },
-    );
-  };
-
   const workerTone =
     me.worker.state === 'degraded' || !live
       ? {
@@ -168,19 +153,6 @@ export function Shell({ me }: { me: MeDTO }) {
             <div className={s.popFoot}>Each workspace has its own boards, agents and audit log.</div>
           </Popover>
         </div>
-
-        {me.demoMode && (
-          <Segmented<Role>
-            label="Demo: view as"
-            value={me.role}
-            onChange={switchRole}
-            items={[
-              { key: 'staff', label: 'Staff' },
-              { key: 'lead', label: 'Team lead' },
-              { key: 'admin', label: 'Admin' },
-            ]}
-          />
-        )}
 
         <div className={s.search}>
           <button

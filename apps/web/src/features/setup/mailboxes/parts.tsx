@@ -1,54 +1,10 @@
 import type { AdminDTO } from '@ci/contracts';
 import { useState } from 'react';
-import { clockTime } from '../../../lib/format';
+import { clockTime, num } from '../../../lib/format';
 import { useAuditVerify } from '../../../lib/queries';
 import { Button, Card, cx, EmptyState, ErrorState } from '../../../ui';
 import s from './Mailboxes.module.css';
-import { CONNECTOR_TONE, MAILBOX_TONE } from './tones';
-
-export function MailboxesCard({ mailboxes }: { mailboxes: AdminDTO['mailboxes'] }) {
-  return (
-    <Card
-      title="Monitored mailboxes"
-      actions={<span className={s.hint}>Read and label only · sending always needs a person</span>}
-      flush
-      className={s.rise}
-      style={{ animationDelay: '.05s' }}
-    >
-      {mailboxes.length === 0 && (
-        <EmptyState
-          title="No mailboxes connected"
-          text="Connect a shared mailbox from Boards to start triage."
-        />
-      )}
-      {mailboxes.map((m, i) => {
-        const t = MAILBOX_TONE[m.state];
-        return (
-          <div key={m.id} className={s.row} style={{ animationDelay: `${i * 0.05}s` }}>
-            <span className={s.dot} style={{ background: t.dot }} aria-hidden />
-            <div className={s.main}>
-              <div className={s.title}>{m.address}</div>
-              <div className={s.sub}>
-                {m.department} · {m.permissions.join(' · ')}
-              </div>
-            </div>
-            <div className={s.vol}>
-              <div className={s.volN}>{m.volume24h.toLocaleString('en-IN')}</div>
-              <div className={s.volL}>last 24h</div>
-            </div>
-            <span className={s.state} style={{ color: t.fg, background: t.bg, borderColor: t.line }}>
-              {t.label}
-            </span>
-          </div>
-        );
-      })}
-      <div className={s.foot}>
-        Attachments are parsed for text and never stored outside the bank tenancy. PII is masked before it
-        reaches the classifier.
-      </div>
-    </Card>
-  );
-}
+import { CONNECTOR_TONE } from './tones';
 
 export function ConnectorsCard({ connectors }: { connectors: AdminDTO['connectors'] }) {
   return (
@@ -136,12 +92,12 @@ export function AuditCard() {
         >
           {r.ok ? (
             <span>
-              ✓ <span className="mono">{r.events.toLocaleString('en-IN')}</span> events · chain intact
+              ✓ <span className="mono">{num(r.events)}</span> events · chain intact
             </span>
           ) : (
             <span>
               × Broken at event <span className="mono">#{r.brokenAt}</span> of{' '}
-              <span className="mono">{r.events.toLocaleString('en-IN')}</span> — raise it with Risk now
+              <span className="mono">{num(r.events)}</span> — raise it with Risk now
             </span>
           )}
           <span className={s.resultMeta}>checked {clockTime(new Date(q.dataUpdatedAt).toISOString())}</span>

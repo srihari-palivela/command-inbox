@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export default function globalSetup() {
   if (process.env.E2E_RESET !== '1') return;
   const api = fileURLToPath(new URL('../../api', import.meta.url));
-  execSync('uv run command-inbox-seed --reset', {
+  execSync('uv run command-inbox-seed --demo --reset', {
     cwd: api,
     stdio: 'inherit',
     env: { ...process.env, APP_ENV: 'development' },

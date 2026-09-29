@@ -21,6 +21,7 @@ os.environ.update(
     {
         "APP_ENV": "test",
         "DEMO_MODE": "true",
+        "FEATURE_TELEPHONY": "true",
         "LLM_PROVIDER": "heuristic",
         "DECISION_ENGINE": "heuristic",
         "EMBEDDED_WORKER": "false",

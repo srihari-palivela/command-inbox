@@ -146,8 +146,8 @@ export function NewBoardWizard({ open, onClose }: { open: boolean; onClose: () =
                   ×
                 </span>
                 <span>
-                  <b>Send mail</b> — not requested. The AI holds no send scope; replies always go out under a
-                  named approver's account.
+                  <b>Send mail</b> — used only for replies a named person approved, in the customer's thread,
+                  and only after an admin turns sending on.
                 </span>
               </li>
             </ul>

@@ -136,7 +136,7 @@ export function Detail({
                 style={{ color: pr.fg, background: pr.bg, borderRadius: 5, padding: '2px 7px', fontSize: 11 }}
                 title={pr.note}
               >
-                {pr.label.split(' · ')[1]} · {t.segment}
+                {pr.label.split(' · ')[1]} · {t.segment || 'Unmatched sender'}
               </span>
               {t.sla.tone !== 'closed' && t.sla.minutesLeft !== null && (
                 <span style={{ color: sla.fg }}>
@@ -176,15 +176,17 @@ export function Detail({
               ]}
             />
             <div className={s.tabActions}>
-              <Button
-                size="sm"
-                className={s.callBtn}
-                onClick={call}
-                loading={actions.startCall.isPending}
-                disabled={!t.permissions.canWork}
-              >
-                ● Call customer
-              </Button>
+              {me.features.telephony && (
+                <Button
+                  size="sm"
+                  className={s.callBtn}
+                  onClick={call}
+                  loading={actions.startCall.isPending}
+                  disabled={!t.permissions.canWork}
+                >
+                  ● Call customer
+                </Button>
+              )}
               <Button size="sm" onClick={reply} disabled={!t.permissions.canReply} kbd="R">
                 Reply to customer
               </Button>

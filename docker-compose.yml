@@ -2,9 +2,14 @@
 # behind nginx. Open http://localhost:8080 and sign in with a demo user.
 #
 # Optional profiles (combine freely):
-#   --profile sso            Keycloak on :8081 (realm "command-inbox"; users p.sharma / r.menon / a.kapoor, password "demo")
-#   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local)
+#   --profile sso            Keycloak on :8081: realm "command-inbox" (users p.sharma / r.menon / a.kapoor, password "demo")
+#                            and realm "operators" for the console (owner@ / ops@ / support@platform.example,
+#                            password "operator-local")
+#   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local),
+#                            Prometheus on :9090 with the SLO rules and Alertmanager on :9093
 #   --profile local-llm      llama.cpp server for the System 1 decision engine on :8090 (put a GGUF in ./models)
+#   --profile av             ClamAV for scanning knowledge uploads (set CLAMAV_HOST=clamav); first start downloads
+#                            signatures and needs ~1.5 GB of memory. Without it uploads are marked "not virus-scanned".
 #
 # The secrets below are for local use only. In a real deployment they come from your secret manager.
 x-api-env: &api-env
@@ -17,9 +22,11 @@ x-api-env: &api-env
   COOKIE_SECURE: 'true' # browsers treat http://localhost as a secure context
   FORWARDED_ALLOW_IPS: '*' # only nginx can reach the API on the compose network
   EMBEDDED_WORKER: 'false'
-  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-local-compose-key-0123456789abcdef0123456789abcdef}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-only-compose-encryption-key-change-me}
   INTAKE_WEBHOOK_SECRET: ${INTAKE_WEBHOOK_SECRET:-local-compose-intake-secret}
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
   LLM_PROVIDER: ${LLM_PROVIDER:-auto}
   DECISION_ENGINE: ${DECISION_ENGINE:-auto}
   DECISION_ENGINE_URL: ${DECISION_ENGINE_URL:-}
@@ -30,10 +37,27 @@ x-api-env: &api-env
   LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
   LANGFUSE_HOST: ${LANGFUSE_HOST:-}
   LOG_JSON: 'true'
+  CONSOLE_ORIGIN: http://localhost:8082
+  # Transactional email goes to Mailpit (web UI on :8025); nothing leaves your machine.
+  SMTP_HOST: mailpit
+  SMTP_PORT: '1025'
+  SMTP_STARTTLS: 'false'
+  MAIL_FROM: Command Inbox <no-reply@command-inbox.local>
+  PLATFORM_OIDC_ISSUER: ${PLATFORM_OIDC_ISSUER:-}
+  PLATFORM_OIDC_CLIENT_SECRET: ${PLATFORM_OIDC_CLIENT_SECRET:-}
+  KEYCLOAK_ADMIN_URL: ${KEYCLOAK_ADMIN_URL:-}
+  KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-}
+  # Knowledge: the hash embedder is for development only; point these at an OpenAI-compatible endpoint.
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-hash}
+  EMBEDDING_URL: ${EMBEDDING_URL:-}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+  EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+  RERANK_URL: ${RERANK_URL:-}
+  CLAMAV_HOST: ${CLAMAV_HOST:-}
 
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16 # Postgres 16 with the vector extension (knowledge retrieval)
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -51,7 +75,7 @@ services:
     image: command-inbox-api
     environment: *api-env
     # Migrates, then seeds only an empty database, so restarts keep your data.
-    command: ['command-inbox-seed', '--if-empty']
+    command: ['command-inbox-seed', '--demo', '--if-empty']
     depends_on:
       db: { condition: service_healthy }
     restart: 'no'
@@ -74,12 +98,38 @@ services:
       migrate: { condition: service_completed_successfully }
     restart: unless-stopped
 
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: [av]
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdcheck.sh']
+      interval: 30s
+      start_period: 180s
+    restart: unless-stopped
+
   web:
-    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+      args: { VITE_DEMO_SIGNIN: 'true' } # local stack only; production images leave it off
     ports:
       - '8080:8080'
     depends_on:
       api: { condition: service_healthy }
+    restart: unless-stopped
+
+  # The platform console (operators): http://localhost:8082. Development sign-in lists the demo operators.
+  console:
+    build: { context: ., dockerfile: infra/docker/console.Dockerfile }
+    ports:
+      - '8082:8082'
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ['8025:8025']
     restart: unless-stopped
 
   # ── Identity (profile: sso) ─────────────────────────────────────────────────────────────────────
@@ -95,6 +145,7 @@ services:
       KC_HEALTH_ENABLED: 'true'
     volumes:
       - ./infra/keycloak/realm-command-inbox.json:/opt/keycloak/data/import/realm-command-inbox.json:ro
+      - ./infra/keycloak/realm-operators.json:/opt/keycloak/data/import/realm-operators.json:ro
     ports: ['8081:8081']
 
   # ── Observability (profile: observability) ─────────────────────────────────────────────────────
@@ -138,6 +189,21 @@ services:
     command: ['-c', 'mkdir -p /data/langfuse && minio server /data --console-address ":9001"']
     environment: { MINIO_ROOT_USER: minio, MINIO_ROOT_PASSWORD: minio-local-secret }
     volumes: [langfuse-s3:/data]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [observability]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+    ports: ['9090:9090']
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    profiles: [observability]
+    volumes:
+      - ./infra/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports: ['9093:9093']
 
   langfuse-worker:
     profiles: [observability]

@@ -6,14 +6,22 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
 
+from command_inbox.config import settings
 from command_inbox.core.context import Ctx
+from command_inbox.core.errors import not_found
 from command_inbox.core.http import current_ctx, in_tenant
 from command_inbox.modules.calls import service
 from command_inbox.schemas import dto
 from command_inbox.schemas.base import Ok
 from command_inbox.schemas.requests import UUID_RE, SaveCallBody
 
-router = APIRouter(prefix="/v1", tags=["calls"])
+
+def _telephony_enabled() -> None:
+    if not settings.feature_telephony:
+        raise not_found("Calls")
+
+
+router = APIRouter(prefix="/v1", tags=["calls"], dependencies=[Depends(_telephony_enabled)])
 
 TicketId = Annotated[str, Path(min_length=3, max_length=64)]
 CallId = Annotated[str, Path(pattern=UUID_RE)]

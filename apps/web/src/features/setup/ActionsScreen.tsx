@@ -12,6 +12,7 @@ import { NewActionWizard } from './actions/NewActionWizard';
 import { RiskMatrix } from './actions/RiskMatrix';
 import { isForbidden, NoAccess } from './agents/NoAccess';
 import s from './actions/actions.module.css';
+import { num } from '../../lib/format';
 
 const TITLE = 'What the AI can do';
 const SUB = 'Pick a risk group below to see its actions and how much freedom the AI has there.';
@@ -151,7 +152,7 @@ function Actions({ data }: { data: ActionsDTO }) {
                     >
                       {a.stpPct === null ? '—' : `${a.stpPct}%`}
                     </span>
-                    <span className={s.tNum}>{a.volume.toLocaleString('en-IN')}</span>
+                    <span className={s.tNum}>{num(a.volume)}</span>
                   </li>
                 );
               })}

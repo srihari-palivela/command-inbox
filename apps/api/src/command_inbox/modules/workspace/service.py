@@ -16,7 +16,8 @@ from command_inbox.schemas.requests import SettingsBody
 
 GUARDRAILS = [
     "PII masked before any text reaches the classifier; unmasked values are re-bound only at execution.",
-    "Outbound email is only ever sent under a named approver — the AI holds no send scope of its own.",
+    "Outbound email is only ever sent after a named person approves it; the mailbox's send permission is used "
+    "for nothing else except the connection test.",
     "Hard stop keywords (ombudsman, legal notice, regulator, fraud) suspend all generation on the thread.",
     "Every action carries an idempotency key; a duplicate approval cannot execute twice.",
     "Immutable, hash-chained audit log with actor, timestamp, source and confidence for every decision.",

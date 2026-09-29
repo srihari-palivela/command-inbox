@@ -1,7 +1,7 @@
 import type { SpanStatus, TraceDTO } from '@ci/contracts';
-import { inr } from '../../lib/format';
 import { Card, EmptyState, Pill } from '../../ui';
 import s from './Inbox.module.css';
+import { money } from '../../lib/format';
 
 const STATUS: Record<SpanStatus, { word: string; fg: string; bg: string; ring: string }> = {
   ok: { word: 'OK', fg: 'var(--ok)', bg: 'var(--ok-bg)', ring: 'var(--ok-dot)' },
@@ -32,7 +32,7 @@ export function Trace({ trace }: { trace: TraceDTO | null }) {
           </b>{' '}
           · model cost{' '}
           <b className="mono" style={{ color: 'var(--ink)' }}>
-            {inr(trace.costMinor)}
+            {money(trace.costMinor)}
           </b>
         </span>
       }
@@ -70,7 +70,7 @@ export function Trace({ trace }: { trace: TraceDTO | null }) {
                   <b>OUT</b> {sp.output}
                 </div>
                 <div className="mono" style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
-                  tokens {tokens(sp.tokens)} · cost {sp.costMinor === null ? '—' : inr(sp.costMinor)}
+                  tokens {tokens(sp.tokens)} · cost {sp.costMinor === null ? '—' : money(sp.costMinor)}
                 </div>
               </div>
               <span className="mono" style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>

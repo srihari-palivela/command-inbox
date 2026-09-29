@@ -100,14 +100,16 @@ TS_REFERENCE: list[tuple[str, int, str, str, str, float, str]] = [
         0.95,
         "Action matched but fields or confidence fall short",
     ),
+    # Deliberately different from the previous service: its only source ("Schedule of charges") is stale, and
+    # retrieval never cites stale knowledge, so a person answers it and a knowledge gap is raised.
     (
         "apex",
         48196,
-        "draft",
-        "awaiting_approval",
+        "manual",
+        "with_human",
         "Balance & charge queries",
         0.95,
-        "Cited draft ready to send",
+        "No approved content covers this — handed to a person",
     ),
     (
         "apex",

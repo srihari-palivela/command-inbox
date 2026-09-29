@@ -16,3 +16,8 @@ __pycache__/
 .ruff_cache
 .mypy_cache
 models/
+
+# Terraform working state
+.terraform/
+*.tfstate
+*.tfstate.*

@@ -1083,6 +1083,10 @@ ORGS: list[Any] = [
         "tint": "#4B4EC8",
         "bg": "#EDECF9",
         "plan": "Enterprise",
+        "locale": "en-IN",
+        "currency": "INR",
+        "time_zone": "Asia/Kolkata",
+        "status": "live",
     },
     {
         "slug": "meridian",
@@ -1091,6 +1095,10 @@ ORGS: list[Any] = [
         "tint": "#1B6B49",
         "bg": "#E9F2EE",
         "plan": "Pilot",
+        "locale": "en-IN",
+        "currency": "INR",
+        "time_zone": "Asia/Kolkata",
+        "status": "live",
     },
     {
         "slug": "northwind",
@@ -1099,7 +1107,17 @@ ORGS: list[Any] = [
         "tint": "#8A6413",
         "bg": "#F6EEDF",
         "plan": "Trial",
+        "locale": "en-IN",
+        "currency": "INR",
+        "time_zone": "Asia/Kolkata",
+        "status": "live",
     },
+]
+
+OPERATORS: list[Any] = [
+    {"email": "owner@platform.example", "name": "Platform Owner", "role": "platform_owner"},
+    {"email": "ops@platform.example", "name": "Ops Engineer", "role": "operator"},
+    {"email": "support@platform.example", "name": "Support Analyst", "role": "support"},
 ]
 
 PEOPLE: list[Any] = [

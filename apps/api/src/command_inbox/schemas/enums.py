@@ -30,7 +30,7 @@ MailProvider = Literal["microsoft", "google", "imap", "dev"]
 MailboxState = Literal["streaming", "triage_only", "observe", "connecting", "error"]
 Health = Literal["ok", "warn", "bad"]
 GapSeverity = Literal["blocking", "stale", "unowned", "resolved"]
-NotificationKind = Literal["message", "learning"]
+NotificationKind = Literal["message", "learning", "alert"]
 KpiMetric = Literal["fr", "tat", "accept", "reopen", "auto", "csat", "cost", "awo"]
 ConnectorState = Literal["connected", "read_only", "suggest_only", "error"]
 KnowledgeKind = Literal["SharePoint", "Confluence", "Google Drive", "S3", "Upload"]
@@ -59,6 +59,7 @@ Capability = Literal[
     "evals.run",
     "members.manage",
     "rbac.manage",
+    "workspace.manage",
 ]
 DeploymentVersionState = Literal["draft", "shadow", "canary", "published", "retired"]
 EvalRunState = Literal["queued", "running", "passed", "failed", "error"]

@@ -5,7 +5,7 @@
 import type { AgentDTO, AgentsOverviewDTO } from '@ci/contracts';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
-import { inr, shortDate } from '../../../lib/format';
+import { money, shortDate } from '../../../lib/format';
 import { keys, useAction, useBoards } from '../../../lib/queries';
 import { Button, cx, Drawer, Eyebrow, Pill, Skeleton, TextArea } from '../../../ui';
 import { Calibration } from './Calibration';
@@ -67,7 +67,7 @@ function AgentBody({
         </div>
         <div className={s.stat}>
           <div className={s.statLbl}>Cost per 1k</div>
-          <div className={s.statVal}>{inr(agent.costPer1kMinor)}</div>
+          <div className={s.statVal}>{money(agent.costPer1kMinor)}</div>
         </div>
         <div className={s.stat}>
           <div className={s.statLbl}>Eval score</div>

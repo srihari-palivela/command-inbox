@@ -14,6 +14,8 @@ import type {
   DemoUserDTO,
   InboxDTO,
   KnowledgeDTO,
+  KnowledgeDocumentDetailDTO,
+  KnowledgeDocumentDTO,
   LearningDTO,
   MeDTO,
   NlFilterDTO,
@@ -61,6 +63,14 @@ export const queryClient = new QueryClient({
 
 export const keys = {
   me: ['me'] as const,
+  onboarding: ['onboarding'] as const,
+  mailboxConnections: ['mailbox-connections'] as const,
+  workspaceProfile: ['workspace', 'profile'] as const,
+  modelPolicy: ['workspace', 'model-policy'] as const,
+  operations: ['workspace', 'operations'] as const,
+  scim: ['workspace', 'scim'] as const,
+  taxonomyAdmin: ['taxonomy', 'admin'] as const,
+  slaPolicies: ['taxonomy', 'sla'] as const,
   demo: ['auth', 'demo'] as const,
   inbox: (filter: string) => ['inbox', filter] as const,
   inboxAll: ['inbox'] as const,
@@ -74,12 +84,15 @@ export const keys = {
   people: ['people'] as const,
   performance: ['insights', 'performance'] as const,
   results: ['insights', 'results'] as const,
+  monitoring: (days: number) => ['insights', 'monitoring', days] as const,
   learning: ['learning'] as const,
   boards: ['boards'] as const,
   agents: ['agents'] as const,
   actions: ['actions'] as const,
   policies: ['policies'] as const,
   knowledge: ['knowledge'] as const,
+  knowledgeDocs: ['knowledge', 'documents'] as const,
+  knowledgeDoc: (id: string) => ['knowledge', 'documents', id] as const,
   taxonomy: ['taxonomy'] as const,
   admin: ['admin'] as const,
   sessions: ['sessions'] as const,
@@ -121,7 +134,9 @@ export function useDemo() {
   return useQuery({
     queryKey: keys.demo,
     queryFn: () =>
-      api.get<{ demoMode: boolean; users: DemoUserDTO[]; orgs: OrgChoiceDTO[] }>('/v1/auth/demo'),
+      api.get<{ demoMode: boolean; sso: boolean; users: DemoUserDTO[]; orgs: OrgChoiceDTO[] }>(
+        '/v1/auth/demo',
+      ),
     staleTime: Infinity,
   });
 }
@@ -157,14 +172,11 @@ function dropAllButMe(qc: QueryClient) {
   qc.removeQueries({ predicate: (q) => q.queryKey[0] !== keys.me[0] });
 }
 
-/** Switching workspace or demo role changes everything: drop the whole cache. */
+/** Switching workspace changes everything: drop the whole cache. */
 export function useSessionSwitch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { orgId?: string; role?: 'staff' | 'lead' | 'admin' }) =>
-      v.orgId
-        ? api.post('/v1/session/org', { orgId: v.orgId })
-        : api.post('/v1/session/demo-role', { role: v.role }),
+    mutationFn: (v: { orgId: string }) => api.post('/v1/session/org', { orgId: v.orgId }),
     onSuccess: async () => {
       dropAllButMe(qc);
       const me = await api.get<MeDTO>('/v1/me');
@@ -231,6 +243,20 @@ export const usePolicies = () =>
   useQuery({ queryKey: keys.policies, queryFn: () => api.get<PoliciesDTO>('/v1/policies') });
 export const useKnowledge = () =>
   useQuery({ queryKey: keys.knowledge, queryFn: () => api.get<KnowledgeDTO>('/v1/knowledge') });
+/** Documents still being scanned or parsed are polled until they settle. */
+const IN_FLIGHT = new Set(['queued', 'scanning', 'parsing']);
+export const useKnowledgeDocuments = () =>
+  useQuery({
+    queryKey: keys.knowledgeDocs,
+    queryFn: () => api.get<KnowledgeDocumentDTO[]>('/v1/knowledge/documents'),
+    refetchInterval: (q) => (q.state.data?.some((d) => IN_FLIGHT.has(d.parseStatus)) ? 2500 : false),
+  });
+export const useKnowledgeDocument = (id: string | null) =>
+  useQuery({
+    queryKey: keys.knowledgeDoc(id ?? ''),
+    queryFn: () => api.get<KnowledgeDocumentDetailDTO>(`/v1/knowledge/documents/${id}`),
+    enabled: !!id,
+  });
 export const useTaxonomy = () =>
   useQuery({ queryKey: keys.taxonomy, queryFn: () => api.get<TaxonomyDTO>('/v1/taxonomy') });
 export const useAdmin = () =>

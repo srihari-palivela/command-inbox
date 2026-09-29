@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from command_inbox.core.clock import clock
 from command_inbox.db.engine import tenant_tx
-from command_inbox.db.models import AuditEvent, Job, Mailbox, Ticket
+from command_inbox.db.models import AuditEvent, Customer, Job, Mailbox, Ticket
 from command_inbox.domain.lane import LaneInputs, decide_lane
 from command_inbox.modules.intake.security import parse_authentication_results, sign
 from tests.integration.conftest import sign_in
@@ -77,7 +77,10 @@ async def test_signed_webhook_opens_a_ticket_and_queues_triage(anon, staff):
                 select(AuditEvent).where(AuditEvent.ticket_id == t.id, AuditEvent.action == "mail.received")
             )
         ).scalar_one()
+        sender = (await tx.execute(select(Customer).where(Customer.id == t.customer_id))).scalar_one()
     assert t.status == "triaging" and t.lane == "manual" and t.mailbox_id
+    # An unknown sender is unmatched: no invented customer number or tenure.
+    assert sender.cif is None and sender.since_year is None and sender.email == "ramesh@iyerexports.in"
     assert ev.summary == f"Mail from Ramesh Iyer to tradeops@bank.example opened QRY-{out['number']}"
     assert ev.data["senderAuth"]["verified"] is True
 
@@ -241,12 +244,14 @@ async def test_oauth_connects_the_mailbox_for_the_same_session(app, admin, oauth
     mb = await _mailbox_id(org, "grievance@bank.example")
     q = await _start(admin, mb)
     r = await admin.get("/v1/oauth/microsoft/callback", params={"code": "c1", "state": q["state"]})
-    assert r.status_code == 302 and r.headers["location"].endswith("/boards?connected=1")
+    assert r.status_code == 302 and r.headers["location"].endswith("/setup/mailboxes?connected=1")
     challenge = base64.urlsafe_b64encode(hashlib.sha256(oauth_env["verifier"].encode()).digest()).rstrip(b"=")
     assert challenge.decode() == q["code_challenge"]  # PKCE: the verifier sent matches the challenge
     async with tenant_tx(org) as tx:
         row = (await tx.execute(select(Mailbox).where(Mailbox.id == mb))).scalar_one()
-    assert row.state == "streaming" and row.credentials_enc and "at-c1" not in row.credentials_enc
+    # Sealed with the tenant's data key; the connect job takes it from here.
+    assert row.connection == "connecting" and row.provider_account == "grievance@bank.example"
+    assert row.credentials_enc.startswith("t1.") and "at-c1" not in row.credentials_enc
 
 
 async def test_oauth_state_from_another_session_or_provider_is_rejected(app, admin, lead, anon, oauth_env):

@@ -7,6 +7,7 @@ import { Button, Dot, EmptyState, Eyebrow, Loadable, Page, PageHeader, Skeleton 
 import { filtersToSearch } from '../tickets/filter-url';
 import { NewBoardWizard } from './NewBoardWizard';
 import s from './Boards.module.css';
+import { num } from '../../lib/format';
 
 export const BOARD_STATE: Record<BoardState, { word: string; fg: string; bg: string; dot: string }> = {
   live: { word: 'Live', fg: 'var(--ok)', bg: 'var(--ok-bg)', dot: 'var(--ok-dot)' },
@@ -38,7 +39,7 @@ function BoardCard({ b, i, onOpen }: { b: BoardDTO; i: number; onOpen: () => voi
       <dl className={s.stats}>
         <div>
           <dt>mails / day</dt>
-          <dd className="mono">{b.volume24h.toLocaleString('en-IN')}</dd>
+          <dd className="mono">{num(b.volume24h)}</dd>
         </div>
         <div>
           <dt>open now</dt>

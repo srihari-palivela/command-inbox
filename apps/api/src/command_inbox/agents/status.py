@@ -25,6 +25,7 @@ def reset() -> None:
     _open_until.clear()
 
 
-def llm_status() -> tuple[Literal["claude", "heuristic"], bool]:
-    provider: Literal["claude", "heuristic"] = "claude" if settings.use_claude else "heuristic"
+def llm_status() -> tuple[Literal["claude", "openai", "heuristic"], bool]:
+    default = settings.default_provider
+    provider: Literal["claude", "openai", "heuristic"] = "claude" if default == "anthropic" else default
     return provider, bool(degraded_sources())

@@ -7,10 +7,12 @@ Alembic owns the schema; change a table with a migration, then update the model 
 import datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     Double,
@@ -23,7 +25,7 @@ from sqlalchemy import (
     Uuid,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -166,7 +168,16 @@ class Agent(Base):
 
 class Alert(Base):
     __tablename__ = "alerts"
-    __table_args__ = (PrimaryKeyConstraint("id", name="alerts_pkey"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="alerts_pkey"),
+        Index(
+            "alerts_open_key_uq",
+            "org_id",
+            "key",
+            unique=True,
+            postgresql_where=text("resolved_at IS NULL AND key IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
@@ -183,6 +194,13 @@ class Alert(Base):
     )
     resolved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     resolved_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    # System-raised alerts: one open alert per condition (`key`), updated while it holds.
+    key: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'::text"))
+    ref: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
 
 
 class Approval(Base):
@@ -449,12 +467,12 @@ class Customer(Base):
         Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
-    cif: Mapped[str] = mapped_column(Text, nullable=False)
+    cif: Mapped[str | None] = mapped_column(Text)  # None: an unmatched sender, not linked to a customer yet
     name: Mapped[str] = mapped_column(Text, nullable=False)
     email: Mapped[str] = mapped_column(Text, nullable=False)
     phone: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
     segment: Mapped[str] = mapped_column(Text, nullable=False)
-    since_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    since_year: Mapped[int | None] = mapped_column(Integer)
     account: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
 
 
@@ -631,7 +649,18 @@ class Job(Base):
 
 class KnowledgeDoc(Base):
     __tablename__ = "knowledge_docs"
-    __table_args__ = (PrimaryKeyConstraint("id", name="knowledge_docs_pkey"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="knowledge_docs_pkey"),
+        UniqueConstraint("org_id", "id", name="knowledge_docs_org_id_id_uq"),
+        Index("knowledge_docs_checksum_idx", "org_id", "checksum"),
+        CheckConstraint(
+            "parse_status in ('none', 'queued', 'scanning', 'parsing', 'ready', 'failed', 'infected')",
+            name="knowledge_docs_parse_ck",
+        ),
+        CheckConstraint(
+            "av_status in ('not_scanned', 'clean', 'infected', 'error')", name="knowledge_docs_av_ck"
+        ),
+    )
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
@@ -645,6 +674,71 @@ class KnowledgeDoc(Base):
     source_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     department_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     verified_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    # Uploaded documents (migration 0009): version chain, the sealed original, parsing and approval.
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    replaces_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    checksum: Mapped[str | None] = mapped_column(Text)
+    filename: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    content_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    blob_sealed: Mapped[str | None] = mapped_column(Text)
+    parse_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'none'::text"))
+    parse_error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    av_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'not_scanned'::text"))
+    effective_from: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    uploaded_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    approved_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    approved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+EMBEDDING_DIM = 1024
+
+
+class KnowledgeChunk(Base):
+    """A retrievable piece of a document: full text (generated tsvector) and an embedding (pgvector)."""
+
+    __tablename__ = "knowledge_chunks"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="knowledge_chunks_pkey"),
+        Index("knowledge_chunks_doc_idx", "org_id", "doc_id", "ordinal"),
+        Index("knowledge_chunks_tsv_idx", "tsv", postgresql_using="gin"),
+        Index(
+            "knowledge_chunks_embedding_idx",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "doc_id"],
+            ["knowledge_docs.org_id", "knowledge_docs.id"],
+            name="knowledge_chunks_doc_fk",
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    doc_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    section_path: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    page: Mapped[int | None] = mapped_column(Integer)
+    text_: Mapped[str] = mapped_column("text", Text, nullable=False)
+    tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    tsv: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english'::regconfig, ((section_path || ' '::text) || text))", persisted=True),
+    )
+    embedding: Mapped[Any] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
 
 
 class KnowledgeSource(Base):
@@ -696,6 +790,15 @@ class Mailbox(Base):
         PrimaryKeyConstraint("id", name="mailboxes_pkey"),
         Index("mailboxes_org_address_uq", "org_id", "address", unique=True),
         Index("mailboxes_address_global_uq", text("lower(address)"), unique=True),
+        Index(
+            "mailboxes_stream_uq", "stream_id", unique=True, postgresql_where=text("stream_id is not null")
+        ),
+        UniqueConstraint("org_id", "id", name="mailboxes_org_id_id_uq"),
+        CheckConstraint(
+            "connection in ('not_connected', 'connecting', 'syncing', 'live', 'degraded', 'reauth_required', "
+            "'disconnected')",
+            name="mailboxes_connection_ck",
+        ),
         ForeignKeyConstraint(
             ["org_id", "deployment_id"],
             ["deployments.org_id", "deployments.id"],
@@ -721,6 +824,29 @@ class Mailbox(Base):
     department_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     credentials_enc: Mapped[str | None] = mapped_column(Text)
     last_sync_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    # The live connection (migration 0008). `state` above is the product mode (streaming, observe, ...).
+    connection: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'not_connected'::text")
+    )
+    connection_mode: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'delegated_oauth'::text")
+    )
+    provider_account: Mapped[str | None] = mapped_column(Text)
+    stream_id: Mapped[str | None] = mapped_column(Text)
+    stream_secret_hash: Mapped[str | None] = mapped_column(Text)
+    stream_expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    cursor: Mapped[str | None] = mapped_column(Text)
+    cursor_updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_message_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_notification_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_sweep_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    token_expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    last_error_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    lag_seconds: Mapped[int | None] = mapped_column(Integer)
+    send_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    last_test_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    last_test_ok_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
 
 class Message(Base):
@@ -742,6 +868,7 @@ class Message(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(True), nullable=False)
     provider_message_id: Mapped[str | None] = mapped_column(Text)
+    redacted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
 
 class NotificationRead(Base):
@@ -788,6 +915,17 @@ class Org(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="orgs_pkey"),
         UniqueConstraint("slug", name="orgs_slug_unique"),
+        CheckConstraint("currency ~ '^[A-Z]{3}$'", name="orgs_currency_iso4217"),
+        CheckConstraint(
+            "model_budget_monthly_minor IS NULL OR model_budget_monthly_minor >= 0",
+            name="orgs_model_budget_ck",
+        ),
+        CheckConstraint(
+            "status in ('draft', 'provisioning', 'provisioned', 'onboarding', 'shadow', 'assisted', 'live', "
+            "'suspended', 'archived')",
+            name="orgs_status_ck",
+        ),
+        ForeignKeyConstraint(["created_by_operator"], ["platform_operators.id"]),
     )
 
     id: Mapped[str] = mapped_column(
@@ -809,6 +947,96 @@ class Org(Base):
     sessions: Mapped[list["Session"]] = relationship("Session", back_populates="org")
     sso_idp_alias: Mapped[str | None] = mapped_column(Text)
     sso_email_domains: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    # How this tenant's people read numbers, money and times: BCP 47 locale, ISO 4217, IANA zone.
+    locale: Mapped[str] = mapped_column(Text, nullable=False)
+    currency: Mapped[str] = mapped_column(Text, nullable=False)
+    time_zone: Mapped[str] = mapped_column(Text, nullable=False)
+    # Lifecycle (platform console): draft → provisioning → provisioned → onboarding → shadow → assisted → live.
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    status_before_suspend: Mapped[str | None] = mapped_column(Text)
+    status_changed_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    legal_name: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    region: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    data_residency: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    support_email: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    limits: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_by_operator: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    # The admin's SSO connection: provider, directoryId, clientId, secretSealed, state, detail.
+    sso_config: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    # Model policy: which System 2 providers the bank's agreements allow, and the monthly spend cap.
+    allowed_providers: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{anthropic,openai}'::text[]")
+    )
+    model_budget_monthly_minor: Mapped[int | None] = mapped_column(BigInteger)
+    # Retention (days; null keeps) and SIEM streaming of the audit log.
+    retention_mail_days: Mapped[int | None] = mapped_column(Integer, server_default=text("730"))
+    retention_trace_days: Mapped[int | None] = mapped_column(Integer, server_default=text("180"))
+    siem_url: Mapped[str | None] = mapped_column(Text)
+    siem_secret_sealed: Mapped[str | None] = mapped_column(Text)
+    siem_cursor: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    siem_last_ok_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    siem_last_error: Mapped[str | None] = mapped_column(Text)
+    # SCIM: IdP group name → workspace role.
+    scim_group_roles: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    # Pilot targets, the pre-pilot baseline and the named Risk approvers (migration 0014).
+    pilot_settings: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
+class ModelSpend(Base):
+    """Model spend per workspace, calendar month (UTC) and provider, in the workspace's minor units."""
+
+    __tablename__ = "model_spend"
+    __table_args__ = (
+        PrimaryKeyConstraint("org_id", "month", "provider", name="model_spend_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="model_spend_org_id_fkey"),
+    )
+
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    month: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    spent_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    calls: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+class SlaPolicy(Base):
+    """A reply-time target; null priority or segment matches any, and the most specific match wins."""
+
+    __tablename__ = "sla_policies"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sla_policies_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="sla_policies_org_id_fkey"),
+        CheckConstraint(
+            "priority IS NULL OR priority IN ('P1', 'P2', 'P3', 'P4')", name="sla_policies_priority_ck"
+        ),
+        CheckConstraint("minutes BETWEEN 5 AND 43200", name="sla_policies_minutes_ck"),
+        UniqueConstraint(
+            "org_id",
+            "priority",
+            "segment",
+            "escalation",
+            name="sla_policies_match_uq",
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[str | None] = mapped_column(Text)
+    segment: Mapped[str | None] = mapped_column(Text)
+    escalation: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sort: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
 
 
 class OutboxEvent(Base):
@@ -1171,6 +1399,11 @@ class Membership(Base):
     joined_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
     )
+    # How they joined ('invitation' or 'scim') and the identity provider's id for them (SCIM externalId).
+    external_id: Mapped[str | None] = mapped_column(Text)
+    provisioned_by: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'invitation'::text")
+    )
 
     org: Mapped["Org"] = relationship("Org", back_populates="memberships")
     user: Mapped["User"] = relationship("User", back_populates="memberships")
@@ -1248,8 +1481,15 @@ class Invitation(Base):
             postgresql_where=text("accepted_at is null and revoked_at is null"),
         ),
         CheckConstraint("email = lower(email)", name="invitations_email_lower_ck"),
+        CheckConstraint(
+            "invited_by is not null or invited_by_operator is not null", name="invitations_inviter_ck"
+        ),
+        Index(
+            "invitations_token_uq", "token_hash", unique=True, postgresql_where=text("token_hash is not null")
+        ),
         ForeignKeyConstraint(["org_id"], ["orgs.id"], name="invitations_org_fk"),
         ForeignKeyConstraint(["invited_by"], ["users.id"], name="invitations_invited_by_fk"),
+        ForeignKeyConstraint(["invited_by_operator"], ["platform_operators.id"]),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1258,13 +1498,19 @@ class Invitation(Base):
     org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
     email: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(Text, nullable=False)
-    invited_by: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    invited_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
     )
     expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(True), nullable=False)
     accepted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    # SHA-256 of the single-use token in the emailed link; null for invitations accepted by SSO domain only.
+    token_hash: Mapped[str | None] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    invited_by_operator: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    sent_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    send_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
 
 # Deployments: a tenant runs several mailbox categorisations side by side, each with its own taxonomy,
@@ -1405,6 +1651,14 @@ class EvalCase(Base):
             ondelete="CASCADE",
         ),
         CheckConstraint("split in ('calibration', 'test')", name="eval_cases_split_ck"),
+        Index(
+            "eval_cases_ticket_uq",
+            "org_id",
+            "dataset_id",
+            "ticket_id",
+            unique=True,
+            postgresql_where=text("ticket_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1421,6 +1675,8 @@ class EvalCase(Base):
     )
     # Temperature and conformal threshold are fitted on `calibration`; gates are scored on `test` only.
     split: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'test'::text"))
+    # The real mail a labelled case came from (its text is stored masked); once per dataset.
+    ticket_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     # Cases are archived, never deleted, so past runs keep their evidence.
     archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
@@ -1456,6 +1712,8 @@ class EvalRun(Base):
     metrics: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     gates: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     engine: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    # System 2 pinned to one provider for a comparison; null: the configuration's own providers.
+    provider: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
@@ -1497,3 +1755,392 @@ class EvalResult(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     trace_id: Mapped[str | None] = mapped_column(Text)
     split: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'test'::text"))
+
+
+# ── Platform (operators; cross-tenant, outside tenant RLS: tenants are referenced as tenant_id) ───────────
+
+
+class PlatformOperator(Base):
+    __tablename__ = "platform_operators"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="platform_operators_pkey"),
+        UniqueConstraint("email", name="platform_operators_email_uq"),
+        UniqueConstraint("idp_subject", name="platform_operators_subject_uq"),
+        CheckConstraint("email = lower(email)", name="platform_operators_email_lower_ck"),
+        CheckConstraint(
+            "role in ('platform_owner', 'operator', 'support')", name="platform_operators_role_ck"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    idp_subject: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    last_login_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    disabled_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+class PlatformSession(Base):
+    __tablename__ = "platform_sessions"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="platform_sessions_pkey"),
+        UniqueConstraint("token_hash", name="platform_sessions_token_uq"),
+        ForeignKeyConstraint(["operator_id"], ["platform_operators.id"], ondelete="CASCADE"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    operator_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    csrf_token: Mapped[str] = mapped_column(Text, nullable=False)
+    ip: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    user_agent: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    last_seen_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(True), nullable=False)
+    revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+class PlatformAuditEvent(Base):
+    __tablename__ = "platform_audit_events"
+    __table_args__ = (
+        PrimaryKeyConstraint("seq", name="platform_audit_events_pkey"),
+        Index("platform_audit_tenant_idx", "tenant_id", "seq"),
+    )
+
+    seq: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    at: Mapped[datetime.datetime] = mapped_column(DateTime(True), nullable=False)
+    operator_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    operator_email: Mapped[str] = mapped_column(Text, nullable=False)
+    action: Mapped[str] = mapped_column(Text, nullable=False)
+    tenant_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    data: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    prev_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    hash: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class TenantProvisioning(Base):
+    __tablename__ = "tenant_provisioning"
+    __table_args__ = (
+        PrimaryKeyConstraint("tenant_id", "step", name="tenant_provisioning_pkey"),
+        CheckConstraint(
+            "state in ('pending', 'running', 'done', 'skipped', 'failed')",
+            name="tenant_provisioning_state_ck",
+        ),
+        ForeignKeyConstraint(["tenant_id"], ["orgs.id"], ondelete="CASCADE"),
+    )
+
+    tenant_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
+    step: Mapped[str] = mapped_column(Text, primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'::text"))
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    detail: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+class TenantKey(Base):
+    __tablename__ = "tenant_keys"
+    __table_args__ = (
+        PrimaryKeyConstraint("tenant_id", "version", name="tenant_keys_pkey"),
+        CheckConstraint("state in ('active', 'retired', 'destroyed')", name="tenant_keys_state_ck"),
+        CheckConstraint("(state = 'destroyed') = (wrapped_key is null)", name="tenant_keys_destroyed_ck"),
+        Index(
+            "tenant_keys_one_active_uq", "tenant_id", unique=True, postgresql_where=text("state = 'active'")
+        ),
+        ForeignKeyConstraint(["tenant_id"], ["orgs.id"], ondelete="CASCADE"),
+    )
+
+    tenant_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kek_ref: Mapped[str] = mapped_column(Text, nullable=False)
+    wrapped_key: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'::text"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    destroyed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+class EmailMessage(Base):
+    __tablename__ = "email_messages"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="email_messages_pkey"),
+        CheckConstraint("state in ('queued', 'sent', 'logged', 'failed')", name="email_messages_state_ck"),
+        Index("email_messages_tenant_idx", "tenant_id", "created_at"),
+        ForeignKeyConstraint(["tenant_id"], ["orgs.id"], ondelete="SET NULL"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    tenant_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    template: Mapped[str] = mapped_column(Text, nullable=False)
+    to_addr: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    body_sealed: Mapped[str | None] = mapped_column(Text)  # AES-GCM sealed; dropped once sent
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'queued'::text"))
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    last_error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    provider_message_id: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    sent_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+# ── Mail connectors (migration 0008) ────────────────────────────────────────────────────────────────
+
+
+class MailMessage(Base):
+    """Every provider message we saw, once per mailbox, and what we did with it."""
+
+    __tablename__ = "mail_messages"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_messages_pkey"),
+        Index("mail_messages_provider_uq", "org_id", "mailbox_id", "provider_message_id", unique=True),
+        Index("mail_messages_internet_idx", "org_id", "internet_message_id"),
+        Index("mail_messages_conversation_idx", "org_id", "mailbox_id", "conversation_id"),
+        CheckConstraint(
+            "outcome in ('ticket', 'thread', 'test', 'skipped_auto_reply', 'skipped_bounce', 'skipped_loop', "
+            "'skipped_own', 'quarantined', 'error')",
+            name="mail_messages_outcome_ck",
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "mailbox_id"],
+            ["mailboxes.org_id", "mailboxes.id"],
+            name="mail_messages_mailbox_fk",
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    mailbox_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    provider_message_id: Mapped[str] = mapped_column(Text, nullable=False)
+    internet_message_id: Mapped[str | None] = mapped_column(Text)
+    conversation_id: Mapped[str | None] = mapped_column(Text)
+    in_reply_to: Mapped[str | None] = mapped_column(Text)
+    references_: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    from_addr: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    from_name: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    to_addrs: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    cc_addrs: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    subject: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    received_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    auth: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    raw_sealed: Mapped[str | None] = mapped_column(Text)
+    raw_size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    body_text: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    redacted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    direction: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'inbound'::text"))
+    flags: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    ticket_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+class MailAttachment(Base):
+    __tablename__ = "mail_attachments"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_attachments_pkey"),
+        Index("mail_attachments_message_idx", "org_id", "message_id"),
+        CheckConstraint(
+            "av_status in ('not_scanned', 'pending', 'clean', 'infected', 'error')",
+            name="mail_attachments_av_ck",
+        ),
+        ForeignKeyConstraint(["message_id"], ["mail_messages.id"], ondelete="CASCADE"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    message_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    provider_attachment_id: Mapped[str] = mapped_column(Text, nullable=False)
+    filename: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'application/octet-stream'::text")
+    )
+    size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    is_inline: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    av_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'not_scanned'::text"))
+
+
+class MailSyncEvent(Base):
+    __tablename__ = "mail_sync_events"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_sync_events_pkey"),
+        Index("mail_sync_events_mailbox_idx", "org_id", "mailbox_id", text("at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    mailbox_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    ok: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    detail: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
+class MailSendIntent(Base):
+    """An approved reply to send, recorded before the provider is called (no double send on retry)."""
+
+    __tablename__ = "mail_send_intents"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mail_send_intents_pkey"),
+        Index("mail_send_intents_source_uq", "org_id", "source", "source_id", unique=True),
+        CheckConstraint(
+            "state in ('pending', 'drafted', 'sent', 'failed')", name="mail_send_intents_state_ck"
+        ),
+        CheckConstraint("source in ('draft', 'reply')", name="mail_send_intents_source_ck"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    mailbox_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    ticket_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    reply_to_provider_id: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'::text"))
+    provider_draft_id: Mapped[str | None] = mapped_column(Text)
+    provider_message_id: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    sent_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+class ScimToken(Base):
+    __tablename__ = "scim_tokens"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="scim_tokens_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="scim_tokens_org_id_fkey"),
+        Index("scim_tokens_hash_uq", "token_hash", unique=True),
+        Index("scim_tokens_active_uq", "org_id", unique=True, postgresql_where=text("revoked_at IS NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    last_used_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+class ScimGroup(Base):
+    __tablename__ = "scim_groups"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="scim_groups_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="scim_groups_org_id_fkey"),
+        Index("scim_groups_name_uq", "org_id", text("lower(display_name)"), unique=True),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    external_id: Mapped[str | None] = mapped_column(Text)
+    members: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+class PilotStageRequest(Base):
+    __tablename__ = "pilot_stage_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('pending', 'approved', 'rejected', 'withdrawn')", name="pilot_stage_requests_state_ck"
+        ),
+        PrimaryKeyConstraint("id", name="pilot_stage_requests_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="pilot_stage_requests_org_id_fkey"),
+        Index(
+            "pilot_stage_requests_pending_uq",
+            "org_id",
+            unique=True,
+            postgresql_where=text("state = 'pending'::text"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    from_stage: Mapped[str] = mapped_column(Text, nullable=False)
+    to_stage: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'::text"))
+    requested_by: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    requested_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    decided_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    decided_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    decision_note: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+
+
+class PilotIncident(Base):
+    __tablename__ = "pilot_incidents"
+    __table_args__ = (
+        CheckConstraint("severity IN ('P1', 'P2', 'P3', 'P4')", name="pilot_incidents_severity_ck"),
+        CheckConstraint(
+            "kind IN ('hard_stop_miss', 'wrong_reply', 'data_exposure', 'outage', 'other')",
+            name="pilot_incidents_kind_ck",
+        ),
+        PrimaryKeyConstraint("id", name="pilot_incidents_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="pilot_incidents_org_id_fkey"),
+        Index("pilot_incidents_org_opened_idx", "org_id", text("opened_at DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    severity: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    ticket_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    opened_by: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    opened_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    resolved_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    resolved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    resolution: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))

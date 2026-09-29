@@ -4,16 +4,17 @@
  */
 import type { AgentsOverviewDTO } from '@ci/contracts';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { inr, lakhs } from '../../lib/format';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAgents, useMe } from '../../lib/queries';
 import { Button, cx, EmptyState, Loadable, Meter, Page, PageHeader, Skeleton } from '../../ui';
+import { Notice } from '../admin/bits';
 import { AgentDrawer } from './agents/AgentDrawer';
 import { FeedbackStore } from './agents/FeedbackStore';
 import { boardList, evalColor, isGuard, stateLine } from './agents/model';
 import { NewAgentWizard } from './agents/NewAgentWizard';
 import { isForbidden, NoAccess } from './agents/NoAccess';
 import s from './agents/agents.module.css';
+import { money, moneyCompact } from '../../lib/format';
 
 export default function AgentsScreen() {
   const q = useAgents();
@@ -80,7 +81,7 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
           actions={
             <>
               <div className={s.spend}>
-                <div className={s.spendVal}>{lakhs(data.spendMonthMinor)}</div>
+                <div className={s.spendVal}>{moneyCompact(data.spendMonthMinor)}</div>
                 <div className={s.spendLbl}>spend this month</div>
               </div>
               <Button
@@ -96,6 +97,12 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
           }
         />
       </div>
+      <Notice>
+        What runs on mail is set per deployment: open a deployment and its <b>Agents</b> tab to choose the
+        provider, model and instructions for each step, and try them on the test bench. The agents below fill
+        in wherever a deployment leaves a step's settings blank.{' '}
+        <Link to="/admin/deployments">Deployments →</Link>
+      </Notice>
 
       <div className={s.chips} aria-label="Agents by template">
         {counts.map((c) => (
@@ -150,7 +157,7 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
               <span className={cx(s.boards, s.ellipsis)} title={a.boards.map((b) => b.name).join(', ')}>
                 {boardList(a.boards)}
               </span>
-              <span className={s.cost}>{inr(a.costPer1kMinor)}</span>
+              <span className={s.cost}>{money(a.costPer1kMinor)}</span>
               <span className={s.evalCell}>
                 <Meter
                   pct={a.evalScore ?? 0}

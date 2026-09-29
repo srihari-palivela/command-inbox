@@ -18,11 +18,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from command_inbox.agents.budget import monthly_remaining, record_spend
 from command_inbox.agents.config import DeploymentConfig
 from command_inbox.agents.decision import ResilientEngine, engine_from_settings
 from command_inbox.agents.flow import CategoryMeta, DocRow, RunDeps, TemplateRow, compile_flow, run_flow
 from command_inbox.agents.flow.nodes import LANE_NAME
 from command_inbox.agents.providers import AgentSpec, ProviderRouter
+from command_inbox.agents.specs import agent_specs, catalogue_agent
 from command_inbox.agents.synthesis import FALLBACK_NAME, synthesise_config
 from command_inbox.agents.tracing import flush, run_span, set_output
 from command_inbox.core import jobs, outbox
@@ -62,6 +64,7 @@ from command_inbox.db.models import (
 )
 from command_inbox.domain.sla import sla_budget
 from command_inbox.modules.people.routing import pick_assignee
+from command_inbox.modules.taxonomy.sla import load_sla_rules
 from command_inbox.modules.tickets.ops import (
     lock_ticket,
     next_number,
@@ -108,14 +111,117 @@ async def _deployment_config(
     return config, str(version.id), str(version.deployment_id), label
 
 
-def _pick_agent(rows: list[Agent], on_board: set[str], role: str) -> AgentSpec | None:
-    candidates = [a for a in rows if a.role == role and a.state != "paused"]
-    pick = next((a for a in candidates if str(a.id) in on_board), None) or (
-        candidates[0] if candidates else None
+@dataclass(slots=True)
+class Workspace:
+    """What every run in a workspace reads besides the mail: policy, routing, agents, knowledge."""
+
+    org: Org
+    allowed_providers: list[str]
+    month_left: int | None
+    sla_rules: tuple[Any, ...]
+    depts: dict[str, str]
+    qts: list[QueryType]
+    catalogue: dict[str, AgentSpec]
+    templates: dict[str, TemplateRow]
+    dial: dict[str, int]
+    docs: list[DocRow]
+
+    def router(self, config: DeploymentConfig, *, primary: Any = None) -> ProviderRouter:
+        return ProviderRouter(
+            primary,
+            budget_minor=config.models.max_cost_minor_per_mail,
+            allowed=self.allowed_providers,
+            monthly_remaining_minor=self.month_left,
+        )
+
+
+async def load_workspace(tx: AsyncSession, org_id: str, board_id: str | None = None) -> Workspace:
+    org = (await tx.execute(select(Org).where(Org.id == org_id))).scalar_one()
+    allowed_providers = list(org.allowed_providers or [])
+    month_left = await monthly_remaining(tx, org)
+    sla_rules = await load_sla_rules(tx, org_id)
+    depts = {
+        str(d.id): d.name
+        for d in (await tx.execute(select(Department).where(Department.org_id == org_id))).scalars()
+    }
+    qts = list(
+        (
+            await tx.execute(select(QueryType).where(QueryType.org_id == org_id).order_by(QueryType.sort))
+        ).scalars()
     )
-    if pick is None:
-        return None
-    return AgentSpec(pick.name, pick.model, pick.prompt, pick.cost_per_1k_minor)
+    agent_rows = list((await tx.execute(select(Agent).where(Agent.org_id == org_id))).scalars())
+    on_board: set[str] = set()
+    if board_id:
+        on_board = {
+            str(a)
+            for a in (
+                await tx.execute(
+                    select(AgentBoard.agent_id).where(
+                        AgentBoard.org_id == org_id, AgentBoard.board_id == board_id
+                    )
+                )
+            ).scalars()
+        }
+    templates = {
+        r.code: TemplateRow(str(r.id), r.code, r.name, r.reversible, r.money_moves, r.approval)
+        for r in (await tx.execute(select(ActionTemplate).where(ActionTemplate.org_id == org_id))).scalars()
+    }
+    dial = {
+        r.cell: r.level
+        for r in (await tx.execute(select(AutonomyDial).where(AutonomyDial.org_id == org_id))).scalars()
+    }
+    catalogue = {
+        role: spec
+        for role in ("guard", "bucketer", "adjudicator", "extractor", "drafter", "summariser", "ranker")
+        if (spec := catalogue_agent(agent_rows, on_board, role)) is not None
+    }
+    docs = [
+        DocRow(
+            str(d.id),
+            d.title,
+            d.section,
+            d.body,
+            d.owner,
+            str(d.department_id) if d.department_id else None,
+            d.verified_at,
+        )
+        for d in (
+            await tx.execute(
+                select(KnowledgeDoc).where(
+                    KnowledgeDoc.org_id == org_id, KnowledgeDoc.status.in_(("approved", "stale"))
+                )
+            )
+        ).scalars()
+    ]
+    return Workspace(
+        org, allowed_providers, month_left, sla_rules, depts, qts, catalogue, templates, dial, docs
+    )
+
+
+def build_categories(
+    config: DeploymentConfig, depts: dict[str, str], qts: list[QueryType], qt_by_key: dict[str, str]
+) -> dict[str, CategoryMeta]:
+    """Each category's query type, owning team and routing, matched by id (synthesised), else by name."""
+    dept_by_name = {v: k for k, v in depts.items()}
+    qt_by_name = {q.name: q for q in qts}
+    categories: dict[str, CategoryMeta] = {}
+    for c in config.taxonomy.categories:
+        if c.key == config.taxonomy.fallback:
+            categories[c.key] = CategoryMeta(c, None, None, None, False, FALLBACK_NAME, is_fallback=True)
+            continue
+        qt = next((q for q in qts if str(q.id) == qt_by_key.get(c.key)), None) or qt_by_name.get(c.name)
+        dept_id = str(qt.department_id) if qt and qt.department_id else None
+        if qt is None:
+            dept_id = dept_by_name.get(c.department)
+        categories[c.key] = CategoryMeta(
+            category=c,
+            query_type_id=str(qt.id) if qt else None,
+            department_id=dept_id,
+            department_name=depts.get(dept_id or ""),
+            owned=dept_id is not None,
+            bucket=qt.name if qt else c.name,
+        )
+    return categories
 
 
 async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded | None:
@@ -140,39 +246,7 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
             .scalars()
             .all()
         )
-        org = (await tx.execute(select(Org).where(Org.id == org_id))).scalar_one()
-        depts = {
-            str(d.id): d.name
-            for d in (await tx.execute(select(Department).where(Department.org_id == org_id))).scalars()
-        }
-        qts = list(
-            (
-                await tx.execute(select(QueryType).where(QueryType.org_id == org_id).order_by(QueryType.sort))
-            ).scalars()
-        )
-        agent_rows = list((await tx.execute(select(Agent).where(Agent.org_id == org_id))).scalars())
-        on_board: set[str] = set()
-        if t.board_id:
-            on_board = {
-                str(a)
-                for a in (
-                    await tx.execute(
-                        select(AgentBoard.agent_id).where(
-                            AgentBoard.org_id == org_id, AgentBoard.board_id == t.board_id
-                        )
-                    )
-                ).scalars()
-            }
-        templates = {
-            r.code: TemplateRow(str(r.id), r.code, r.name, r.reversible, r.money_moves, r.approval)
-            for r in (
-                await tx.execute(select(ActionTemplate).where(ActionTemplate.org_id == org_id))
-            ).scalars()
-        }
-        dial = {
-            r.cell: r.level
-            for r in (await tx.execute(select(AutonomyDial).where(AutonomyDial.org_id == org_id))).scalars()
-        }
+        w = await load_workspace(tx, org_id, t.board_id)
         prior: list[Any] = []
         customer = None
         if t.customer_id:
@@ -186,24 +260,6 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
                 ).scalars()
             )
             customer = await tx.get(Customer, t.customer_id)
-        docs = [
-            DocRow(
-                str(d.id),
-                d.title,
-                d.section,
-                d.body,
-                d.owner,
-                str(d.department_id) if d.department_id else None,
-                d.verified_at,
-            )
-            for d in (
-                await tx.execute(
-                    select(KnowledgeDoc).where(
-                        KnowledgeDoc.org_id == org_id, KnowledgeDoc.status.in_(("approved", "stale"))
-                    )
-                )
-            ).scalars()
-        ]
         found = await _deployment_config(tx, t)
         qt_by_key: dict[str, str] = {}
         if found is None:
@@ -214,9 +270,9 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
                 (await tx.execute(select(PriorityRule).where(PriorityRule.org_id == org_id))).scalars()
             )
             syn = synthesise_config(
-                confidence_bar=org.confidence_bar,
-                departments=depts,
-                query_types=qts,
+                confidence_bar=w.org.confidence_bar,
+                departments=w.depts,
+                query_types=w.qts,
                 bucket_rules=bucket_rules,
                 priority_rules=priority_rules,
             )
@@ -225,36 +281,8 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         else:
             config, version_id, deployment_id, label = found
 
-    dept_by_name = {v: k for k, v in depts.items()}
-    qt_by_name = {q.name: q for q in qts}
-    categories: dict[str, CategoryMeta] = {}
-    for c in config.taxonomy.categories:
-        if c.key == config.taxonomy.fallback:
-            categories[c.key] = CategoryMeta(c, None, None, None, False, FALLBACK_NAME, is_fallback=True)
-            continue
-        qt = next((q for q in qts if str(q.id) == qt_by_key.get(c.key)), None) or qt_by_name.get(c.name)
-        dept_id = str(qt.department_id) if qt and qt.department_id else None
-        if qt is None:
-            dept_id = dept_by_name.get(c.department)
-        categories[c.key] = CategoryMeta(
-            category=c,
-            query_type_id=str(qt.id) if qt else None,
-            department_id=dept_id,
-            department_name=depts.get(dept_id or ""),
-            owned=dept_id is not None,
-            bucket=qt.name if qt else c.name,
-        )
-
-    agents = {
-        role: spec
-        for role in ("guard", "bucketer", "adjudicator", "extractor", "drafter", "summariser", "ranker")
-        if (spec := _pick_agent(agent_rows, on_board, role)) is not None
-    }
-    if config.models.system2_model:
-        agents = {
-            r: AgentSpec(a.name, config.models.system2_model, a.prompt, a.cost_per_1k_minor)
-            for r, a in agents.items()
-        }
+    categories = build_categories(config, w.depts, w.qts, qt_by_key)
+    agents = agent_specs(config, w.catalogue)
     prior_same = sum(1 for q in prior if q and q == t.query_type_id)
     # Intake's DKIM/SPF/DMARC verdict: the job payload, else what the ticket recorded (re-runs).
     if "senderVerified" in payload:
@@ -265,14 +293,18 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         config=config,
         deployment=label,
         engine=ResilientEngine(engine_from_settings()),
-        providers=ProviderRouter(budget_minor=config.models.max_cost_minor_per_mail),
+        providers=w.router(config),
         ticket_id=str(t.id),
         org_id=org_id,
         subject=t.subject,
         messages=[(m.from_name, m.body) for m in msgs],
         sender_email=t.from_email,
         customer_name=t.from_name,
-        customer_facts=f"{customer.name} · {customer.cif}" if customer else None,
+        customer_facts=(
+            f"{customer.name} · {customer.cif or 'unmatched sender, no customer record'}"
+            if customer
+            else None
+        ),
         segment=t.segment,
         ticket_priority=t.priority,
         received_at=t.received_at,
@@ -280,12 +312,14 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         prior_contacts=len(prior),
         prior_same_topic=prior_same,
         categories=categories,
-        templates=templates,
-        dial=dial,
-        docs=docs,
+        templates=w.templates,
+        dial=w.dial,
+        docs=w.docs,
         agents=agents,
         sender_verified=sender_verified,
         force_lane=payload.get("forceLane") if payload.get("forceLane") in LANE_NAME else None,
+        retrieve=_retriever(org_id),
+        sla_rules=w.sla_rules,
     )
     bucketer = agents.get("bucketer")
     return Loaded(
@@ -319,6 +353,7 @@ async def run_triage_job(job: JobRow) -> None:
             },
         )
     flush()
+    await record_spend(job.org_id, deps.providers)
     lane = await commit(job, loaded, dict(state), int((time.perf_counter() - started) * 1000))
     if lane:
         lane_decisions.labels(deps.deployment, lane).inc()
@@ -393,6 +428,29 @@ def _reasoning(
     return " ".join(parts)
 
 
+def _retriever(org_id: str) -> Any:
+    async def retrieve_rows(query: str, department_id: str | None) -> list[DocRow]:
+        from command_inbox.knowledge.retrieve import retrieve
+
+        async with tenant_tx(org_id) as tx:
+            hits = await retrieve(tx, org_id, query, department_id=department_id, k=6)
+        return [
+            DocRow(
+                h.doc_id,
+                h.title,
+                h.section,
+                h.text,
+                h.owner,
+                h.department_id,
+                h.verified_at,
+                chunk_id=h.chunk_id,
+            )
+            for h in hits
+        ]
+
+    return retrieve_rows
+
+
 async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: int) -> str | None:
     deps = loaded.deps
     org_id = job.org_id
@@ -421,7 +479,8 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
     escalation = bool(guard.get("regulator_named") or guard.get("repeat_contact"))
     bucket = meta.bucket if meta else FALLBACK_NAME
     spans = list(state.get("spans") or [])
-    grounding = [d for d in deps.docs if not department_id or d.department_id == department_id][:6]
+    # Exactly the passages the draft was written from (citation numbers index into this list).
+    grounding = list(state.get("grounding") or [])
 
     async with tenant_tx(org_id) as tx:
         locked = await lock_ticket(tx, org_id, ticket_id)
@@ -569,6 +628,7 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
                     {
                         "n": i + 1,
                         "docId": g.id,
+                        "chunkId": g.chunk_id,
                         "doc": g.title,
                         "section": g.section,
                         "verifiedAt": iso_ms(g.verified_at or clock.now()),
@@ -706,7 +766,7 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
                 tx, org_id, ticket_id, f"Assigned to {assignee['name']} — {assignee['reason']}."
             )
 
-        sla_minutes = sla_budget(priority, locked.segment, escalation)
+        sla_minutes = sla_budget(priority, locked.segment, escalation, deps.sla_rules)
         patch: dict[str, Any] = {
             "lane": lane,
             "original_lane": locked.original_lane if deps.force_lane else lane,
@@ -762,6 +822,10 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
                 "configHash": loaded.config_hash,
                 "predictionSet": choice.get("prediction_set") or [],
                 "escalated": bool(choice.get("escalate")),
+                # The AI's own answer, kept immutable for the pilot's shadow comparison.
+                "category": meta.category.key if meta and not meta.is_fallback else None,
+                "bucket": bucket,
+                "hardStop": guard.get("stop") or None,
             },
             feed=Feed("stop", f"QRY-{locked.number} · hard stop") if guard.get("stop") else None,
         )
@@ -845,7 +909,7 @@ async def handle_final_failure(job: JobRow) -> None:
             return
         t = await lock_ticket(tx, job.org_id, ticket_id)
         note = "AI unavailable — handed to a person with the raw thread"
-        sla_minutes = sla_budget(t.priority, t.segment)
+        sla_minutes = sla_budget(t.priority, t.segment, rules=await load_sla_rules(tx, job.org_id))
         t = await update_ticket(
             tx,
             t,

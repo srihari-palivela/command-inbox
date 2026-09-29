@@ -31,6 +31,7 @@ import {
   useInlineAction,
 } from './bits';
 import { asConfig, listFromText, shortHash } from './model';
+import { LabellingQueue } from './evals/LabellingQueue';
 import s from './admin.module.css';
 
 type SplitFilter = 'all' | EvalSplit;
@@ -91,6 +92,7 @@ function Dataset({ d }: { d: EvalDatasetDTO }) {
     );
   const [editing, setEditing] = useState<EvalCaseDTO | 'new' | null>(null);
   const [archiving, setArchiving] = useState<EvalCaseDTO | null>(null);
+  const [labelling, setLabelling] = useState(false);
   const archive = useInlineAction((c: EvalCaseDTO) => api.del(`/v1/evals/cases/${c.id}`), {
     invalidate: [keys.evals],
     success: 'Case archived. Earlier runs keep it as evidence.',
@@ -104,13 +106,17 @@ function Dataset({ d }: { d: EvalDatasetDTO }) {
           subtitle={d.description || undefined}
           actions={
             canRun ? (
-              <Button variant="dark" onClick={() => setEditing('new')}>
-                + Add case
-              </Button>
+              <>
+                {d.deploymentId && <Button onClick={() => setLabelling(true)}>Label real mail</Button>}
+                <Button variant="dark" onClick={() => setEditing('new')}>
+                  + Add case
+                </Button>
+              </>
             ) : undefined
           }
         />
       </div>
+      {labelling && <LabellingQueue datasetId={d.id} open onClose={() => setLabelling(false)} />}
       <div className={s.filters} style={{ marginBottom: 12 }} role="group" aria-label="Split">
         <Chip on={split === 'all'} count={d.cases} onClick={() => setSplit('all')}>
           All

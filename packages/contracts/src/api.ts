@@ -32,9 +32,6 @@ export type LoginBody = z.infer<typeof LoginBody>;
 export const SwitchOrgBody = z.object({ orgId: z.string().uuid() });
 export type SwitchOrgBody = z.infer<typeof SwitchOrgBody>;
 
-export const DemoRoleBody = z.object({ role: z.enum(['staff', 'lead', 'admin']) });
-export type DemoRoleBody = z.infer<typeof DemoRoleBody>;
-
 export const SettingsBody = z.object({
   prefs: z.record(z.string(), z.boolean()).optional(),
   signature: z.string().max(2000).optional(),
@@ -273,7 +270,12 @@ export const EvalCaseBody = z.object({
     body: z.string().max(20000),
     fromEmail: z.string().trim().toLowerCase().email().optional(),
   }),
-  expected: z.object({ category: key, hardStop: z.boolean().default(false) }),
+  expected: z.object({
+    category: key,
+    hardStop: z.boolean().default(false),
+    lane: z.enum(['draft', 'manual']).nullable().optional(),
+    draftAcceptable: z.boolean().nullable().optional(),
+  }),
   split: EvalSplit.default('test'),
   tags: z.array(z.string().max(40)).max(20).default([]),
 });
@@ -285,6 +287,8 @@ export type EvalCasesBody = z.infer<typeof EvalCasesBody>;
 export const StartEvalRunBody = z.object({
   deploymentVersionId: z.string().uuid(),
   datasetId: z.string().uuid(),
+  /** Pin System 2 to one provider to compare providers; such a run does not count for publishing. */
+  provider: z.enum(['anthropic', 'openai']).nullable().optional(),
 });
 export type StartEvalRunBody = z.infer<typeof StartEvalRunBody>;
 
@@ -307,3 +311,167 @@ export const PermissionOverridesBody = z.object({
     .max(100),
 });
 export type PermissionOverridesBody = z.infer<typeof PermissionOverridesBody>;
+
+// ── Workspace (organisation profile and single sign-on) ──────────────────────
+export const WorkspaceProfileBody = z.object({
+  legalName: trimmed(200),
+  supportEmail: z.string().trim().toLowerCase().email().or(z.literal('')),
+  locale: z
+    .string()
+    .trim()
+    .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/),
+  currency: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]{3}$/),
+  timeZone: trimmed(64),
+});
+export type WorkspaceProfileBody = z.infer<typeof WorkspaceProfileBody>;
+
+export const WorkspaceSsoBody = z.object({
+  provider: z.enum(['entra', 'google']),
+  directoryId: trimmed(120),
+  clientId: trimmed(200),
+  /** Omit to keep the stored secret. */
+  clientSecret: z.string().min(8).max(500).optional(),
+});
+export type WorkspaceSsoBody = z.infer<typeof WorkspaceSsoBody>;
+
+// ── Mailbox connections ─────────────────────────────────────────────────────────
+export const CreateMailboxBody = z.object({
+  address: z.string().trim().toLowerCase().email(),
+  provider: z.enum(['microsoft', 'google']),
+  teamLabel: z.string().trim().max(80).default(''),
+});
+export type CreateMailboxBody = z.infer<typeof CreateMailboxBody>;
+
+export const MailboxSendingBody = z.object({ enabled: z.boolean() });
+export type MailboxSendingBody = z.infer<typeof MailboxSendingBody>;
+
+// ── Knowledge documents ─────────────────────────────────────────────────────────
+export const KnowledgeReviewBody = z.object({ reason: z.string().trim().max(500).default('') });
+export type KnowledgeReviewBody = z.infer<typeof KnowledgeReviewBody>;
+
+export const KnowledgeSearchBody = z.object({
+  query: z.string().trim().min(2).max(2000),
+  departmentId: z.string().uuid().nullable().optional(),
+});
+export type KnowledgeSearchBody = z.infer<typeof KnowledgeSearchBody>;
+
+// ── Model policy ────────────────────────────────────────────────────────────────
+export const ModelPolicyBody = z.object({
+  allowedProviders: z.array(z.enum(['anthropic', 'openai'])).max(2),
+  monthlyBudgetMinor: z.number().int().min(0).max(1_000_000_000_000).nullable(),
+});
+export type ModelPolicyBody = z.infer<typeof ModelPolicyBody>;
+
+// ── Teams, query types and reply-time targets ───────────────────────────────────
+export const DepartmentBody = z.object({ name: trimmed(80), risk: z.boolean().default(false) });
+export type DepartmentBody = z.infer<typeof DepartmentBody>;
+
+export const QueryTypeBody = z.object({
+  name: trimmed(120),
+  departmentId: z.string().uuid().nullable(),
+  /** No automatic lane in this version: draft for approval, or a person. */
+  defaultLane: z.enum(['draft', 'manual']),
+  live: z.boolean().default(true),
+});
+export type QueryTypeBody = z.infer<typeof QueryTypeBody>;
+
+export const SlaPolicyBody = z.object({
+  name: trimmed(80),
+  priority: Priority.nullable(),
+  segment: z.string().trim().min(1).max(40).nullable(),
+  escalation: z.boolean().default(false),
+  minutes: z.number().int().min(5).max(43_200),
+});
+export const SlaPoliciesBody = z.object({ policies: z.array(SlaPolicyBody).min(1).max(40) });
+export type SlaPoliciesBody = z.infer<typeof SlaPoliciesBody>;
+
+// ── Test bench ─────────────────────────────────────────────────────────────────
+export const BenchBody = z.object({
+  subject: z.string().trim().max(300).default(''),
+  body: z.string().trim().min(1).max(20_000),
+  fromEmail: z.string().trim().toLowerCase().email().optional(),
+  segment: z.string().trim().min(1).max(40).default('Retail'),
+  /** Also run another version on the same mail: "active" (what handles mail now) or a version id. */
+  compareWith: z
+    .union([z.literal('active'), z.string().uuid()])
+    .nullable()
+    .default(null),
+});
+export type BenchBody = z.infer<typeof BenchBody>;
+
+// ── Labelling queue ─────────────────────────────────────────────────────────────
+export const LabelBody = z.object({
+  ticketId: z.string().uuid(),
+  category: z.string().regex(/^[a-z][a-z0-9_]{0,47}$/),
+  hardStop: z.boolean(),
+  lane: z.enum(['draft', 'manual']).nullable().default(null),
+  draftAcceptable: z.boolean().nullable().default(null),
+  split: EvalSplit.default('test'),
+});
+export type LabelBody = z.infer<typeof LabelBody>;
+
+// ── Operations ──────────────────────────────────────────────────────────────────
+export const OperationsBody = z.object({
+  retentionMailDays: z.number().int().min(30).max(3650).nullable(),
+  retentionTraceDays: z.number().int().min(7).max(3650).nullable(),
+  siemUrl: z.string().trim().url().startsWith('https://').max(500).nullable(),
+  /** Omit to keep the stored signing secret. */
+  siemSecret: z.string().min(16).max(200).optional(),
+});
+export type OperationsBody = z.infer<typeof OperationsBody>;
+
+// ── SCIM provisioning ───────────────────────────────────────────────────────────
+export const ScimGroupRolesBody = z.object({
+  groupRoles: z.record(z.string().trim().min(1).max(200), Role),
+});
+export type ScimGroupRolesBody = z.infer<typeof ScimGroupRolesBody>;
+
+// ── Pilot at a bank ─────────────────────────────────────────────────────────────
+export const PilotStageKey = z.enum(['onboarding', 'shadow', 'assisted', 'live']);
+
+/** Ask for the next stage (a second person signs off) or step back (at once). */
+export const PilotStageBody = z.object({ toStage: PilotStageKey, reason: trimmed(1000) });
+export type PilotStageBody = z.infer<typeof PilotStageBody>;
+
+export const PilotDecisionBody = z.object({
+  approve: z.boolean(),
+  note: z.string().trim().max(1000).default(''),
+});
+export type PilotDecisionBody = z.infer<typeof PilotDecisionBody>;
+
+export const PilotSettingsBody = z.object({
+  targets: z.object({
+    acceptance: z.number().min(0.5).max(1),
+    lightEditMax: z.number().min(0).max(0.5),
+    agreement: z.number().min(0.5).max(1),
+    shadowDays: z.number().int().min(1).max(90),
+    assistedDays: z.number().int().min(1).max(180),
+    minLabelled: z.number().int().min(1).max(5000),
+    minDrafts: z.number().int().min(1).max(5000),
+  }),
+  riskApprovers: z.array(z.string().uuid()).max(10),
+});
+export type PilotSettingsBody = z.infer<typeof PilotSettingsBody>;
+
+/** From the workspace's own records (`days` before now), or figures the bank measured before the pilot. */
+export const PilotBaselineBody = z.object({
+  days: z.number().int().min(7).max(180).optional(),
+  onTimeRate: z.number().min(0).max(1).optional(),
+  firstReplyMinutes: z.number().min(0).max(100_000).optional(),
+});
+export type PilotBaselineBody = z.infer<typeof PilotBaselineBody>;
+
+export const PilotIncidentBody = z.object({
+  severity: z.enum(['P1', 'P2', 'P3', 'P4']),
+  kind: z.enum(['hard_stop_miss', 'wrong_reply', 'data_exposure', 'outage', 'other']),
+  title: trimmed(200),
+  detail: z.string().trim().max(4000).default(''),
+  ticketNumber: z.number().int().min(1).nullable().default(null),
+});
+export type PilotIncidentBody = z.infer<typeof PilotIncidentBody>;
+
+export const PilotResolveBody = z.object({ resolution: trimmed(2000) });
+export type PilotResolveBody = z.infer<typeof PilotResolveBody>;

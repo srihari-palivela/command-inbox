@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field, StringConstraints
 
 from command_inbox.schemas.base import CamelModel
 from command_inbox.schemas.enums import (
@@ -241,3 +241,132 @@ class IntakeMessageBody(CamelModel):
     body: trimmed(50000)  # type: ignore[valid-type]
     message_id: Annotated[str, Field(max_length=300)] | None = None
     in_reply_to: Annotated[str, Field(max_length=300)] | None = None
+
+
+class WorkspaceProfileBody(CamelModel):
+    legal_name: Annotated[str, Field(min_length=1, max_length=200)]
+    support_email: Email | Literal[""]
+    locale: Annotated[str, Field(pattern=r"^[a-z]{2,3}(-[A-Z]{2})?$")]
+    currency: Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
+    time_zone: Annotated[str, Field(min_length=1, max_length=64)]
+
+
+class WorkspaceSsoBody(CamelModel):
+    provider: Literal["entra", "google"]
+    directory_id: Annotated[str, Field(min_length=1, max_length=120)]
+    client_id: Annotated[str, Field(min_length=1, max_length=200)]
+    client_secret: Annotated[str, Field(min_length=8, max_length=500)] | None = None
+
+
+class CreateMailboxBody(CamelModel):
+    address: Email
+    provider: Literal["microsoft", "google"]
+    team_label: Annotated[str, Field(max_length=80)] = ""
+
+
+class MailboxSendingBody(CamelModel):
+    enabled: bool
+
+
+class KnowledgeReviewBody(CamelModel):
+    reason: Annotated[str, Field(max_length=500)] = ""
+
+
+class KnowledgeSearchBody(CamelModel):
+    query: Annotated[str, Field(min_length=2, max_length=2000)]
+    department_id: Annotated[str, Field(pattern=UUID_RE)] | None = None
+
+
+class ModelPolicyBody(CamelModel):
+    allowed_providers: Annotated[list[Literal["anthropic", "openai"]], Field(max_length=2)]
+    monthly_budget_minor: Annotated[int, Field(ge=0, le=1_000_000_000_000)] | None
+
+
+class DepartmentBody(CamelModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    risk: bool = False
+
+
+class QueryTypeBody(CamelModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    department_id: Uuid | None
+    default_lane: Literal["draft", "manual"]
+    live: bool = True
+
+
+class SlaPolicyBody(CamelModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    priority: Literal["P1", "P2", "P3", "P4"] | None
+    segment: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] | None
+    escalation: bool = False
+    minutes: Annotated[int, Field(ge=5, le=43_200)]
+
+
+class SlaPoliciesBody(CamelModel):
+    policies: Annotated[list[SlaPolicyBody], Field(min_length=1, max_length=40)]
+
+
+class BenchBody(CamelModel):
+    subject: Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)] = ""
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20_000)]
+    from_email: Email | None = None
+    segment: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] = "Retail"
+    compare_with: Literal["active"] | Uuid | None = None
+
+
+class OperationsBody(CamelModel):
+    retention_mail_days: Annotated[int, Field(ge=30, le=3650)] | None
+    retention_trace_days: Annotated[int, Field(ge=7, le=3650)] | None
+    siem_url: Annotated[str, Field(pattern=r"^https://[^\s]+$", max_length=500)] | None
+    siem_secret: Annotated[str, Field(min_length=16, max_length=200)] | None = None
+
+
+class ScimGroupRolesBody(CamelModel):
+    group_roles: Annotated[dict[str, Literal["staff", "lead", "admin"]], Field(max_length=50)]
+
+
+# ── Pilot at a bank ─────────────────────────────────────────────────────────────
+PilotStageKey = Literal["onboarding", "shadow", "assisted", "live"]
+
+
+class PilotStageBody(CamelModel):
+    to_stage: PilotStageKey
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class PilotDecisionBody(CamelModel):
+    approve: bool
+    note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] = ""
+
+
+class PilotTargetsBody(CamelModel):
+    acceptance: Annotated[float, Field(ge=0.5, le=1)]
+    light_edit_max: Annotated[float, Field(ge=0, le=0.5)]
+    agreement: Annotated[float, Field(ge=0.5, le=1)]
+    shadow_days: Annotated[int, Field(ge=1, le=90)]
+    assisted_days: Annotated[int, Field(ge=1, le=180)]
+    min_labelled: Annotated[int, Field(ge=1, le=5000)]
+    min_drafts: Annotated[int, Field(ge=1, le=5000)]
+
+
+class PilotSettingsBody(CamelModel):
+    targets: PilotTargetsBody
+    risk_approvers: Annotated[list[Uuid], Field(max_length=10)]
+
+
+class PilotBaselineBody(CamelModel):
+    days: Annotated[int, Field(ge=7, le=180)] | None = None
+    on_time_rate: Annotated[float, Field(ge=0, le=1)] | None = None
+    first_reply_minutes: Annotated[float, Field(ge=0, le=100_000)] | None = None
+
+
+class PilotIncidentBody(CamelModel):
+    severity: Literal["P1", "P2", "P3", "P4"]
+    kind: Literal["hard_stop_miss", "wrong_reply", "data_exposure", "outage", "other"]
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    detail: Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)] = ""
+    ticket_number: Annotated[int, Field(ge=1)] | None = None
+
+
+class PilotResolveBody(CamelModel):
+    resolution: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]

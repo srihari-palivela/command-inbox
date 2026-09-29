@@ -1,0 +1,72 @@
+# SLOs (plan §11.2) as recording rules, and the alerts that page when an error budget burns too fast.
+#   ingest lag p95 < 60 s · API availability 99.9% · send success >= 99.5% · webhook 2xx within 3 s >= 99.9%
+groups:
+  - name: command-inbox-slo
+    rules:
+      - record: ci:ingest_lag_seconds:p95_5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(mail_ingest_lag_seconds_bucket[5m])))
+      - record: ci:api_errors:ratio_5m
+        expr: |
+          sum(rate(http_request_duration_seconds_count{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(http_request_duration_seconds_count[5m])), 1e-9)
+      - record: ci:send_failures:ratio_1h
+        expr: |
+          sum(rate(mail_sends_total{outcome="failed"}[1h]))
+            / clamp_min(sum(rate(mail_sends_total{outcome=~"sent|failed"}[1h])), 1e-9)
+      - record: ci:webhook_slow_or_failed:ratio_5m
+        expr: |
+          1 - (
+            sum(rate(http_request_duration_seconds_bucket{route=~"/v1/hooks/.*", status=~"2..", le="3.0"}[5m]))
+              / clamp_min(sum(rate(http_request_duration_seconds_count{route=~"/v1/hooks/.*"}[5m])), 1e-9)
+          )
+
+      - alert: IngestLagHigh
+        expr: ci:ingest_lag_seconds:p95_5m > 60
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: Mail takes more than a minute to become a ticket (p95 {{ $value | humanizeDuration }}).
+          runbook: docs/operations/runbooks.md#ingest-lag
+      - alert: ApiErrorBudgetBurn
+        # 14.4x burn of a 99.9% budget over 1 h (and still burning over 5 m).
+        expr: ci:api_errors:ratio_5m > 0.0144 and sum(rate(http_request_duration_seconds_count{status=~"5.."}[1h])) / clamp_min(sum(rate(http_request_duration_seconds_count[1h])), 1e-9) > 0.0144
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: The API is failing {{ $value | humanizePercentage }} of requests.
+          runbook: docs/operations/runbooks.md#api-errors
+      - alert: SendFailures
+        expr: ci:send_failures:ratio_1h > 0.005
+        for: 15m
+        labels: {severity: page}
+        annotations:
+          summary: More than 0.5% of approved replies fail to send.
+          runbook: docs/operations/runbooks.md#send-failures
+      - alert: WebhooksSlow
+        expr: ci:webhook_slow_or_failed:ratio_5m > 0.001
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: Provider notifications are slow or failing; mail falls back to polling.
+          runbook: docs/operations/runbooks.md#webhooks
+      - alert: JobBacklog
+        expr: jobs_oldest_due_seconds > 300
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: The oldest due job has waited {{ $value | humanizeDuration }}; workers are stuck or too few.
+          runbook: docs/operations/runbooks.md#job-backlog
+      - alert: ModelFallbacks
+        expr: sum(rate(system2_fallbacks_total[15m])) > 0.2
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: Model stages keep falling back to the deterministic provider; mail goes to people.
+          runbook: docs/operations/runbooks.md#model-provider
+      - alert: TargetDown
+        expr: up{job=~"command-inbox-.*"} == 0
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: '{{ $labels.job }} is not answering /metrics.'
+          runbook: docs/operations/runbooks.md#service-down
