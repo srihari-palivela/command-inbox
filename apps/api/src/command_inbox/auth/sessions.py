@@ -17,8 +17,11 @@ from command_inbox.core.clock import clock
 from command_inbox.core.context import Ctx, UserRef
 from command_inbox.core.crypto import random_token, sha256
 from command_inbox.db.engine import global_tx, tenant_tx
-from command_inbox.db.models import Membership, Session, User
+from command_inbox.db.models import Membership, Org, Session, User
 from command_inbox.rbac.policy import policies
+
+# A tenant in one of these states cannot be used: its sessions stop resolving at once.
+CLOSED_STATUSES = ("draft", "provisioning", "suspended", "archived")
 
 
 def cookie_name() -> str:
@@ -46,7 +49,9 @@ async def resolve_session(token: str, request_id: str) -> Resolved | None:
                     Membership,
                     (Membership.user_id == Session.user_id) & (Membership.org_id == Session.org_id),
                 )
+                .join(Org, Org.id == Session.org_id)
                 .where(
+                    Org.status.not_in(CLOSED_STATUSES),
                     Session.token_hash == sha256(token),
                     Session.revoked_at.is_(None),
                     Session.expires_at > now,

@@ -75,6 +75,8 @@ async def seed_tx(tx: AsyncSession, now: datetime | None = None) -> SeedResult:
         headcount = {"apex": 34, "meridian": 11}
         orgs = await w.insert(m.Org, [{**o, "headcount": headcount.get(o["slug"], 6)} for o in d.ORGS])
         org = {o["slug"]: o["id"] for o in orgs}
+        # Demo platform operators for the console (fictional, like everything in this seed).
+        await w.insert(m.PlatformOperator, d.OPERATORS)
         users = await w.insert(
             m.User,
             [{"email": p["email"], "name": p["name"], "initials": initials_of(p["name"])} for p in d.PEOPLE],

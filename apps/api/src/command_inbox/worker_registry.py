@@ -14,6 +14,8 @@ HANDLERS: list[tuple[str, str, str]] = [
     ("escalate_checker", "command_inbox.modules.gateway.jobs", "run_escalate_checker"),
     ("knowledge_sync", "command_inbox.modules.setup.jobs", "run_knowledge_sync"),
     ("eval_run", "command_inbox.evals.runner", "run_eval_job"),
+    ("send_email", "command_inbox.core.email", "run_send_email"),
+    ("provision_tenant", "command_inbox.platform.provisioning", "run_provision_tenant"),
 ]
 
 

@@ -37,6 +37,7 @@ async def ensure() -> str:
                 locale="en-GB",
                 currency="GBP",
                 time_zone="Europe/London",
+            status="onboarding",
             )
             user = User(email=ADMIN_EMAIL, name="Empty Admin", initials="EA")
             g.add_all([org, user])

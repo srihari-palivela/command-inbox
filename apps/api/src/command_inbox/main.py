@@ -25,6 +25,7 @@ from command_inbox.core.errors import AppError
 from command_inbox.core.events import hub
 from command_inbox.core.telemetry import configure_logging, configure_tracing, http_duration, sse_clients
 from command_inbox.db.engine import dispose, engine
+from command_inbox.platform.sessions import PLATFORM_COOKIE, resolve_platform_session
 
 log = structlog.get_logger(__name__)
 
@@ -36,10 +37,13 @@ PUBLIC_PATHS = {
     "/v1/auth/oidc/login",
     "/v1/auth/oidc/callback",
     "/v1/intake/messages",
+    "/v1/auth/invitation",
+    "/v1/auth/invitation/accept",
+    "/v1/dev/mailbox",
 }
 PUBLIC_PREFIXES = ("/v1/oauth/",)
 # State-changing but authenticated another way (no session yet, or a signed webhook). Exact paths only.
-CSRF_EXEMPT = {"/v1/auth/login", "/v1/intake/messages"}
+CSRF_EXEMPT = {"/v1/auth/login", "/v1/intake/messages", "/v1/auth/invitation/accept"}
 
 
 def is_public(path: str) -> bool:
@@ -118,7 +122,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.web_origin],
+        allow_origins=[settings.web_origin, settings.console_origin],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -132,6 +136,24 @@ def create_app() -> FastAPI:
         structlog.contextvars.bind_contextvars(request_id=rid)
         path = request.url.path
         try:
+            if path.startswith("/v1/platform/"):
+                # The console: operator sessions only; a tenant session is never looked at here.
+                from command_inbox.platform.router import CSRF_EXEMPT as P_EXEMPT
+                from command_inbox.platform.router import PUBLIC as P_PUBLIC
+
+                ptoken = request.cookies.get(PLATFORM_COOKIE)
+                presolved = await resolve_platform_session(ptoken, rid) if ptoken else None
+                if presolved:
+                    request.state.operator, request.state.csrf_token = presolved
+                    structlog.contextvars.bind_contextvars(operator_id=presolved[0].id)
+                elif path not in P_PUBLIC:
+                    return problem(401, "unauthenticated", "Sign in to continue", request)
+                if request.method in UNSAFE and presolved and path not in P_EXEMPT:
+                    header = request.headers.get("x-csrf-token", "")
+                    if not header or not safe_equal(header, request.state.csrf_token):
+                        return problem(403, "csrf", "Missing or invalid CSRF token", request)
+                response = await call_next(request)
+                return _finish(request, response, rid, started)
             token = request.cookies.get(SESSION_COOKIE)
             if token:
                 resolved = await resolve_session(token, rid)
@@ -151,6 +173,9 @@ def create_app() -> FastAPI:
             response = await call_next(request)
         finally:
             structlog.contextvars.clear_contextvars()
+        return _finish(request, response, rid, started)
+
+    def _finish(request: Request, response: Response, rid: str, started: float) -> Response:
         route = request.scope.get("route")
         http_duration.labels(
             request.method, getattr(route, "path", "unmatched"), str(response.status_code)

@@ -144,8 +144,8 @@ class Gen:
         self.known.add(name)
         return name
 
-    def run(self) -> str:
-        src = strip_comments((CONTRACTS / "dto.ts").read_text())
+    def run(self, source: str = "dto.ts") -> str:
+        src = strip_comments((CONTRACTS / source).read_text())
         for m in re.finditer(r"export type (\w+) =\s*([^;]+);", src):
             self.aliases.append(f"{m.group(1)} = {self.type_of(m.group(2), m.group(1), '')}\n")
         pos = 0
@@ -160,7 +160,7 @@ class Gen:
             pos = i
         enum_import = ", ".join(sorted(self.enums))
         head = [
-            HEADER.format(src="dto.ts"),
+            HEADER.format(src=source),
             "from __future__ import annotations\n\n",
             "from typing import Any, Literal\n\n",
             "from pydantic import Field\n\n",
@@ -193,9 +193,10 @@ def _format(content: str, fname: str) -> str:
 def main() -> int:
     enums, names = gen_enums()
     dto = Gen(names).run()
+    platform = Gen(names).run("platform-dto.ts")
     check = "--check" in sys.argv
     changed = False
-    for fname, raw in (("enums.py", enums), ("dto.py", dto)):
+    for fname, raw in (("enums.py", enums), ("dto.py", dto), ("platform_dto.py", platform)):
         content = _format(raw, fname)
         path = OUT / fname
         if check:

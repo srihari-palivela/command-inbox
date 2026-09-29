@@ -46,6 +46,34 @@ class Settings(BaseSettings):
     oidc_client_secret: str | None = None
     oidc_scopes: str = "openid email profile organization"
 
+    # Platform console (operators). Its own origin, cookie and Keycloak realm; no tenant user can reach it.
+    console_origin: str = "http://localhost:5174"
+    platform_oidc_issuer: str | None = None  # e.g. http://localhost:8081/realms/operators
+    platform_oidc_client_id: str = "command-inbox-console"
+    platform_oidc_client_secret: str | None = None
+    platform_session_idle_minutes: int = 20
+    platform_session_ttl_hours: int = 8
+
+    # Keycloak admin API (service account with realm-management rights on the tenant realm). Provisioning
+    # creates each tenant's Keycloak Organization with it; unset, that step is recorded as skipped.
+    keycloak_admin_url: str | None = None  # e.g. http://localhost:8081
+    keycloak_realm: str = "command-inbox"
+    keycloak_admin_client_id: str = "command-inbox-provisioner"
+    keycloak_admin_client_secret: str | None = None
+
+    # Transactional email (invitations). Unset SMTP_HOST in development: messages are logged, not sent.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_starttls: bool = True
+    mail_from: str = "Command Inbox <no-reply@localhost>"
+
+    # Key management: tenant data keys are wrapped by a key-encryption key. "local" derives the KEK from
+    # ENCRYPTION_KEY (development and single-host installs); cloud KMS adapters plug in behind the same interface.
+    kms_provider: Literal["local"] = "local"
+    invitation_ttl_hours: int = 72
+
     encryption_key: str = "dev-only-key-change-me-dev-only-key-change-me"
     intake_webhook_secret: str = "dev-intake-secret"  # noqa: S105 - development default, rejected in production
 
@@ -97,6 +125,8 @@ class Settings(BaseSettings):
                 problems.append("OIDC_ISSUER must be set")
             if not self.oidc_client_secret:
                 problems.append("OIDC_CLIENT_SECRET must be set")
+            if not self.smtp_host:
+                problems.append("SMTP_HOST must be set (invitations are emailed)")
             if self.decision_engine in ("auto", "heuristic"):
                 problems.append("DECISION_ENGINE must be llamacpp or vllm (no silent keyword fallback)")
             if self.llm_provider == "auto":

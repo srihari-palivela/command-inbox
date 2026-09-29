@@ -72,7 +72,7 @@ async def idp_for_email(email: str) -> str | None:
 
 
 async def authorization_url(
-    next_path: str, org_hint: str | None, login_hint: str | None = None
+    next_path: str, org_hint: str | None, login_hint: str | None = None, invite: str | None = None
 ) -> tuple[str, dict[str, str]]:
     """Returns the IdP URL and the transaction values to keep in a short-lived signed cookie.
 
@@ -99,12 +99,10 @@ async def authorization_url(
         if idp := await idp_for_email(login_hint):
             params["kc_idp_hint"] = idp
     safe_next = next_path if next_path.startswith("/") and not next_path.startswith("//") else "/inbox"
-    return meta["authorization_endpoint"] + "?" + urlencode(params), {
-        "state": state,
-        "nonce": nonce,
-        "verifier": verifier,
-        "next": safe_next,
-    }
+    txn = {"state": state, "nonce": nonce, "verifier": verifier, "next": safe_next}
+    if invite:
+        txn["invite"] = invite  # kept in the sealed, short-lived transaction cookie
+    return meta["authorization_endpoint"] + "?" + urlencode(params), txn
 
 
 async def exchange(code: str, txn: dict[str, str]) -> dict[str, Any]:
@@ -149,7 +147,36 @@ def _trusts(org: Org, claims: dict[str, Any]) -> bool:
     return domain in [d.lower() for d in (org.sso_email_domains or [])]
 
 
-async def admit(claims: dict[str, Any]) -> tuple[User, str]:
+async def _admit_invitee(
+    claims: dict[str, Any], subject: str, email: str, name: str, token: str
+) -> tuple[User, str]:
+    """An emailed invitation link is the proof: the IdP's verified email must be the invited address."""
+    from command_inbox.auth import invitations
+
+    found = invitations.usable(await invitations.lookup(token))
+    if found.invitation.email != email:
+        raise forbidden(
+            "This invitation was sent to a different email address. Sign in with that account.",
+            "invite_email_mismatch",
+        )
+    async with global_tx() as g:
+        user = (await g.execute(select(User).where(User.idp_subject == subject))).scalar_one_or_none()
+        if user is None:
+            user = (await g.execute(select(User).where(User.email == email))).scalar_one_or_none()
+            if user is not None and user.idp_subject and user.idp_subject != subject:
+                raise forbidden("This email is linked to a different sign-in identity.", "identity_conflict")
+        if user is None:
+            user = User(email=email, name=name, initials=invitations.initials_of(name), idp_subject=subject)
+            g.add(user)
+        elif not user.idp_subject:
+            user.idp_subject = subject
+        await g.flush()
+        g.expunge(user)
+    await invitations.complete(found, user, idp=claims.get("identity_provider"))
+    return user, found.org.id
+
+
+async def admit(claims: dict[str, Any], invite_token: str | None = None) -> tuple[User, str]:
     """Link the identity to a user and pick the workspace. Only members or invitees get in, and only through an
     identity provider their tenant trusts: one bank's IdP asserting another bank's email gets nowhere."""
     meta = await metadata()
@@ -157,6 +184,8 @@ async def admit(claims: dict[str, Any]) -> tuple[User, str]:
     email = str(claims["email"]).lower()
     name = str(claims.get("name") or email.split("@")[0])
     now = clock.now()
+    if invite_token:
+        return await _admit_invitee(claims, subject, email, name, invite_token)
     async with global_tx() as g:
         user = (await g.execute(select(User).where(User.idp_subject == subject))).scalar_one_or_none()
         linked = user is not None

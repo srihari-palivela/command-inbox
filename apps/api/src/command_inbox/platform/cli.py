@@ -1,0 +1,113 @@
+"""`command-inbox-operator`: manage platform operators from the command line.
+
+    command-inbox-operator add EMAIL --name "Full Name" --role platform_owner
+    command-inbox-operator list
+    command-inbox-operator disable EMAIL
+
+This is how the first platform owner exists on a new stack (nobody can sign in to the console before it);
+after that, operators sign in through the operators' Keycloak realm. Every change is written to the platform
+audit chain as done by "cli".
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+
+from sqlalchemy import select
+
+from command_inbox.core.clock import clock
+
+
+async def _add(email: str, name: str, role: str) -> int:
+    from command_inbox.db.engine import dispose, global_tx
+    from command_inbox.db.models import PlatformOperator
+    from command_inbox.platform.audit import platform_audit
+
+    try:
+        async with global_tx() as g:
+            if (await g.execute(select(PlatformOperator).where(PlatformOperator.email == email))).first():
+                print(f"{email} is already an operator")
+                return 1
+            g.add(PlatformOperator(email=email, name=name, role=role))
+            await platform_audit(
+                g,
+                operator_id=None,
+                operator_email="cli",
+                action="operator.created",
+                summary=f"Operator {email} created as {role}",
+                data={"email": email, "role": role},
+            )
+        print(f"added {email} as {role}")
+        return 0
+    finally:
+        await dispose()
+
+
+async def _list() -> int:
+    from command_inbox.db.engine import dispose, global_tx
+    from command_inbox.db.models import PlatformOperator
+
+    try:
+        async with global_tx() as g:
+            for o in (await g.execute(select(PlatformOperator).order_by(PlatformOperator.email))).scalars():
+                state = "disabled" if o.disabled_at else "active"
+                print(f"{o.email}\t{o.role}\t{state}\t{o.name}")
+        return 0
+    finally:
+        await dispose()
+
+
+async def _disable(email: str) -> int:
+    from command_inbox.db.engine import dispose, global_tx
+    from command_inbox.db.models import PlatformOperator, PlatformSession
+    from command_inbox.platform.audit import platform_audit
+
+    try:
+        async with global_tx() as g:
+            op = (
+                await g.execute(select(PlatformOperator).where(PlatformOperator.email == email))
+            ).scalar_one_or_none()
+            if op is None:
+                print(f"{email} is not an operator")
+                return 1
+            now = clock.now()
+            op.disabled_at = now
+            for s in (
+                await g.execute(select(PlatformSession).where(PlatformSession.operator_id == op.id))
+            ).scalars():
+                s.revoked_at = s.revoked_at or now
+            await platform_audit(
+                g,
+                operator_id=None,
+                operator_email="cli",
+                action="operator.disabled",
+                summary=f"Operator {email} disabled",
+                data={"email": email},
+            )
+        print(f"disabled {email}")
+        return 0
+    finally:
+        await dispose()
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(prog="command-inbox-operator", description=__doc__.splitlines()[0])
+    sub = p.add_subparsers(dest="cmd", required=True)
+    a = sub.add_parser("add")
+    a.add_argument("email")
+    a.add_argument("--name", required=True)
+    a.add_argument("--role", choices=["platform_owner", "operator", "support"], required=True)
+    sub.add_parser("list")
+    d = sub.add_parser("disable")
+    d.add_argument("email")
+    args = p.parse_args(argv)
+    if args.cmd == "add":
+        return asyncio.run(_add(args.email.strip().lower(), args.name.strip(), args.role))
+    if args.cmd == "list":
+        return asyncio.run(_list())
+    return asyncio.run(_disable(args.email.strip().lower()))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -19,6 +19,7 @@ from command_inbox.core.crypto import decrypt, encrypt
 from command_inbox.core.errors import AppError
 from command_inbox.core.http import current_ctx
 from command_inbox.schemas import dto
+from command_inbox.schemas import platform_dto as pdto
 from command_inbox.schemas.base import CamelModel, Ok
 
 router = APIRouter(prefix="/v1", tags=["auth"])
@@ -48,6 +49,10 @@ class LoginBody(CamelModel):
 
 class SwitchOrgBody(CamelModel):
     org_id: str = Field(pattern=r"^[0-9a-f-]{36}$")
+
+
+class AcceptInvitationBody(CamelModel):
+    token: str = Field(min_length=20, max_length=200)
 
 
 class DemoInfo(CamelModel):
@@ -90,8 +95,9 @@ async def oidc_login(
     next: str = Query("/inbox", max_length=300),
     org: str | None = Query(None, max_length=80),
     login_hint: str | None = Query(None, max_length=254, pattern=r"^[^@\s]+@[^@\s]+$"),
+    invite: str | None = Query(None, min_length=20, max_length=200),
 ) -> Response:
-    url, txn = await oidc.authorization_url(next, org, login_hint)
+    url, txn = await oidc.authorization_url(next, org, login_hint, invite)
     txn["iat"] = str(int(time.time()))
     resp = RedirectResponse(url, status_code=302)
     resp.set_cookie(
@@ -122,7 +128,7 @@ async def oidc_callback(
         return fail
     try:
         claims = await oidc.exchange(code, txn)
-        user, org_id = await oidc.admit(claims)
+        user, org_id = await oidc.admit(claims, txn.get("invite"))
     except AppError as err:
         return RedirectResponse(f"{settings.web_origin.rstrip('/')}/?error={err.code}", status_code=302)
     ua = request.headers.get("user-agent", "")
@@ -136,6 +142,41 @@ async def oidc_callback(
 
 class LogoutResult(Ok):
     logout_url: str | None = None
+
+
+@router.get("/auth/invitation", response_model=pdto.InvitationPreviewDTO)
+async def invitation_preview(
+    token: str = Query(..., min_length=20, max_length=200),
+) -> pdto.InvitationPreviewDTO:
+    """Public: what the accept page shows before the invitee signs in."""
+    from command_inbox.auth import invitations
+
+    return await invitations.preview(token)
+
+
+@router.post("/auth/invitation/accept", response_model=dto.MeDTO)
+async def invitation_accept(body: AcceptInvitationBody, request: Request, response: Response) -> dto.MeDTO:
+    """Development only (demo mode without SSO). With SSO the invitee goes through /auth/oidc/login?invite=."""
+    from command_inbox.auth import invitations
+
+    user, org_id = await invitations.accept_direct(body.token)
+    ua = request.headers.get("user-agent", "")
+    token, csrf = await create_session(user.id, org_id, user_agent=ua, ip=_client_ip(request))
+    await auth.record_sign_in(user, org_id, device_label(ua), "invitation")
+    _set_session_cookie(response, token)
+    resolved = await resolve_session(token, request.state.request_id)
+    assert resolved is not None
+    return await auth.build_me(resolved.ctx, csrf)
+
+
+@router.get("/dev/mailbox", include_in_schema=False)
+async def dev_mailbox() -> list[dict[str, str]]:
+    """Development only: the transactional emails "sent" without SMTP (newest first), for local testing."""
+    from command_inbox.core.email import dev_mailbox as box
+
+    if not settings.demo_mode or settings.is_prod:
+        raise AppError(404, "not_found", "Not found")
+    return list(reversed(box))
 
 
 @router.post("/auth/logout", response_model=LogoutResult)

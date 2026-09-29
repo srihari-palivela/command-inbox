@@ -22,7 +22,7 @@ from command_inbox.core.clock import clock, iso_ms
 from command_inbox.core.context import ROLE_LABEL, ROLES, Ctx, actor_of
 from command_inbox.core.errors import conflict, forbidden, not_found
 from command_inbox.core.outbox import publish
-from command_inbox.db.models import Invitation, Membership, RolePolicy, Session, User
+from command_inbox.db.models import Invitation, Membership, Org, RolePolicy, Session, User
 from command_inbox.modules.deployments.service import user_refs
 from command_inbox.modules.members.schemas import InvitationBody, MemberRoleBody, PermissionOverridesBody
 from command_inbox.rbac.policy import (
@@ -235,14 +235,11 @@ async def create_invitation(tx: AsyncSession, ctx: Ctx, body: InvitationBody) ->
             )
         open_.revoked_at = now  # an expired invitation frees the one-pending-per-email slot
         await tx.flush()
-    inv = Invitation(
-        org_id=ctx.org_id,
-        email=email,
-        role=body.role,
-        invited_by=ctx.user.id,
-        expires_at=now + timedelta(days=body.expires_in_days),
-    )
-    tx.add(inv)
+    from command_inbox.auth.invitations import issue
+
+    org = (await tx.execute(select(Org).where(Org.id == ctx.org_id))).scalar_one()
+    inv = await issue(tx, org=org, email=email, role=body.role, inviter_name=ctx.user.name, invited_by=ctx.user.id)
+    inv.expires_at = now + timedelta(days=body.expires_in_days)
     await tx.flush()
     await audit(
         tx,

@@ -43,6 +43,8 @@ JobKind = Literal[
     "call_progress",
     "eval_run",
     "retention_sweep",
+    "send_email",
+    "provision_tenant",
 ]
 
 

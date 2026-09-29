@@ -16,7 +16,7 @@ import pytest
 from tests.integration.conftest import Client, sign_in
 
 # Endpoints that are not screen reads: streams, redirects to the IdP, and the development sign-in data.
-SKIP = re.compile(r"^/v1/(stream|auth/oidc/|auth/demo|dev/)")
+SKIP = re.compile(r"^/v1/(stream|auth/oidc/|auth/demo|auth/invitation|dev/|platform/)")
 
 
 async def _empty_workspace(role_emails: dict[str, str]) -> str:
@@ -35,6 +35,7 @@ async def _empty_workspace(role_emails: dict[str, str]) -> str:
             locale="en-GB",
             currency="GBP",
             time_zone="Europe/London",
+            status="onboarding",
         )
         g.add(org)
         await g.flush()

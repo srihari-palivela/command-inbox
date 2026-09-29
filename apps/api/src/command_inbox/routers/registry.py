@@ -27,6 +27,8 @@ ROUTERS: list[tuple[str, str]] = [
     ("command_inbox.modules.members.router", "router"),
     ("command_inbox.modules.deployments.router", "router"),
     ("command_inbox.modules.evals.router", "router"),
+    # the platform console (operators only)
+    ("command_inbox.platform.router", "router"),
 ]
 
 

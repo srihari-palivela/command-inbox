@@ -1086,6 +1086,7 @@ ORGS: list[Any] = [
         "locale": "en-IN",
         "currency": "INR",
         "time_zone": "Asia/Kolkata",
+        "status": "live",
     },
     {
         "slug": "meridian",
@@ -1097,6 +1098,7 @@ ORGS: list[Any] = [
         "locale": "en-IN",
         "currency": "INR",
         "time_zone": "Asia/Kolkata",
+        "status": "live",
     },
     {
         "slug": "northwind",
@@ -1108,7 +1110,14 @@ ORGS: list[Any] = [
         "locale": "en-IN",
         "currency": "INR",
         "time_zone": "Asia/Kolkata",
+        "status": "live",
     },
+]
+
+OPERATORS: list[Any] = [
+    {"email": "owner@platform.example", "name": "Platform Owner", "role": "platform_owner"},
+    {"email": "ops@platform.example", "name": "Ops Engineer", "role": "operator"},
+    {"email": "support@platform.example", "name": "Support Analyst", "role": "support"},
 ]
 
 PEOPLE: list[Any] = [
