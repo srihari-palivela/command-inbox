@@ -1,0 +1,52 @@
+{{- range $component := list "web" "console" }}
+{{- $cfg := index $.Values $component }}
+{{- if or (eq $component "web") $cfg.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ci.name" $ }}-{{ $component }}
+  labels:
+    {{- include "ci.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  selector:
+    matchLabels: {{- include "ci.selector" (dict "root" $ "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ci.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $component }}
+    spec:
+      {{- include "ci.pod" $ | nindent 6 }}
+      containers:
+        - name: nginx
+          image: {{ include "ci.image" (dict "root" $ "name" (index $.Values.image $component)) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /, port: http}
+          resources: {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext: {{- toYaml $.Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - {name: cache, mountPath: /var/cache/nginx}
+            - {name: run, mountPath: /var/run}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: cache, emptyDir: {}}
+        - {name: run, emptyDir: {}}
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ci.name" $ }}-{{ $component }}
+  labels: {{- include "ci.labels" $ | nindent 4 }}
+spec:
+  selector: {{- include "ci.selector" (dict "root" $ "component" $component) | nindent 4 }}
+  ports:
+    - {name: http, port: 80, targetPort: http}
+{{- end }}
+{{- end }}

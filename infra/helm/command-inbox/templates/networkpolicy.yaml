@@ -1,0 +1,50 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $name := include "ci.name" . }}
+# Default deny for the release's pods, then only what each needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-default-deny
+  labels: {{- include "ci.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-ingress
+  labels: {{- include "ci.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}}
+  policyTypes: [Ingress]
+  ingress:
+    - {}  # from the ingress controller and Prometheus; restrict by namespace selector per cluster
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-egress
+  labels: {{- include "ci.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}}
+  policyTypes: [Egress]
+  egress:
+    # DNS
+    - ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    # In-cluster: the stack's own services, ClamAV, the model and embedding servers, the collector.
+    - to: [{podSelector: {}}]
+    {{- if .Values.networkPolicy.egressCIDRs }}
+    - to:
+        {{- range .Values.networkPolicy.egressCIDRs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        {{- range .Values.networkPolicy.egressPorts }}
+        - {port: {{ . }}, protocol: TCP}
+        {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,32 @@
+{{- range $component := list "api" "worker" }}
+{{- $cfg := index $.Values $component }}
+{{- if $cfg.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "ci.name" $ }}-{{ $component }}
+  labels: {{- include "ci.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: {{ include "ci.name" $ }}-{{ $component }}}
+  minReplicas: {{ $cfg.autoscaling.minReplicas }}
+  maxReplicas: {{ $cfg.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: {{ $cfg.autoscaling.targetCPU }}}}
+{{- end }}
+{{- end }}
+{{- range $component := list "api" "hooks" "worker" "web" }}
+{{- if or (ne $component "hooks") $.Values.hooks.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ci.name" $ }}-{{ $component }}
+  labels: {{- include "ci.labels" $ | nindent 4 }}
+spec:
+  minAvailable: {{ $.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels: {{- include "ci.selector" (dict "root" $ "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}

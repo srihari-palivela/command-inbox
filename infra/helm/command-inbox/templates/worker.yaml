@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ci.name" . }}-worker
+  labels:
+    {{- include "ci.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels: {{- include "ci.selector" (dict "root" . "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ci.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "ci.pod" . | nindent 6 }}
+      # Jobs are leased (SKIP LOCKED) and recurring work is deduplicated per window, so any number of
+      # workers is safe; a lost worker's leases are reclaimed after they expire.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: {{ include "ci.image" (dict "root" . "name" .Values.image.api) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["command-inbox-worker"]
+          {{- include "ci.env" . | nindent 10 }}
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: command-inbox-worker
+          ports:
+            - {name: metrics, containerPort: {{ .Values.worker.metricsPort }}}
+          livenessProbe:
+            tcpSocket: {port: metrics}
+            periodSeconds: 15
+            failureThreshold: 4
+          resources: {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ci.name" . }}-worker
+  labels: {{- include "ci.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "ci.selector" (dict "root" . "component" "worker") | nindent 4 }}
+  ports:
+    - {name: metrics, port: {{ .Values.worker.metricsPort }}, targetPort: metrics}

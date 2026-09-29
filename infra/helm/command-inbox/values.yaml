@@ -1,0 +1,118 @@
+# Command Inbox, one dedicated stack per bank (decision D1). Every secret comes from an existing Secret
+# (populated by the External Secrets Operator or the cloud secret manager), never from values.
+
+image:
+  registry: ghcr.io/your-org
+  api: command-inbox-api
+  web: command-inbox-web
+  console: command-inbox-console
+  tag: ""            # defaults to the chart appVersion; pin a digest in production (signed with cosign)
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Non-secret settings (become env vars on the API and worker).
+config:
+  APP_ENV: production
+  LOG_JSON: "true"
+  COOKIE_SECURE: "true"
+  WEB_ORIGIN: https://inbox.bank.example
+  PUBLIC_API_URL: https://inbox.bank.example
+  CONSOLE_ORIGIN: https://console.inbox.bank.example
+  MAIL_WEBHOOK_BASE_URL: https://hooks.inbox.bank.example
+  LLM_PROVIDER: anthropic
+  DECISION_ENGINE: vllm
+  DECISION_ENGINE_URL: http://vllm:8000
+  EMBEDDING_PROVIDER: openai_compatible
+  EMBEDDING_URL: http://tei-embed:8080
+  CLAMAV_HOST: clamav
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  FORWARDED_ALLOW_IPS: 10.0.0.0/8
+  EMBEDDED_WORKER: "false"
+
+# Secret with DATABASE_URL, DATABASE_ADMIN_URL, ENCRYPTION_KEY (or KMS settings), OIDC_CLIENT_SECRET,
+# INTAKE_WEBHOOK_SECRET, ANTHROPIC_API_KEY / OPENAI_API_KEY, MS_CLIENT_SECRET, SMTP credentials, ...
+existingSecret: command-inbox-env
+
+api:
+  replicas: 2
+  port: 4000
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {memory: 1Gi}
+  autoscaling: {enabled: true, minReplicas: 2, maxReplicas: 8, targetCPU: 70}
+
+# The same image serving only provider webhooks, behind its own ingress host and SLO (plan §13.1).
+hooks:
+  enabled: true
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 384Mi}
+    limits: {memory: 768Mi}
+
+worker:
+  replicas: 2
+  metricsPort: 4001
+  resources:
+    requests: {cpu: 250m, memory: 768Mi}
+    limits: {memory: 1536Mi}
+  autoscaling: {enabled: false, minReplicas: 2, maxReplicas: 6, targetCPU: 70}
+
+web:
+  replicas: 2
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 128Mi}
+
+console:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 128Mi}
+
+# Runs `command-inbox-migrate` before every install and upgrade (expand/contract migrations only).
+migrate:
+  enabled: true
+  activeDeadlineSeconds: 900
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    web: inbox.bank.example
+    hooks: hooks.inbox.bank.example
+    console: console.inbox.bank.example
+  tls:
+    secretName: command-inbox-tls
+
+# Only what the stack must reach. Kubernetes NetworkPolicy cannot allow by DNS name: pair this with the
+# cluster's egress gateway / FQDN policy (Cilium, Calico Enterprise) for Graph, Google APIs, the model
+# provider and the bank's gateway (plan §12, data in transit).
+networkPolicy:
+  enabled: true
+  # CIDRs the API and worker may reach besides in-cluster services (database, KMS endpoints, egress proxy).
+  egressCIDRs: []
+  egressPorts: [443, 5432]
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+podDisruptionBudget:
+  minAvailable: 1
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile: {type: RuntimeDefault}
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
