@@ -127,11 +127,11 @@ jobs:
         with: { context: ., file: infra/docker/console.Dockerfile, push: false, load: true, tags: command-inbox-console:ci, cache-from: type=gha, cache-to: 'type=gha,mode=max' }
       # Report fixable high and critical vulnerabilities on every change; the release workflow blocks on them.
       - name: Scan images (Trivy)
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: command-inbox-api:ci, severity: 'HIGH,CRITICAL', ignore-unfixed: true, exit-code: '0' }
-      - uses: aquasecurity/trivy-action@v0.33.1
+      - uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: command-inbox-web:ci, severity: 'HIGH,CRITICAL', ignore-unfixed: true, exit-code: '0', skip-setup-trivy: true }
-      - uses: aquasecurity/trivy-action@v0.33.1
+      - uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: command-inbox-console:ci, severity: 'HIGH,CRITICAL', ignore-unfixed: true, exit-code: '0', skip-setup-trivy: true }
       - name: SBOM (SPDX)
         uses: anchore/sbom-action@v0
