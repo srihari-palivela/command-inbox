@@ -22,7 +22,7 @@ x-api-env: &api-env
   COOKIE_SECURE: 'true' # browsers treat http://localhost as a secure context
   FORWARDED_ALLOW_IPS: '*' # only nginx can reach the API on the compose network
   EMBEDDED_WORKER: 'false'
-  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-local-compose-key-0123456789abcdef0123456789abcdef}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-only-compose-encryption-key-change-me}
   INTAKE_WEBHOOK_SECRET: ${INTAKE_WEBHOOK_SECRET:-local-compose-intake-secret}
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}

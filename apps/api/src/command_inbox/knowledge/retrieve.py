@@ -31,36 +31,41 @@ RRF_K = 60
 CANDIDATES = 40
 DEPARTMENT_BOOST = 0.5 / (RRF_K + 1)
 
-_ELIGIBLE = """d.org_id = :org and d.status = 'approved'
-    and (d.effective_from is null or d.effective_from <= now())
-    and (d.expires_at is null or d.expires_at > now())"""
-
+# A literal statement: the eligibility filter is repeated in both branches, and the fusion constants are
+# bound parameters (k = :rrf_k, top :candidates, the department boost), so no SQL is built from strings.
 _SQL = text(
-    f"""
+    """
     with q as (select to_tsquery('english', :terms) as tq),
     fts as (
       select c.id, row_number() over (order by ts_rank_cd(c.tsv, q.tq) desc) as r
         from knowledge_chunks c join knowledge_docs d on d.org_id = c.org_id and d.id = c.doc_id, q
-       where c.org_id = :org and c.tsv @@ q.tq and {_ELIGIBLE}
+       where c.org_id = :org and c.tsv @@ q.tq
+         and d.org_id = :org and d.status = 'approved'
+         and (d.effective_from is null or d.effective_from <= now())
+         and (d.expires_at is null or d.expires_at > now())
        order by ts_rank_cd(c.tsv, q.tq) desc
-       limit {CANDIDATES}
+       limit :candidates
     ),
     vec as (
       select c.id, row_number() over (order by c.embedding <=> :vec) as r, 1 - (c.embedding <=> :vec) as sim
         from knowledge_chunks c join knowledge_docs d on d.org_id = c.org_id and d.id = c.doc_id
-       where c.org_id = :org and c.embedding is not null and {_ELIGIBLE}
+       where c.org_id = :org and c.embedding is not null
+         and d.org_id = :org and d.status = 'approved'
+         and (d.effective_from is null or d.effective_from <= now())
+         and (d.expires_at is null or d.expires_at > now())
        order by c.embedding <=> :vec
-       limit {CANDIDATES}
+       limit :candidates
     ),
     fused as (
-      select id, sum(1.0 / ({RRF_K} + r)) as score, max(sim) as sim, bool_or(src = 'fts') as text_hit
+      select id, sum(1.0 / (cast(:rrf_k as float8) + r)) as score, max(sim) as sim, bool_or(src = 'fts') as text_hit
         from (select id, r, null::float8 as sim, 'fts' as src from fts
               union all select id, r, sim, 'vec' from vec) x
        group by id
     )
     select c.id::text as chunk_id, d.id::text as doc_id, d.title, c.section_path, c.page, c.text,
            d.department_id::text as department_id, d.owner, d.approved_at, d.verified_at, d.version,
-           f.score + case when cast(:dept as text) is not null and d.department_id::text = cast(:dept as text) then {DEPARTMENT_BOOST} else 0 end
+           f.score + case when cast(:dept as text) is not null and d.department_id::text = cast(:dept as text)
+                          then cast(:boost as float8) else 0 end
              as score,
            coalesce(f.sim, 0) as sim, f.text_hit
       from fused f
@@ -68,7 +73,7 @@ _SQL = text(
       join knowledge_docs d on d.org_id = c.org_id and d.id = c.doc_id
      order by score desc
      limit :limit
-    """  # noqa: S608 - only module constants are interpolated; every input is a bound parameter
+    """
 ).bindparams(bindparam("vec", type_=Vector(EMBEDDING_DIM)))
 
 
@@ -130,7 +135,17 @@ async def retrieve(
     rows = (
         (
             await tx.execute(
-                _SQL, {"org": org_id, "terms": terms, "vec": vec, "dept": department_id, "limit": max(k, 20)}
+                _SQL,
+                {
+                    "org": org_id,
+                    "terms": terms,
+                    "vec": vec,
+                    "dept": department_id,
+                    "limit": max(k, 20),
+                    "candidates": CANDIDATES,
+                    "rrf_k": RRF_K,
+                    "boost": DEPARTMENT_BOOST,
+                },
             )
         )
         .mappings()

@@ -28,4 +28,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP INDEX alerts_open_key_uq")
-    op.execute("ALTER TABLE alerts DROP COLUMN key, DROP COLUMN kind, DROP COLUMN ref, DROP COLUMN updated_at")
+    op.execute(
+        "ALTER TABLE alerts DROP COLUMN key, DROP COLUMN kind, DROP COLUMN ref, DROP COLUMN updated_at"
+    )
