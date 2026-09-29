@@ -1,5 +1,9 @@
 """Provider notification ingress: `/v1/hooks/graph` (and `/lifecycle`), `/v1/hooks/gmail`.
 
+- Gmail (Pub/Sub push): the request carries a Google-signed OIDC token. We verify its signature against
+  Google's keys, the issuer, our configured audience, and that it was issued to the push subscription's
+  service account with a verified email; otherwise the push is refused (401) and Pub/Sub retries.
+
 Public by necessity, so nothing here trusts the caller:
 - Graph: the validation handshake echoes `validationToken` as text/plain. Each notification must carry the
   `clientState` secret we set on that subscription (compared by hash, in constant time); anything else is
@@ -104,3 +108,90 @@ async def graph_lifecycle(request: Request) -> Response:
     for n in await _notifications(request):
         await _accept(n, "lifecycle")
     return Response(status_code=202)
+
+
+# ── Gmail (Pub/Sub push) ──────────────────────────────────────────────────────────────────────────────
+
+GOOGLE_CERTS = "https://www.googleapis.com/oauth2/v3/certs"
+GOOGLE_ISSUERS = ("https://accounts.google.com", "accounts.google.com")
+_google_keys: tuple[float, Any] | None = None
+
+
+async def google_keys() -> Any:
+    """Google's OIDC signing keys, cached for an hour. Replaced in tests."""
+    import time
+
+    import httpx
+    from joserfc.jwk import KeySet
+
+    global _google_keys
+    if _google_keys is None or time.monotonic() - _google_keys[0] > 3600:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(GOOGLE_CERTS)
+            r.raise_for_status()
+        _google_keys = (time.monotonic(), KeySet.import_key_set(r.json()))
+    return _google_keys[1]
+
+
+async def verify_google_push(authorization: str | None) -> bool:
+    from joserfc import jwt
+    from joserfc.errors import JoseError
+
+    from command_inbox.config import settings
+
+    if not (settings.google_push_audience and settings.google_push_service_account):
+        return False
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return False
+    try:
+        token = jwt.decode(authorization[7:].strip(), await google_keys(), algorithms=["RS256"])
+        jwt.JWTClaimsRegistry(
+            leeway=30,
+            iss={"essential": True, "values": list(GOOGLE_ISSUERS)},
+            aud={"essential": True, "value": settings.google_push_audience},
+            exp={"essential": True},
+        ).validate(token.claims)
+    except (JoseError, ValueError):
+        return False
+    claims = token.claims
+    return (
+        claims.get("email") == settings.google_push_service_account and claims.get("email_verified") is True
+    )
+
+
+@router.post("/gmail")
+async def gmail(request: Request) -> Response:
+    import base64
+    import json
+
+    if not await verify_google_push(request.headers.get("authorization")):
+        return Response(status_code=401)
+    raw = await request.body()
+    if len(raw) > MAX_BODY:
+        return Response(status_code=204)
+    try:
+        envelope = json.loads(raw)
+        data = json.loads(base64.b64decode(envelope["message"]["data"]))
+        address = str(data["emailAddress"]).lower()
+    except (ValueError, KeyError, TypeError):
+        return Response(status_code=204)  # acknowledged: a malformed message would only be redelivered
+    found = await _stream(address)
+    if found is None:
+        return Response(status_code=204)
+    org_id, mailbox_id, _secret = found
+    async with tenant_tx(org_id) as tx:
+        await tx.execute(
+            update(Mailbox)
+            .where(Mailbox.org_id == org_id, Mailbox.id == mailbox_id)
+            .values(last_notification_at=clock.now())
+        )
+        tx.add(
+            MailSyncEvent(
+                org_id=org_id,
+                mailbox_id=mailbox_id,
+                kind="notification",
+                detail={"historyId": str(data.get("historyId", ""))},
+            )
+        )
+        await enqueue_sync(tx, org_id, mailbox_id, "notification")
+    return Response(status_code=204)

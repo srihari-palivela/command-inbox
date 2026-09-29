@@ -243,10 +243,12 @@ async def run_mail_renew(job: JobRow) -> None:
         reauthorize = job.payload.get("reason") == "reauthorize"
         if mb.stream_id and reauthorize and hasattr(conn, "reauthorize_stream"):
             await conn.reauthorize_stream(mb.stream_id)  # type: ignore[attr-defined]
+        # Graph subscriptions: renew within 48 h of expiry. Gmail watches: renew daily, as Google advises.
+        margin = timedelta(hours=48) if conn.provider == "graph" else timedelta(days=6)
         if (
             mb.stream_id
             and mb.stream_expires_at
-            and mb.stream_expires_at - clock.now() > timedelta(hours=48)
+            and mb.stream_expires_at - clock.now() > margin
             and not reauthorize
         ):
             return
