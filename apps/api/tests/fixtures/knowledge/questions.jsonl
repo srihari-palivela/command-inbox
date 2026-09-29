@@ -1,0 +1,36 @@
+{"question": "I lost my debit card, how do I block it?", "expected": ["Card Services"]}
+{"question": "When will my replacement card arrive?", "expected": ["Card Services"]}
+{"question": "How can I reset my forgotten PIN?", "expected": ["Card Services"]}
+{"question": "There is a transaction on my card I don't recognise", "expected": ["Card Disputes"]}
+{"question": "How long does the chargeback investigation take?", "expected": ["Card Disputes"]}
+{"question": "When will I get provisional credit for my dispute?", "expected": ["Card Disputes"]}
+{"question": "Please email me a copy of my statement", "expected": ["Statement Services"]}
+{"question": "How much does a paper statement cost?", "expected": ["Statement Services"]}
+{"question": "I need an interest certificate for my tax filing", "expected": ["Statement Services"]}
+{"question": "How long does an international wire transfer take?", "expected": ["Payments and Transfers"]}
+{"question": "My outward payment has not arrived, can you trace it?", "expected": ["Payments and Transfers"]}
+{"question": "What is the fee for sending a wire abroad?", "expected": ["Payments and Transfers"]}
+{"question": "How do I cancel my standing order?", "expected": ["Standing Orders and Direct Debits"]}
+{"question": "A direct debit was taken in error, can I get a refund?", "expected": ["Standing Orders and Direct Debits"]}
+{"question": "I want to open a current account online", "expected": ["Account Opening and Closure"]}
+{"question": "How do I close my account?", "expected": ["Account Opening and Closure"]}
+{"question": "Can I add my wife as a joint holder?", "expected": ["Account Opening and Closure"]}
+{"question": "I am locked out of online banking after wrong password attempts", "expected": ["Online Banking Access"]}
+{"question": "How do I change the mobile number for two-factor codes?", "expected": ["Online Banking Access"]}
+{"question": "Can I repay my personal loan early?", "expected": ["Loans and Repayments"]}
+{"question": "I want to change my EMI repayment date", "expected": ["Loans and Repayments"]}
+{"question": "Send me a loan statement with the outstanding balance", "expected": ["Loans and Repayments"]}
+{"question": "Can I make an overpayment on my mortgage without penalty?", "expected": ["Mortgages"]}
+{"question": "My fixed rate ends soon, can I switch to a new rate?", "expected": ["Mortgages"]}
+{"question": "Can I take a mortgage payment holiday?", "expected": ["Mortgages"]}
+{"question": "Why was I charged an account maintenance fee?", "expected": ["Fees and Charges"]}
+{"question": "What is the overdraft interest rate?", "expected": ["Fees and Charges"]}
+{"question": "Is there a fee for cash withdrawals abroad?", "expected": ["Fees and Charges"]}
+{"question": "I want to make a complaint", "expected": ["Complaints Procedure"]}
+{"question": "How long until I get a final response to my complaint?", "expected": ["Complaints Procedure"]}
+{"question": "Can I take my complaint to the ombudsman?", "expected": ["Complaints Procedure"]}
+{"question": "My father passed away, what do I need to do with his account?", "expected": ["Bereavement Support"]}
+{"question": "How are funds released to the executor?", "expected": ["Bereavement Support"]}
+{"question": "Where do I send the death certificate?", "expected": ["Bereavement Support"]}
+{"question": "Is the first replacement card free?", "expected": ["Card Services"]}
+{"question": "How quickly does a domestic transfer reach the beneficiary?", "expected": ["Payments and Transfers"]}
