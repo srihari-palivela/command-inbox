@@ -843,6 +843,17 @@ export) and use OSS.
   - key rotation
   - incident comms
 
+### 13.5 Status after Phase 6 (delivered)
+
+| Area | Delivered | Still open |
+|---|---|---|
+| Deployment | Helm chart `infra/helm/command-inbox` (api, workers that also run the deduplicated scheduler, web, console, a migrate pre-upgrade hook, HPA, PDBs, network policies, service monitors); Terraform for AWS (`infra/terraform/aws`: network, Postgres with PITR and pgvector, S3 with SSE-KMS and an Object Lock audit bucket, per-installation KMS keys) and a `prod-bank` example. | Azure and GCP modules; staging stack wired to the M365 developer tenant. |
+| Keys | KMS providers `local`, `vault` (Transit) and `aws`; per-tenant data key rotation and re-wrap (`command-inbox-operator keys rotate|rewrap`), audited; runbook. | Azure Key Vault Managed HSM; signing the Graph client assertion in the HSM. |
+| Identity | Operator MFA enforced from `acr`/`amr` (Keycloak operator realm requires OTP); SCIM 2.0 at `/scim/v2` (Users, Groups, roles from groups, offboarding revokes sessions) with a workspace token and group-to-role mapping. | WebAuthn for operators; OAuth client-credentials for SCIM. |
+| App security | Per-tenant and per-user API rate limits; strict API CSP; outbound address guard (`OUTBOUND_ALLOW_CIDRS`) for SIEM and connector calls. CI adds Semgrep (blocking on errors), Trivy (report) and SBOMs; releases push to GHCR with blocking Trivy, SBOM attestations and cosign signatures. | External pen test and fixes (needs the vendor). |
+| Resilience | `infra/scripts/dr-drill.sh` (dump, restore, row counts, audit-chain verification across tenants, timings against RPO/RTO) and `command-inbox-operator mail catch-up` for post-restore mail recovery; k6 load test at 10x pilot volume (`tests/load`). | Run the drill and load test on the staging stack and record results. |
+| Assurance pack | Threat model (STRIDE), DPIA template, sub-processor list, model inventory, control matrix (`docs/security`); on-call, DR drill and extended runbooks (`docs/operations`). | The bank's TPRM questionnaire; SOC 2 observation window. |
+
 ---
 
 ## 14. Integration call-outs
@@ -900,7 +911,7 @@ PM/implementation lead. Estimates are elapsed weeks with workstreams in parallel
 | **3. Knowledge** ✅ (see §8.1) | 3 (overlaps 2) | §8 upload, parsing, chunking, embeddings, pgvector hybrid + rerank, approval, expiry, citations, gaps; SharePoint sync (v1.1). | Retrieval eval: recall@5 ≥ 0.85 on a labelled Q/A set; drafts cite only approved chunks. |
 | **4. Agents and studio** ✅ (see §9.1) | 3 | §9 studio (unify agents into deployments, node editor, test bench, labelling queue), `LLMProvider` with Anthropic and OpenAI per tenant and node, budgets; CRUD for departments, query types, SLA policies; starter pack. No connectors (D5). | A bank admin configures a deployment from the starter pack, labels 300 real mails, and publishes via evals and four-eyes; the same eval set runs on both providers and the comparison is recorded. |
 | **5. Monitoring and operations** ✅ (see §11.4) | 3 (overlaps 4) | §11 metrics rollups replacing seeded metrics, SLA sweep, alerts, agent quality dashboards, mailbox health alerts, console fleet health; retention sweep, audit export and SIEM, per-tenant rate limits. | Every dashboard number traces to records; alert tests fire; retention verified on a test tenant. |
-| **6. Hardening and assurance** | 3 | §12–§13: Helm + Terraform, staging and prod-bank stacks, backups and DR drill, load test (10× the pilot volume), external pen test and fixes, threat model, DPIA, security pack, runbooks, on-call. | Pen test has no open high/critical findings; DR drill meets RPO/RTO; load test meets the SLOs; the bank's TPRM questionnaire is answered. |
+| **6. Hardening and assurance** ✅ (see §13.5) | 3 | §12–§13: Helm + Terraform, staging and prod-bank stacks, backups and DR drill, load test (10× the pilot volume), external pen test and fixes, threat model, DPIA, security pack, runbooks, on-call. | Pen test has no open high/critical findings; DR drill meets RPO/RTO; load test meets the SLOs; the bank's TPRM questionnaire is answered. |
 | **7. Pilot at bank #1** | 6–10 | Shadow (≥ 2 weeks) → assisted (draft-for-approval, 4+ weeks) → targeted partial autonomy on low-risk categories only after Risk sign-off. | Agreed KPIs: acceptance ≥ 70% of drafts unedited or lightly edited, zero hard-stop misses, SLA improvement vs baseline, and no P1 incidents. |
 
 **Critical path:** Phase 1 identity → Phase 2 M365 connector → shadow start. The bank's own lead times often

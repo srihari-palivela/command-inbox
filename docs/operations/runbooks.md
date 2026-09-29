@@ -77,3 +77,18 @@ decides (Organisation → AI model providers). Policy — a deployment names a p
 
 **Act:** check the pod/container, recent deploys, and Postgres reachability; roll back if a deploy is the
 cause.
+
+## Key rotation
+
+**When:** quarterly, on suspected exposure, or when moving to another KMS or KEK.
+
+1. New data keys for new data: `command-inbox-operator keys rotate [--tenant SLUG]`. Old versions stay readable.
+2. Moving KEK or provider (e.g. local → Vault Transit, or a new AWS KMS key): set `KMS_PROVIDER` and its settings,
+   deploy, then `command-inbox-operator keys rewrap [--tenant SLUG]`. Each live data key is re-sealed; the data it
+   protects is unchanged. Both steps are recorded in the platform audit.
+
+## Tenant offboarding
+
+1. Export the audit log (Organisation → download) and hand it over with the manifest.
+2. Archive the tenant in the console (sessions revoked, mailboxes disconnected).
+3. After the agreed notice period, destroy the tenant's keys (crypto-shredding) and delete its rows.

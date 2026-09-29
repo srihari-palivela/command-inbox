@@ -129,6 +129,43 @@ async def _keys(action: str, slug: str | None) -> int:
         await dispose()
 
 
+async def _mail_catch_up(slug: str | None) -> int:
+    """After a restore (DR) or an outage: queue a catch-up for every connected mailbox from its stored cursor.
+    The provider mailbox is the source of truth and ingestion is idempotent, so nothing is lost or doubled."""
+    from command_inbox.db.engine import dispose, global_tx, tenant_tx
+    from command_inbox.db.models import Mailbox, Org
+    from command_inbox.mail.sync import enqueue_sync
+
+    try:
+        async with global_tx() as g:
+            q = select(Org.id, Org.slug).where(Org.status.not_in(("archived", "draft")))
+            if slug:
+                q = q.where(Org.slug == slug)
+            orgs = (await g.execute(q)).all()
+        total = 0
+        for org_id, org_slug in orgs:
+            async with tenant_tx(org_id) as tx:
+                boxes = (
+                    (
+                        await tx.execute(
+                            select(Mailbox.id).where(
+                                Mailbox.org_id == org_id,
+                                Mailbox.connection.in_(("live", "degraded", "syncing")),
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                for mailbox_id in boxes:
+                    await enqueue_sync(tx, org_id, mailbox_id, "catch_up")
+            print(f"{org_slug}: {len(boxes)} mailboxes queued for catch-up")
+            total += len(boxes)
+        return 0 if orgs else 2
+    finally:
+        await dispose()
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="command-inbox-operator", description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -142,7 +179,12 @@ def main(argv: list[str] | None = None) -> int:
     k = sub.add_parser("keys", help="rotate tenant data keys, or re-wrap them under the configured KEK")
     k.add_argument("action", choices=["rotate", "rewrap"])
     k.add_argument("--tenant", help="tenant slug (default: every tenant)")
+    m = sub.add_parser("mail", help="queue a catch-up for every connected mailbox (after a restore)")
+    m.add_argument("action", choices=["catch-up"])
+    m.add_argument("--tenant", help="tenant slug (default: every tenant)")
     args = p.parse_args(argv)
+    if args.cmd == "mail":
+        return asyncio.run(_mail_catch_up(args.tenant))
     if args.cmd == "keys":
         return asyncio.run(_keys(args.action, args.tenant))
     if args.cmd == "add":

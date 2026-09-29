@@ -156,6 +156,16 @@ audit log to their SIEM (signed batches) and download a signed audit export. Ope
 in the console; `--profile observability` adds Prometheus (SLO rules, :9090) and Alertmanager (:9093).
 Runbooks: `docs/operations/runbooks.md`.
 
+### Deploying and security
+
+`infra/helm/command-inbox` deploys one bank's stack (API, workers, web, console; migrations run as a
+pre-upgrade hook). `infra/terraform/aws` builds the network, Postgres, storage and KMS keys underneath it.
+Tenant keys come from `KMS_PROVIDER=local|vault|aws`; rotate them with
+`command-inbox-operator keys rotate --tenant SLUG`. Operators must sign in with a second factor in production.
+Bank admins can provision people from Entra ID through SCIM (`/scim/v2`, token under **Members**). The DR drill
+is `infra/scripts/dr-drill.sh`, the load test is `tests/load`, and the security pack (threat model, DPIA,
+sub-processors, model inventory, controls) is in `docs/security`.
+
 ## Tests
 
 ```sh

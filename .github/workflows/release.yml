@@ -1,0 +1,55 @@
+name: Release
+
+# A version tag builds the three images, pushes them to GHCR, signs them (Sigstore keyless, bound to this
+# workflow's identity), and attaches an SPDX SBOM attestation. Deployments pin the signed digests; the cluster
+# admission policy (Kyverno/Connaisseur) verifies the signature before any pod starts.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write # keyless signing
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      matrix:
+        image:
+          - { name: command-inbox-api, file: infra/docker/api.Dockerfile }
+          - { name: command-inbox-web, file: infra/docker/web.Dockerfile }
+          - { name: command-inbox-console, file: infra/docker/console.Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.file }}
+          push: true
+          provenance: mode=max
+          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}:${{ github.ref_name }}
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          exit-code: '1'
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign and attest
+        env:
+          REF: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "$REF"
+          cosign attest --yes --type spdxjson --predicate sbom.spdx.json "$REF"
