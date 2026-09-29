@@ -18,6 +18,16 @@ System 1 / System 2 triage flow.
 
 ---
 
+## 0. Decisions recorded (2026-09-29)
+
+| # | Decision | Consequence for this plan |
+|---|---|---|
+| D1 | **Bank #1 runs on a dedicated single-tenant stack** in the bank's region. | Same code and Helm chart as the SaaS; one tenant per stack. The platform console still exists (it provisions that one tenant and later ones). App registrations for mail and SSO can be **owned by the bank** (see D3). |
+| D2 | **System 2: Anthropic API now, OpenAI supported as well. System 1: our open-source Jev-style decision engine** ("laya"), self-hosted. | Provider abstraction with two implementations (Anthropic, OpenAI) selectable per tenant and per node; Bedrock/Vertex deferred. Residency note: Anthropic's first-party API processes in US/global only; OpenAI offers regional data residency for eligible API projects **[verify for the bank's region]**. Both under zero-data-retention agreements. |
+| D3 | **Mailbox v1: delegated OAuth for one mail account**, on Microsoft 365 or Google Workspace. The app-only models (Exchange RBAC for Applications, Gmail domain-wide delegation) move to v2. | See §7.0. Simplest consent (one account, one sign-in), smallest blast radius (the app can reach only that account's mail), no tenant-wide admin grants. Cost: the token belongs to one account, so the health model and a re-connect flow are essential. |
+| D4 | **Langfuse open source.** | No Enterprise features. We mask before export (done), enforce retention with our own ClickHouse/S3 TTL jobs, and keep the audit trail in our hash-chained log, not in Langfuse. |
+| D5 | **No actions against bank systems in v1.** | The AI reads, classifies, prioritises, extracts, drafts and briefs; **people send every reply and do every action in their own systems.** No connector registry, no core-banking or CRM calls, no auto lane in v1: the autonomy dial's ceiling is "draft for approval". §10 moves to v2. Customer matching uses the sender address and in-mail identifiers only. |
+
 ## 1. Summary
 
 **What is real today:**
@@ -276,6 +286,63 @@ label(mailbox, ref, labels)          # categories / labels, never delete
 health(mailbox) -> Health
 ```
 
+### 7.0 v1 access model: delegated OAuth for one account (decision D3)
+
+One mailbox per tenant, connected by **one interactive OAuth sign-in** as the mail account, with offline access.
+We store the refresh token (KMS-wrapped, per-tenant key) and act only on that account's mailbox.
+
+**Microsoft 365**
+- **App registration owned by the bank** (single-tenant, in the bank's Entra; we supply a manifest and a
+  checklist). The dedicated stack (D1) makes this natural, and there is no multi-tenant consent.
+- **Delegated scopes:** `offline_access`, `User.Read`, `Mail.ReadWrite`, `Mail.Send`. The app can reach only
+  mail the signed-in account can reach, so admin consent covers a narrow grant.
+- **Which account signs in:**
+  - The preferred case is a **licensed user mailbox** used as the service inbox (for example
+    `customercare@bank.com`). It works with `/me/...` calls and change-notification subscriptions on its own
+    Inbox.
+  - Alternatively, if the bank's customer-care box is an Exchange **shared mailbox**, it has no sign-in of its
+    own. A dedicated service user with FullAccess and SendAs on it signs in, and the app uses
+    `Mail.ReadWrite.Shared` / `Mail.Send.Shared` on `/users/{shared}/...`. Whether change-notification
+    subscriptions accept delegated `.Shared` permissions on a shared mailbox is **[verify]**. If they don't,
+    this path uses the 60-second delta poll described below, with no subscription.
+- **Refresh tokens:**
+  - They are valid for 90 days of inactivity (continuously refreshed by our renewal job).
+  - They are revoked by a password reset, account disablement, or a Conditional Access change.
+  - The bank must **exclude the service account from interactive password expiry** or plan re-consent.
+  - Health goes to `reauth_required` with an in-app and email alert and a one-click re-connect.
+- **Conditional Access:** the bank may require the sign-in from a compliant device or network. The connect wizard
+  runs in the admin's browser, so this is satisfied at consent time.
+- **Receiving and sending:** as in §7.2 (subscription on `/me/mailFolders('inbox')/messages`, lifecycle, delta
+  sweep, createReply/send, categories, immutable IDs, throttling). Only the token type differs: delegated
+  instead of app-only.
+
+**Google Workspace**
+- **OAuth client owned by the bank:** created in a Google Cloud project that belongs to the bank's Workspace
+  organisation, with **user type "Internal"**. Internal apps need no Google verification or CASA assessment, and
+  their refresh tokens don't carry the 7-day testing-mode expiry.
+- **Scopes:** `gmail.modify` and `gmail.send`. The signed-in account must be a **licensed user mailbox**, because
+  Google Groups collaborative inboxes cannot be read through the API.
+- **Pub/Sub:** the topic and push subscription live in the same bank project. Whether the topic must be in the
+  OAuth client's project is **[verify]**; putting both in one project avoids the question. Grant
+  `gmail-api-push@system.gserviceaccount.com` the Publisher role, and push to `/v1/hooks/gmail` with OIDC
+  verification.
+- **Refresh tokens:** revoked by a password change (for Gmail scopes), by the user or admin removing access, or
+  after 6 months unused. They are also subject to the per-account refresh-token limit. Health and re-connect
+  work as for Microsoft.
+- **Receiving and sending:** as in §7.3 (watch renewed daily, `history.list` catch-up, 404 → full resync,
+  `messages.send` with `threadId` and headers, labels).
+
+**What changes in v2:**
+- Exchange RBAC for Applications (app-only, scoped to the mailbox) and Gmail DWD. Both remove the dependency on
+  one account's token and support many mailboxes.
+- The connector interface already hides the credential type, so v2 adds a credential provider and does not touch
+  the pipeline.
+
+**Security notes for v1:**
+- The signed-in account is a **service identity**: no personal mail, MFA registered, and only this app granted.
+- Our audit log records every token refresh and every send.
+- Revoking our access is a single action for the bank: remove the app's consent or disable the account.
+
 ### 7.1 New data model (migration 0005)
 
 - **`mailboxes`:**
@@ -510,20 +577,32 @@ become views over deployment nodes.
   exist).
 - **Rollout:** draft → shadow → canary % → published, with four-eyes (exists). Rollback is one click.
 
-**Model providers per tenant:**
-- **System 2 options:**
-  - **Anthropic API** (zero data retention by agreement). Residency is US or global only today.
-  - **AWS Bedrock** or **Google Vertex AI** for EU, APAC or India residency (regional endpoints cost ~10% more).
-- **System 1:** self-hosted open-weight model on vLLM (GPU) or llama.cpp (CPU), in the same region. The
-  provider, model and region are chosen per tenant in the residency profile.
+**Model providers per tenant (decision D2):**
+- **System 2 in v1:** an `LLMProvider` abstraction with two implementations:
+  - **Anthropic** (Messages API, structured outputs, prompt caching). Zero data retention by agreement;
+    residency is US or global today.
+  - **OpenAI** (Responses API with structured outputs). Zero data retention by agreement; regional data
+    residency for eligible projects **[verify for the bank's region]**.
+- **Selection:** per tenant and per node in the deployment config (for example adjudication on one provider,
+  drafting on another). Both providers go through the same masking, budgets, tracing and eval gates, and evals
+  record the provider and model so switching is a measured change.
+- **Later:** AWS Bedrock and Google Vertex adapters, for regional residency on Claude.
+- **System 1:** the open-source Jev-style decision engine ("laya"): Choice, Score and boolean over lettered
+  options from logprobs, with calibration and conformal sets. It is self-hosted on vLLM (GPU) or llama.cpp
+  (CPU) in the bank's region. OpenAI chat models also return logprobs and could serve System 1, but we keep it
+  on the self-hosted model so classification never leaves the bank boundary.
 - **Budgets:** per-mail and monthly caps. When a cap is reached, drafting stops and mail routes to people. We
   never exceed a cap silently.
 
 **Workflows (v1 scope).** The flow is linear with conditional branches (already compiled per version):
-`ingest → mask → sender trust → hard stops → categorise (S1) → adjudicate (S2, if unsure) → priority → customer lookup → extract fields → lane policy → draft | brief → route → approval gate → send / execute action`.
-Tenant-defined **post-approval workflows** (e.g. "after reply sent, create a case in ServiceNow and tag the
-customer") are declarative steps over the connector registry (§10). They are versioned with the deployment and
-executed by the job queue with retries and compensation notes. Arbitrary code is not allowed.
+`ingest → mask → sender trust → hard stops → categorise (S1) → adjudicate (S2, if unsure) → priority → customer match (sender/identifiers only) → extract fields → lane policy → draft | brief → route → approval gate → person sends`.
+
+**v1 has no actions (decision D5):**
+- The "auto" lane is disabled; the lane ceiling is *draft for approval*.
+- Extracted fields and suggested next steps are shown to the person, who acts in the bank's own systems.
+- The approval gateway still records who approved and sent what.
+
+Tenant-defined **post-approval workflows** over a connector registry (§10) arrive in v2.
 
 ---
 
@@ -545,7 +624,7 @@ executed by the job queue with retries and compensation notes. Arbitrary code is
   - A **dry-run/sandbox mode** per connector.
   - A **circuit breaker**.
   - A **full request/response audit** (masked).
-- **Recommendation: v1 is read-only plus case creation.** Customer/account lookup and case creation in the
+- **Decision D5: no actions in v1. This whole section is v2.** Planned first step for v2 was read-only lookups and case creation: customer/account lookup and case creation in the
   bank's CRM or ticketing system only. **No money-moving actions until the bank's Risk function signs off after
   pilot.** Those stay "prepare for a person to execute in their system".
 
@@ -756,9 +835,9 @@ PM/implementation lead. Estimates are elapsed weeks with workstreams in parallel
 |---|---|---|---|
 | **0. Clean-up** | 1 | §4. Migrate-only command, real SSO sign-in page, demo removal, empty-tenant tests, locale. | Fresh deploy has no demo data; a user signs in via Keycloak/Entra; every screen works on an empty tenant. |
 | **1. Platform and identity** | 3 | §5 console, tenant lifecycle and provisioning job, tokenised invites and transactional email, Keycloak org/IdP adapter, operator realm, platform RBAC, break-glass, tenant settings UI, per-tenant config model, KMS envelope encryption. | Operator creates a tenant, the admin accepts, connects Entra SSO, and invites 2 users; all audited. The pen-test scope for identity is ready. |
-| **2. Mailbox (M365 first, then Gmail)** | 5 | §7: connector interface, Graph connector (consent, RBAC script generator, subscription, lifecycle, delta, renewal, fetch, MIME store, send-in-thread, categories), Gmail connector (DWD + OAuth, watch/PubSub, history, send), common pipeline (sanitise, AV, parse, threading, loop guard, sender trust), health model and UI, test-mail tool, contract, e2e and chaos tests. | On the M365 dev tenant and the Workspace test domain: 1,000 test mails ingested with no loss or duplicates across forced failures; approved replies land in-thread; health shows real lag; nightly real-provider CI is green. |
+| **2. Mailbox (M365 first, then Gmail)** | 5 | §7: connector interface, delegated-OAuth credential provider (§7.0: connect wizard, refresh, re-connect), Graph connector (subscription, lifecycle, delta, renewal, fetch, MIME store, send-in-thread, categories), Gmail connector (OAuth, watch/PubSub, history, send), common pipeline (sanitise, AV, parse, threading, loop guard, sender trust), health model and UI, test-mail tool, contract, e2e and chaos tests. | On the M365 dev tenant and the Workspace test domain: 1,000 test mails ingested with no loss or duplicates across forced failures; approved replies land in-thread; health shows real lag; nightly real-provider CI is green. |
 | **3. Knowledge** | 3 (overlaps 2) | §8 upload, parsing, chunking, embeddings, pgvector hybrid + rerank, approval, expiry, citations, gaps; SharePoint sync (v1.1). | Retrieval eval: recall@5 ≥ 0.85 on a labelled Q/A set; drafts cite only approved chunks. |
-| **4. Agents, workflows, connectors** | 4 | §9 studio (unify agents into deployments, node editor, test bench, labelling queue), per-tenant model provider (Anthropic/Bedrock/Vertex), budgets; §10 connector registry, idempotency ledger, customer lookup, case creation; CRUD for departments, query types, templates; starter pack. | A bank admin configures a deployment from the starter pack, labels 300 real mails, and publishes via evals and four-eyes; customer lookup works against the bank sandbox. |
+| **4. Agents and studio** | 3 | §9 studio (unify agents into deployments, node editor, test bench, labelling queue), `LLMProvider` with Anthropic and OpenAI per tenant and node, budgets; CRUD for departments, query types, SLA policies; starter pack. No connectors (D5). | A bank admin configures a deployment from the starter pack, labels 300 real mails, and publishes via evals and four-eyes; the same eval set runs on both providers and the comparison is recorded. |
 | **5. Monitoring and operations** | 3 (overlaps 4) | §11 metrics rollups replacing seeded metrics, SLA sweep, alerts, agent quality dashboards, mailbox health alerts, console fleet health; retention sweep, audit export and SIEM, per-tenant rate limits. | Every dashboard number traces to records; alert tests fire; retention verified on a test tenant. |
 | **6. Hardening and assurance** | 3 | §12–§13: Helm + Terraform, staging and prod-bank stacks, backups and DR drill, load test (10× the pilot volume), external pen test and fixes, threat model, DPIA, security pack, runbooks, on-call. | Pen test has no open high/critical findings; DR drill meets RPO/RTO; load test meets the SLOs; the bank's TPRM questionnaire is answered. |
 | **7. Pilot at bank #1** | 6–10 | Shadow (≥ 2 weeks) → assisted (draft-for-approval, 4+ weeks) → targeted partial autonomy on low-risk categories only after Risk sign-off. | Agreed KPIs: acceptance ≥ 70% of drafts unedited or lightly edited, zero hard-stop misses, SLA improvement vs baseline, and no P1 incidents. |
@@ -792,18 +871,17 @@ Start those in week 1.
 
 ---
 
-## 17. Open decisions
+## 17. Decisions still open
 
-1. **Hosting for bank #1:** dedicated stack in our cloud account, or in the bank's (recommended: the bank's
-   region, our account, unless the bank requires its own).
-2. **System 2 provider and region:** Anthropic API (US/global, ZDR) vs Bedrock/Vertex regional.
-3. **Gmail access model** (if the bank is on Google): DWD vs per-user OAuth.
-4. **Langfuse Enterprise** licence vs OSS with our own masking and retention.
-5. **Actions in v1:** read-only plus case creation (recommended), or more.
-6. **Roles:** keep 3 tenant roles; add a read-only auditor for regulators and internal audit (recommended for
+1. **Roles:** keep 3 tenant roles, or add a read-only auditor for regulators and internal audit (recommended for
    banks, cheap to add).
-7. **Earlier open items:** team leads' clearance edits limited to their department; staff visibility of
-   Deployments in navigation.
+2. **Team leads' clearance edits:** limited to their own department?
+3. **Staff navigation:** should staff see Deployments?
+4. **Region and provider pairing for bank #1** (follows from D1 and D2): if the bank's region requires in-region
+   processing, which of Anthropic or OpenAI can meet it for that region, or does System 2 wait for the
+   Bedrock/Vertex adapter?
+
+Resolved decisions are in §0.
 
 ---
 
