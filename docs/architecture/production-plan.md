@@ -158,18 +158,18 @@ data access** outside break-glass.
 
 ---
 
-## 4. Phase 0: Remove prototype scaffolding (1 week)
+## 4. Phase 0: Remove prototype scaffolding (1 week) — done
 
-| Item | Action |
+| Item | Status |
 |---|---|
-| Role switcher | ✅ Done (41fdb83). |
-| Sign-in page | Replace with: an email field for **tenant discovery by domain**, which redirects to `/v1/auth/oidc/login?org=<alias>` and Keycloak routes to the bank's IdP. Remove the passcode button and the marketing figures. Keep the demo picker only in development builds (compile-time flag, not just `DEMO_MODE`). |
-| Seed | Split the CLI: `command-inbox-migrate` (alembic only) and `command-inbox-seed --demo` (development and CI only). Production images and Helm run migrate only. Add a separate **starter pack** (see §6.5) for real tenants: neutral templates, not demo banks. |
-| Simulated features | "Simulate an email" becomes a **test-mail tool**: it sends a real test message to the connected mailbox via the provider API and follows it through. Scripted telephony is hidden behind a feature flag (not in scope for v1). Hard-coded insight claims and phases are deleted. |
-| Fabricated data | Stop inventing a CIF for unknown senders; show "Unmatched sender" and a link action. Stop the `12 + len(name)` doc count. |
-| Locale | Add a tenant locale, currency and time zone; formatting reads them, replacing the INR/IN defaults. |
-| Hygiene | Delete `apps/web/dist` from the tree and fix README references. |
-| Tests | Add an **empty-tenant** integration fixture (migrated, no seed) and a smoke suite that runs every screen against it. |
+| Role switcher | ✅ Removed (41fdb83). |
+| Sign-in page | ✅ An email field for **tenant discovery by domain**: the page sends it to `/v1/auth/oidc/login?login_hint=`; the API maps the domain to the tenant's brokered IdP (`kc_idp_hint`) so Keycloak goes straight to Entra ID or Google. Unknown domains get the same redirect (no tenant enumeration). SSO callback errors are shown in plain words. The passcode button and marketing figures are gone. The demo picker is compiled in only for development builds and the local compose stack (`VITE_DEMO_SIGNIN`), never in a production bundle. |
+| Seed | ✅ `command-inbox-migrate` (alembic only) is what a deployment runs. `command-inbox-seed` requires `--demo` and refuses in production. The **starter pack** for real tenants (§6.5) comes with the platform console (Phase 1). |
+| Simulated features | ✅ "Simulate an email" is development-only (demo mode, which production refuses); it becomes the real **test-mail tool** with the connectors (Phase 2). Scripted telephony is behind `FEATURE_TELEPHONY` (off: the API answers 404 and the button is hidden). The hard-coded rollout phases and invented Results figures are deleted; only measured values remain. |
+| Fabricated data | ✅ Unknown senders get an unmatched customer record (no CIF, no tenure; migration 0005 clears old invented ones) and the UI says "Unmatched sender". The linking action arrives with the customer-master integration. Knowledge sync reports the source's own document count, never an estimate. |
+| Locale | ✅ Tenants record locale, ISO 4217 currency and IANA time zone (migration 0005, no server default for new tenants). The web app's numbers, money (by the currency's minor-unit exponent) and times follow them. |
+| Hygiene | ✅ `apps/web/dist` is build output and was never tracked (`.gitignore`); README references are updated. |
+| Tests | ✅ An **empty-tenant** workspace (one admin, nothing else): an API suite calls every read endpoint as admin, lead and staff (`test_empty_tenant.py`), and a Playwright suite opens every screen (`empty-tenant.spec.ts`, using `scripts/empty_tenant.py`). |
 
 ---
 

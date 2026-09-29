@@ -65,6 +65,10 @@ pnpm dev               # web on :5173
 Without `APP_ENV=development` the API assumes production and refuses to start with development
 defaults (demo mode, dev secrets, no SSO, keyword-only models).
 
+A real deployment prepares its database with `command-inbox-migrate` (schema only). The demo seed needs
+`--demo` and refuses to run in production. Scripted telephony is a prototype and stays off unless
+`FEATURE_TELEPHONY=true`.
+
 ### Demo users
 
 | Sign in as | Role | Try this |
