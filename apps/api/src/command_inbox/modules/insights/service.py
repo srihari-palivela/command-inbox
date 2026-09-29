@@ -282,7 +282,8 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
                 text=a.text_,
                 action_label=a.action_label,
                 owner=a.owner,
-                at=iso_ms(a.created_at),
+                at=iso_ms(a.updated_at or a.created_at),
+                ref=a.ref,
             )
             for a in alerts
         ],

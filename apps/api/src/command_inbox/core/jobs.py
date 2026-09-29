@@ -120,6 +120,9 @@ class Worker:
         self._on_final_failure = handler
         return self
 
+    def handles(self, kind: str) -> bool:
+        return kind in self._handlers
+
     def register(self, kind: str, handler: JobHandler) -> Worker:
         self._handlers[kind] = handler
         return self

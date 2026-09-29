@@ -6,6 +6,7 @@ import type {
   QueryTypeSpeedDTO,
   StaffDTO,
 } from '@ci/contracts';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { api } from '../../lib/api';
 import { formatMinutes, fullDateTime, num } from '../../lib/format';
@@ -385,12 +386,15 @@ function SpeedTable({ rows }: { rows: QueryTypeSpeedDTO[] }) {
   );
 }
 
-// ── Agent-raised alerts ──────────────────────────────────────────────────────
+// ── Alerts (raised by the monitoring sweep) ──────────────────────────────────────────────────────
 const SEV_TONE: Record<AlertDTO['sevKind'], { fg: string; bg: string }> = {
   late: { fg: 'var(--bad)', bg: 'var(--bad-bg)' },
   pattern: { fg: 'var(--warn)', bg: 'var(--warn-bg)' },
   drift: { fg: 'var(--warn)', bg: 'var(--warn-bg)' },
   capacity: { fg: 'var(--accent)', bg: 'var(--accent-bg-2)' },
+  health: { fg: 'var(--bad)', bg: 'var(--bad-bg)' },
+  budget: { fg: 'var(--warn)', bg: 'var(--warn-bg)' },
+  knowledge: { fg: 'var(--warn)', bg: 'var(--warn-bg)' },
 };
 
 function Alerts({ alerts }: { alerts: AlertDTO[] }) {
@@ -418,7 +422,7 @@ function Alerts({ alerts }: { alerts: AlertDTO[] }) {
       {list.length === 0 ? (
         <EmptyState
           title="No active alerts"
-          text="The agent raises an alert when a deadline is close, a pattern appears, or confidence drifts."
+          text="Alerts appear when mail is past or near its deadline, a mailbox is unhealthy, the model budget runs low, or approved knowledge is about to expire."
         />
       ) : (
         list.map((a) => {
@@ -434,7 +438,15 @@ function Alerts({ alerts }: { alerts: AlertDTO[] }) {
                   {sinceShort(a.at)}
                 </time>
               </div>
-              <p className={s.alertText}>{a.text}</p>
+              <p className={s.alertText}>
+                {a.text}
+                {a.ref && (
+                  <>
+                    {' '}
+                    <Link to={a.ref}>See the records →</Link>
+                  </>
+                )}
+              </p>
               <div className={s.alertActions}>
                 <Button
                   size="sm"

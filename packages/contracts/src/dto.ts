@@ -609,12 +609,14 @@ export interface QueryTypeSpeedDTO {
 export interface AlertDTO {
   id: string;
   sevLabel: string;
-  sevKind: 'late' | 'pattern' | 'drift' | 'capacity';
+  sevKind: 'late' | 'pattern' | 'drift' | 'capacity' | 'health' | 'budget' | 'knowledge';
   bucket: string;
   text: string;
   actionLabel: string;
   owner: string;
   at: string;
+  /** Where the records behind it are (system alerts). */
+  ref?: string | null;
 }
 
 export interface CustomKpiDTO {

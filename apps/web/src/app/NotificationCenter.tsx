@@ -129,11 +129,21 @@ export function NotificationCenter({
                   fontWeight: 600,
                   borderRadius: 3,
                   padding: '1px 6px',
-                  color: n.kind === 'learning' ? 'var(--accent)' : 'var(--text-2)',
-                  background: n.kind === 'learning' ? 'var(--accent-bg)' : 'var(--surface-3)',
+                  color:
+                    n.kind === 'learning'
+                      ? 'var(--accent)'
+                      : n.kind === 'alert'
+                        ? 'var(--bad-text)'
+                        : 'var(--text-2)',
+                  background:
+                    n.kind === 'learning'
+                      ? 'var(--accent-bg)'
+                      : n.kind === 'alert'
+                        ? 'var(--bad-bg)'
+                        : 'var(--surface-3)',
                 }}
               >
-                {n.kind === 'learning' ? 'Learning card' : 'Message'}
+                {n.kind === 'learning' ? 'Learning card' : n.kind === 'alert' ? 'Alert' : 'Message'}
               </span>
               <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{n.source}</span>
               {(n.kind === 'learning' && n.courseId) || !n.read ? (

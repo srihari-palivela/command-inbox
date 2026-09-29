@@ -97,7 +97,7 @@ export type Health = z.infer<typeof Health>;
 export const GapSeverity = z.enum(['blocking', 'stale', 'unowned', 'resolved']);
 export type GapSeverity = z.infer<typeof GapSeverity>;
 
-export const NotificationKind = z.enum(['message', 'learning']);
+export const NotificationKind = z.enum(['message', 'learning', 'alert']);
 export type NotificationKind = z.infer<typeof NotificationKind>;
 
 export const KpiMetric = z.enum(['fr', 'tat', 'accept', 'reopen', 'auto', 'csat', 'cost', 'awo']);

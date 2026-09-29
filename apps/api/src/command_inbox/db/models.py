@@ -168,7 +168,16 @@ class Agent(Base):
 
 class Alert(Base):
     __tablename__ = "alerts"
-    __table_args__ = (PrimaryKeyConstraint("id", name="alerts_pkey"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="alerts_pkey"),
+        Index(
+            "alerts_open_key_uq",
+            "org_id",
+            "key",
+            unique=True,
+            postgresql_where=text("resolved_at IS NULL AND key IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
@@ -185,6 +194,13 @@ class Alert(Base):
     )
     resolved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     resolved_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    # System-raised alerts: one open alert per condition (`key`), updated while it holds.
+    key: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'::text"))
+    ref: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
 
 
 class Approval(Base):

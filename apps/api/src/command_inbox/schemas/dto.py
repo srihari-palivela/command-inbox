@@ -721,12 +721,13 @@ class QueryTypeSpeedDTO(CamelModel):
 class AlertDTO(CamelModel):
     id: str
     sev_label: str
-    sev_kind: Literal["late", "pattern", "drift", "capacity"]
+    sev_kind: Literal["late", "pattern", "drift", "capacity", "health", "budget", "knowledge"]
     bucket: str
     text: str
     action_label: str
     owner: str
     at: str
+    ref: str | None | None = None
 
 
 class CustomKpiDTO(CamelModel):
