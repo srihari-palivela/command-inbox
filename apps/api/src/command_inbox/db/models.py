@@ -25,7 +25,7 @@ from sqlalchemy import (
     Uuid,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -900,6 +900,10 @@ class Org(Base):
         UniqueConstraint("slug", name="orgs_slug_unique"),
         CheckConstraint("currency ~ '^[A-Z]{3}$'", name="orgs_currency_iso4217"),
         CheckConstraint(
+            "model_budget_monthly_minor IS NULL OR model_budget_monthly_minor >= 0",
+            name="orgs_model_budget_ck",
+        ),
+        CheckConstraint(
             "status in ('draft', 'provisioning', 'provisioned', 'onboarding', 'shadow', 'assisted', 'live', "
             "'suspended', 'archived')",
             name="orgs_status_ck",
@@ -944,6 +948,66 @@ class Org(Base):
     created_by_operator: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     # The admin's SSO connection: provider, directoryId, clientId, secretSealed, state, detail.
     sso_config: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    # Model policy: which System 2 providers the bank's agreements allow, and the monthly spend cap.
+    allowed_providers: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{anthropic,openai}'::text[]")
+    )
+    model_budget_monthly_minor: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class ModelSpend(Base):
+    """Model spend per workspace, calendar month (UTC) and provider, in the workspace's minor units."""
+
+    __tablename__ = "model_spend"
+    __table_args__ = (
+        PrimaryKeyConstraint("org_id", "month", "provider", name="model_spend_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="model_spend_org_id_fkey"),
+    )
+
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    month: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    spent_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    calls: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+class SlaPolicy(Base):
+    """A reply-time target; null priority or segment matches any, and the most specific match wins."""
+
+    __tablename__ = "sla_policies"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sla_policies_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="sla_policies_org_id_fkey"),
+        CheckConstraint(
+            "priority IS NULL OR priority IN ('P1', 'P2', 'P3', 'P4')", name="sla_policies_priority_ck"
+        ),
+        CheckConstraint("minutes BETWEEN 5 AND 43200", name="sla_policies_minutes_ck"),
+        UniqueConstraint(
+            "org_id",
+            "priority",
+            "segment",
+            "escalation",
+            name="sla_policies_match_uq",
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[str | None] = mapped_column(Text)
+    segment: Mapped[str | None] = mapped_column(Text)
+    escalation: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sort: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
 
 
 class OutboxEvent(Base):
@@ -1553,6 +1617,14 @@ class EvalCase(Base):
             ondelete="CASCADE",
         ),
         CheckConstraint("split in ('calibration', 'test')", name="eval_cases_split_ck"),
+        Index(
+            "eval_cases_ticket_uq",
+            "org_id",
+            "dataset_id",
+            "ticket_id",
+            unique=True,
+            postgresql_where=text("ticket_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1569,6 +1641,8 @@ class EvalCase(Base):
     )
     # Temperature and conformal threshold are fitted on `calibration`; gates are scored on `test` only.
     split: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'test'::text"))
+    # The real mail a labelled case came from (its text is stored masked); once per dataset.
+    ticket_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     # Cases are archived, never deleted, so past runs keep their evidence.
     archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
@@ -1604,6 +1678,8 @@ class EvalRun(Base):
     metrics: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     gates: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     engine: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    # System 2 pinned to one provider for a comparison; null: the configuration's own providers.
+    provider: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")

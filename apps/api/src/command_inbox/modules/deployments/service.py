@@ -18,6 +18,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from command_inbox.agents.config import DeploymentConfig
+from command_inbox.agents.specs import policy_problems
 from command_inbox.core.audit import audit
 from command_inbox.core.clock import clock, iso_ms
 from command_inbox.core.context import Ctx, actor_of
@@ -87,12 +88,21 @@ async def passing_run(tx: AsyncSession, version: DeploymentVersion) -> EvalRun |
                 EvalRun.state == "passed",
                 EvalRun.config_hash == version.config_hash,
                 EvalRun.config_hash != "",
+                EvalRun.provider.is_(None),  # a provider-pinned comparison run is not this configuration
                 EvalRun.dataset_snapshot != "",
             )
             .order_by(EvalRun.finished_at.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
+
+
+async def _model_policy(
+    tx: AsyncSession, org_id: str, config: dict[str, Any] | DeploymentConfig, *, installation: bool
+) -> list[str]:
+    allowed = (await tx.execute(select(Org.allowed_providers).where(Org.id == org_id))).scalar_one()
+    cfg = config if isinstance(config, DeploymentConfig) else DeploymentConfig.model_validate(config)
+    return policy_problems(cfg, list(allowed or []), installation=installation)
 
 
 def _hash_of(config: dict[str, Any]) -> str:
@@ -104,7 +114,7 @@ async def _publish_check(
 ) -> dto.PublishCheckDTO | None:
     if v.state not in ("draft", "shadow", "canary"):
         return None
-    blockers: list[str] = []
+    blockers: list[str] = await _model_policy(tx, ctx.org_id, v.config, installation=True)
     run = await passing_run(tx, v)
     if run is None:
         blockers.append("Needs a passed eval run on this exact configuration.")
@@ -397,6 +407,12 @@ async def save_draft_config(
     if v.state != "draft":
         raise conflict("not_a_draft", "Only a draft can be edited; start a new draft from this version.")
     config = validate_config(body.config)
+    if problems := await _model_policy(tx, ctx.org_id, config, installation=False):
+        raise bad_request(
+            "provider_not_allowed",
+            "This configuration uses a model provider that is not allowed.",
+            " ".join(problems),
+        )
     before = v.config_hash
     v.config = config_json(config)
     v.config_hash = config.config_hash()
@@ -486,6 +502,10 @@ async def promote(
     if _hash_of(v.config) != v.config_hash:
         raise conflict(
             "config_hash_mismatch", "This version's configuration does not match its recorded hash."
+        )
+    if problems := await _model_policy(tx, ctx.org_id, v.config, installation=True):
+        raise conflict(
+            "model_policy", "This version calls a model provider it may not use.", " ".join(problems)
         )
 
     run: EvalRun | None = None

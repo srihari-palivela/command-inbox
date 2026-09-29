@@ -18,11 +18,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from command_inbox.agents.budget import monthly_remaining, record_spend
 from command_inbox.agents.config import DeploymentConfig
 from command_inbox.agents.decision import ResilientEngine, engine_from_settings
 from command_inbox.agents.flow import CategoryMeta, DocRow, RunDeps, TemplateRow, compile_flow, run_flow
 from command_inbox.agents.flow.nodes import LANE_NAME
-from command_inbox.agents.providers import AgentSpec, ProviderRouter
+from command_inbox.agents.providers import ProviderRouter
+from command_inbox.agents.specs import agent_specs, catalogue_agent
 from command_inbox.agents.synthesis import FALLBACK_NAME, synthesise_config
 from command_inbox.agents.tracing import flush, run_span, set_output
 from command_inbox.core import jobs, outbox
@@ -108,16 +110,6 @@ async def _deployment_config(
     return config, str(version.id), str(version.deployment_id), label
 
 
-def _pick_agent(rows: list[Agent], on_board: set[str], role: str) -> AgentSpec | None:
-    candidates = [a for a in rows if a.role == role and a.state != "paused"]
-    pick = next((a for a in candidates if str(a.id) in on_board), None) or (
-        candidates[0] if candidates else None
-    )
-    if pick is None:
-        return None
-    return AgentSpec(pick.name, pick.model, pick.prompt, pick.cost_per_1k_minor)
-
-
 async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded | None:
     async with tenant_tx(org_id) as tx:
         t = (
@@ -141,6 +133,8 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
             .all()
         )
         org = (await tx.execute(select(Org).where(Org.id == org_id))).scalar_one()
+        allowed_providers = list(org.allowed_providers or [])
+        month_left = await monthly_remaining(tx, org)
         depts = {
             str(d.id): d.name
             for d in (await tx.execute(select(Department).where(Department.org_id == org_id))).scalars()
@@ -245,16 +239,12 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
             bucket=qt.name if qt else c.name,
         )
 
-    agents = {
+    catalogue = {
         role: spec
         for role in ("guard", "bucketer", "adjudicator", "extractor", "drafter", "summariser", "ranker")
-        if (spec := _pick_agent(agent_rows, on_board, role)) is not None
+        if (spec := catalogue_agent(agent_rows, on_board, role)) is not None
     }
-    if config.models.system2_model:
-        agents = {
-            r: AgentSpec(a.name, config.models.system2_model, a.prompt, a.cost_per_1k_minor)
-            for r, a in agents.items()
-        }
+    agents = agent_specs(config, catalogue)
     prior_same = sum(1 for q in prior if q and q == t.query_type_id)
     # Intake's DKIM/SPF/DMARC verdict: the job payload, else what the ticket recorded (re-runs).
     if "senderVerified" in payload:
@@ -265,7 +255,11 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         config=config,
         deployment=label,
         engine=ResilientEngine(engine_from_settings()),
-        providers=ProviderRouter(budget_minor=config.models.max_cost_minor_per_mail),
+        providers=ProviderRouter(
+            budget_minor=config.models.max_cost_minor_per_mail,
+            allowed=allowed_providers,
+            monthly_remaining_minor=month_left,
+        ),
         ticket_id=str(t.id),
         org_id=org_id,
         subject=t.subject,
@@ -324,6 +318,7 @@ async def run_triage_job(job: JobRow) -> None:
             },
         )
     flush()
+    await record_spend(job.org_id, deps.providers)
     lane = await commit(job, loaded, dict(state), int((time.perf_counter() - started) * 1000))
     if lane:
         lane_decisions.labels(deps.deployment, lane).inc()

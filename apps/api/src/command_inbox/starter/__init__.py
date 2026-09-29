@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from command_inbox.agents.config import DeploymentConfig, standard_flow
+from command_inbox.agents.config import SYSTEM2_NODES, DeploymentConfig, standard_flow
+from command_inbox.agents.specs import DEFAULT_AGENTS
 
 STARTER_PACK_VERSION = "2026.09"
 
@@ -166,6 +167,17 @@ _HARD_STOPS: list[dict[str, Any]] = [
 ]
 
 
+def _starter_flow() -> dict[str, object]:
+    """The standard flow with each model node's agent written out, so the studio shows what runs."""
+    flow = standard_flow().model_dump()
+    for node in flow["nodes"]:
+        role = SYSTEM2_NODES.get(node["type"])
+        if role:
+            name, prompt = DEFAULT_AGENTS[role]
+            node["agent"] = {"name": name, "prompt": prompt}
+    return flow
+
+
 def starter_config() -> DeploymentConfig:
     """The starter deployment config. Validated like any other: required safety nodes, known categories."""
     return DeploymentConfig.model_validate(
@@ -175,7 +187,7 @@ def starter_config() -> DeploymentConfig:
                 "fallback": "other",
             },
             "rules": {"hard_stops": _HARD_STOPS},
-            "flow": standard_flow().model_dump(),
+            "flow": _starter_flow(),
             # No automatic lane (D5): confidence can never reach 1.0 after calibration.
             "thresholds": {"auto_min_confidence": 1.0, "draft_min_confidence": 0.8, "escalate_below": 0.75},
         }

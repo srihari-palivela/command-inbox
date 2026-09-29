@@ -282,6 +282,8 @@ export type EvalCasesBody = z.infer<typeof EvalCasesBody>;
 export const StartEvalRunBody = z.object({
   deploymentVersionId: z.string().uuid(),
   datasetId: z.string().uuid(),
+  /** Pin System 2 to one provider to compare providers; such a run does not count for publishing. */
+  provider: z.enum(['anthropic', 'openai']).nullable().optional(),
 });
 export type StartEvalRunBody = z.infer<typeof StartEvalRunBody>;
 
@@ -350,3 +352,10 @@ export const KnowledgeSearchBody = z.object({
   departmentId: z.string().uuid().nullable().optional(),
 });
 export type KnowledgeSearchBody = z.infer<typeof KnowledgeSearchBody>;
+
+// ── Model policy ────────────────────────────────────────────────────────────────
+export const ModelPolicyBody = z.object({
+  allowedProviders: z.array(z.enum(['anthropic', 'openai'])).max(2),
+  monthlyBudgetMinor: z.number().int().min(0).max(1_000_000_000_000).nullable(),
+});
+export type ModelPolicyBody = z.infer<typeof ModelPolicyBody>;

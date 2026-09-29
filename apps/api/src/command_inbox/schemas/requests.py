@@ -275,3 +275,8 @@ class KnowledgeReviewBody(CamelModel):
 class KnowledgeSearchBody(CamelModel):
     query: Annotated[str, Field(min_length=2, max_length=2000)]
     department_id: Annotated[str, Field(pattern=UUID_RE)] | None = None
+
+
+class ModelPolicyBody(CamelModel):
+    allowed_providers: Annotated[list[Literal["anthropic", "openai"]], Field(max_length=2)]
+    monthly_budget_minor: Annotated[int, Field(ge=0, le=1_000_000_000_000)] | None

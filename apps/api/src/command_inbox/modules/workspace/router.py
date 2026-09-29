@@ -6,11 +6,16 @@ from fastapi import APIRouter, Depends
 
 from command_inbox.core.context import Ctx
 from command_inbox.core.http import current_ctx, in_tenant
-from command_inbox.modules.workspace import onboarding, profile, service
+from command_inbox.modules.workspace import models, onboarding, profile, service
 from command_inbox.modules.workspace.schemas import AdminOut
 from command_inbox.schemas import dto
 from command_inbox.schemas.base import Ok
-from command_inbox.schemas.requests import SettingsBody, WorkspaceProfileBody, WorkspaceSsoBody
+from command_inbox.schemas.requests import (
+    ModelPolicyBody,
+    SettingsBody,
+    WorkspaceProfileBody,
+    WorkspaceSsoBody,
+)
 
 router = APIRouter(prefix="/v1", tags=["workspace"])
 
@@ -51,3 +56,13 @@ async def connect_sso(body: WorkspaceSsoBody, ctx: Ctx = Depends(current_ctx)) -
 @router.get("/onboarding", response_model=dto.OnboardingDTO)
 async def get_onboarding(ctx: Ctx = Depends(current_ctx)) -> dto.OnboardingDTO:
     return await in_tenant(ctx, lambda tx: onboarding.checklist(tx, ctx))
+
+
+@router.get("/workspace/model-policy", response_model=dto.ModelPolicyDTO)
+async def get_model_policy(ctx: Ctx = Depends(current_ctx)) -> dto.ModelPolicyDTO:
+    return await in_tenant(ctx, lambda tx: models.get_policy(tx, ctx))
+
+
+@router.put("/workspace/model-policy", response_model=dto.ModelPolicyDTO)
+async def update_model_policy(body: ModelPolicyBody, ctx: Ctx = Depends(current_ctx)) -> dto.ModelPolicyDTO:
+    return await in_tenant(ctx, lambda tx: models.update_policy(tx, ctx, body))

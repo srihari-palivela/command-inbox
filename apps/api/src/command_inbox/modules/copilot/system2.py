@@ -26,7 +26,7 @@ log = structlog.get_logger(__name__)
 
 
 def _provider() -> ModuleType | None:
-    if not settings.use_claude:
+    if settings.default_provider == "heuristic":
         return None
     try:
         return importlib.import_module("command_inbox.agents.providers")

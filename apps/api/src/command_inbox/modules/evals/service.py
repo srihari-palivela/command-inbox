@@ -333,6 +333,7 @@ async def _run_dtos(tx: AsyncSession, runs: list[EvalRun]) -> list[dto.EvalRunDT
                 config_hash=r.config_hash,
                 dataset_snapshot=r.dataset_snapshot,
                 current=bool(r.config_hash) and r.config_hash == v.config_hash,
+                provider=r.provider,  # type: ignore[arg-type]
                 split=dto.EvalRunDTOSplit(calibration=split.get("calibration", 0), test=split.get("test", 0)),
                 metrics=dto.EvalMetricsDTO.model_validate(r.metrics) if r.metrics else None,
                 gates=[dto.EvalGateDTO.model_validate(g) for g in r.gates or []],
@@ -438,6 +439,7 @@ async def start_run(tx: AsyncSession, ctx: Ctx, body: StartEvalRunBody) -> dto.E
         dataset_snapshot=dataset_snapshot(cases),
         split={"calibration": len(cases) - tests, "test": tests},
         created_by=ctx.user.id,
+        provider=body.provider,
     )
     tx.add(run)
     await tx.flush()

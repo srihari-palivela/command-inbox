@@ -69,6 +69,7 @@ MailConnection = Literal[
 HealthLevel = Literal["healthy", "degraded", "down", "unknown"]
 KnowledgeDocStatus = Literal["pending", "approved", "rejected", "retired", "stale"]
 KnowledgeParseStatus = Literal["none", "queued", "scanning", "parsing", "ready", "failed", "infected"]
+ModelProviderKey = Literal["anthropic", "openai"]
 FacetCounts = dict[str, dict[str, int | float]]
 
 
@@ -168,7 +169,7 @@ class MeDTOUser(UserRef):
 
 class MeDTOWorker(CamelModel):
     state: Literal["live", "degraded", "paused"]
-    provider: Literal["claude", "heuristic"]
+    provider: Literal["claude", "openai", "heuristic"]
 
 
 class MeDTOFeatures(CamelModel):
@@ -1222,6 +1223,18 @@ class EvalMetricsDTO(CamelModel):
     cost_per_thousand_mails_minor: int | float | None
     temperature: int | float
     conformal_qhat: int | float | None
+    system2_provider: str | None = None
+    system2_models: list[str] | None = None
+    adjudicated_cases: int | float | None = None
+    adjudication_accuracy: int | float | None | None = None
+    adjudication_unsure_rate: int | float | None | None = None
+    end_to_end_accuracy: int | float | None | None = None
+    drafts_scored: int | float | None = None
+    grounded_draft_rate: int | float | None | None = None
+    no_source_draft_rate: int | float | None | None = None
+    system2_cost_minor: int | float | None = None
+    system2_p95_latency_ms: int | float | None | None = None
+    system2_fallbacks: int | float | None = None
 
 
 class EvalGateDTO(CamelModel):
@@ -1251,6 +1264,7 @@ class EvalRunDTO(CamelModel):
     config_hash: str
     dataset_snapshot: str
     current: bool
+    provider: ModelProviderKey | None
     split: EvalRunDTOSplit
     metrics: EvalMetricsDTO | None
     gates: list[EvalGateDTO]
@@ -1437,3 +1451,23 @@ class KnowledgeHitDTO(CamelModel):
 class KnowledgeSearchDTO(CamelModel):
     query: str
     hits: list[KnowledgeHitDTO]
+
+
+class ModelProviderDTO(CamelModel):
+    key: ModelProviderKey
+    name: str
+    configured: bool
+    allowed: bool
+    is_default: bool
+    default_model: str
+    spent_minor: int | float
+    calls: int | float
+
+
+class ModelPolicyDTO(CamelModel):
+    providers: list[ModelProviderDTO]
+    monthly_budget_minor: int | float | None
+    spent_minor: int | float
+    month: str
+    budget_reached: bool
+    can_edit: bool

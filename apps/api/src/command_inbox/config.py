@@ -113,8 +113,15 @@ class Settings(BaseSettings):
     # Models. Generation (drafts, extraction, summaries, copilot) uses Claude when a key is set; the
     # categorisation decision engine runs an open-weight model we host (llama.cpp or vLLM).
     anthropic_api_key: str | None = None
-    llm_provider: Literal["auto", "claude", "heuristic"] = "auto"
-    copilot_model: str = "claude-opus-5"
+    # The platform default System 2 provider; deployments may pick another per node (tenant policy allowing).
+    # "claude" is the older name for "anthropic".
+    llm_provider: Literal["auto", "anthropic", "claude", "openai", "heuristic"] = "auto"
+    copilot_model: str = "claude-opus-5"  # the default Anthropic model
+    openai_api_key: str | None = None
+    openai_base_url: str | None = None  # regional endpoint or an approved proxy
+    openai_model: str = "gpt-5"
+    # Model price list for budgets: model id → minor units of the tenant currency per 1,000 tokens (JSON).
+    model_prices: dict[str, int] = {}
     decision_engine: Literal["auto", "heuristic", "llamacpp", "vllm"] = "auto"
     decision_engine_url: str | None = None  # e.g. http://localhost:8090 (llama.cpp) or http://vllm:8000
     decision_model: str = "qwen3-4b-instruct"
@@ -135,8 +142,23 @@ class Settings(BaseSettings):
         return self.env == "production"
 
     @property
+    def configured_providers(self) -> list[str]:
+        """System 2 providers this installation can call (a key is set)."""
+        return [
+            p for p, key in (("anthropic", self.anthropic_api_key), ("openai", self.openai_api_key)) if key
+        ]
+
+    @property
+    def default_provider(self) -> Literal["anthropic", "openai", "heuristic"]:
+        if self.llm_provider in ("anthropic", "claude"):
+            return "anthropic"
+        if self.llm_provider in ("openai", "heuristic"):
+            return self.llm_provider
+        return "anthropic" if self.anthropic_api_key else "openai" if self.openai_api_key else "heuristic"
+
+    @property
     def use_claude(self) -> bool:
-        return self.llm_provider == "claude" or (self.llm_provider == "auto" and bool(self.anthropic_api_key))
+        return self.default_provider == "anthropic"
 
     @property
     def oidc_enabled(self) -> bool:

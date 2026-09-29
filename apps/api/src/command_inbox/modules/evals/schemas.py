@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -49,3 +49,4 @@ class EvalCasesBody(CamelModel):
 class StartEvalRunBody(CamelModel):
     deployment_version_id: Uuid
     dataset_id: Uuid
+    provider: Literal["anthropic", "openai"] | None = None

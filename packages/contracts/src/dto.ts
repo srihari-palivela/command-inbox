@@ -153,7 +153,7 @@ export interface MeDTO {
   demoMode: boolean;
   settings: SettingsDTO;
   nav: NavCounts;
-  worker: { state: 'live' | 'degraded' | 'paused'; provider: 'claude' | 'heuristic' };
+  worker: { state: 'live' | 'degraded' | 'paused'; provider: 'claude' | 'openai' | 'heuristic' };
   /** Optional product areas switched on for this installation. */
   features: { telephony: boolean };
 }
@@ -982,6 +982,23 @@ export interface EvalMetricsDTO {
   costPerThousandMailsMinor: number | null;
   temperature: number;
   conformalQhat: number | null;
+  // System 2 (absent on runs from before it was scored). See evals/system2.py.
+  /** The provider pinned for this run, else the providers the configuration names. */
+  system2Provider?: string;
+  system2Models?: string[];
+  adjudicatedCases?: number;
+  adjudicationAccuracy?: number | null;
+  adjudicationUnsureRate?: number | null;
+  /** System 1 where it was sure, the adjudicator where it was not; unsure counts as not right. */
+  endToEndAccuracy?: number | null;
+  draftsScored?: number;
+  /** Drafts whose every sentence is supported by the passages they cite. */
+  groundedDraftRate?: number | null;
+  noSourceDraftRate?: number | null;
+  system2CostMinor?: number;
+  system2P95LatencyMs?: number | null;
+  /** Calls answered by the deterministic fallback instead of the provider. */
+  system2Fallbacks?: number;
 }
 
 export interface EvalGateDTO {
@@ -1007,6 +1024,8 @@ export interface EvalRunDTO {
   datasetSnapshot: string;
   /** False once the version's config changed after this run: it no longer counts for publishing. */
   current: boolean;
+  /** System 2 pinned to one provider (a comparison run; never counts for publishing). */
+  provider: ModelProviderKey | null;
   split: { calibration: number; test: number };
   metrics: EvalMetricsDTO | null;
   gates: EvalGateDTO[];
@@ -1198,4 +1217,32 @@ export interface KnowledgeSearchDTO {
   query: string;
   /** Empty: no approved source answers this; a draft would say so and raise a gap. */
   hits: KnowledgeHitDTO[];
+}
+
+// ── Model providers (System 2) ────────────────────────────────────────────────
+export type ModelProviderKey = 'anthropic' | 'openai';
+
+export interface ModelProviderDTO {
+  key: ModelProviderKey;
+  name: string;
+  /** This installation has credentials for it. */
+  configured: boolean;
+  /** The workspace's policy allows it. */
+  allowed: boolean;
+  /** Nodes that name no provider use this one. */
+  isDefault: boolean;
+  defaultModel: string;
+  spentMinor: number;
+  calls: number;
+}
+
+export interface ModelPolicyDTO {
+  providers: ModelProviderDTO[];
+  /** Null: no monthly cap. Minor units of the workspace currency. */
+  monthlyBudgetMinor: number | null;
+  spentMinor: number;
+  /** First day of the current month (UTC), YYYY-MM-DD. */
+  month: string;
+  budgetReached: boolean;
+  canEdit: boolean;
 }
