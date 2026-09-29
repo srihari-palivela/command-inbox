@@ -35,7 +35,7 @@ jobs:
           push: true
           provenance: mode=max
           tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}:${{ github.ref_name }}
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
           severity: 'HIGH,CRITICAL'
