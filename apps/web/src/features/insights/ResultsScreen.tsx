@@ -4,6 +4,7 @@ import { useResults } from '../../lib/queries';
 import { Card, EmptyState, Loadable, Page, PageHeader, Skeleton, cx } from '../../ui';
 import { forbiddenText, Obs, stagger } from './bits';
 import s from './Results.module.css';
+import { num } from '../../lib/format';
 
 export default function ResultsScreen() {
   return (
@@ -11,9 +12,8 @@ export default function ResultsScreen() {
       {(d) => (
         <>
           <Headline d={d} />
-          <div className={s.two}>
+          <div className={s.section}>
             <Coverage coverage={d.coverage} />
-            <Rollout phases={d.phases} />
           </div>
           <div className={s.pools}>
             {d.pools.map((p, i) => (
@@ -56,10 +56,7 @@ function ResultsQuery({ children }: { children: (d: ResultsDTO) => ReactNode }) 
           skeleton={
             <div style={{ display: 'grid', gap: 13 }}>
               <Skeleton h={330} />
-              <div className={s.two}>
-                <Skeleton h={260} />
-                <Skeleton h={260} />
-              </div>
+              <Skeleton h={260} />
             </div>
           }
         >
@@ -272,7 +269,7 @@ function Coverage({ coverage }: { coverage: ResultsDTO['coverage'] }) {
                   <span className={s.swatch} style={{ background: l.color }} aria-hidden />
                   <span className={s.coverLabel}>{l.label}</span>
                   <span className={s.coverNote}>{l.note}</span>
-                  <span className={cx('mono', s.coverVol)}>{c.volume.toLocaleString('en-IN')} q</span>
+                  <span className={cx('mono', s.coverVol)}>{num(c.volume)} q</span>
                 </li>
               );
             })}
@@ -283,43 +280,6 @@ function Coverage({ coverage }: { coverage: ResultsDTO['coverage'] }) {
         <Obs>
           Coverage grows by moving Draft volume to Auto, not by touching the human {manual.pct}% — that share
           stays with people by design.
-        </Obs>
-      )}
-    </Card>
-  );
-}
-
-// ── Rollout position ─────────────────────────────────────────────────────────
-function Rollout({ phases }: { phases: ResultsDTO['phases'] }) {
-  const cur = phases.find((p) => p.current);
-  const next = cur ? phases.find((p) => p.n === cur.n + 1) : undefined;
-  return (
-    <Card className={s.card} style={stagger(0, 0, 0.14)}>
-      <h3 className={s.h3} style={{ marginBottom: 13 }}>
-        Rollout position
-      </h3>
-      <ol className={s.phases}>
-        {phases.map((p) => (
-          <li
-            key={p.n}
-            className={cx(s.phase, p.current && s.phaseOn)}
-            aria-current={p.current ? 'step' : undefined}
-          >
-            <span className={cx('mono', s.phaseN)}>{p.n}</span>
-            <div className={s.phaseBody}>
-              <div className={s.phaseLabel}>{p.label}</div>
-              <div className={s.phaseScope}>{p.scope}</div>
-            </div>
-            <span className={s.phaseState}>{p.state}</span>
-          </li>
-        ))}
-      </ol>
-      {cur && (
-        <Obs>
-          Phase {cur.n} of {phases.length} is live — {cur.label.toLowerCase()}.
-          {next
-            ? ` Next: ${next.label.toLowerCase()} (${next.state.replace(/^Next · /, '').toLowerCase()}).`
-            : ''}
         </Obs>
       )}
     </Card>

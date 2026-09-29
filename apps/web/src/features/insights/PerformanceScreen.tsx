@@ -8,7 +8,7 @@ import type {
 } from '@ci/contracts';
 import { useState } from 'react';
 import { api } from '../../lib/api';
-import { formatMinutes } from '../../lib/format';
+import { formatMinutes, fullDateTime, num } from '../../lib/format';
 import { LANE_TONE, loadTone } from '../../lib/presentation';
 import { keys, useAction, useAutoAssign, usePerformance } from '../../lib/queries';
 import { toast } from '../../lib/toast';
@@ -345,7 +345,7 @@ function SpeedTable({ rows }: { rows: QueryTypeSpeedDTO[] }) {
                   <div className={s.qtDept}>{r.department}</div>
                 </div>
                 <span role="cell" className={cx('mono', s.vol)}>
-                  {r.volume.toLocaleString('en-IN')}
+                  {num(r.volume)}
                 </span>
                 <div
                   role="cell"
@@ -430,11 +430,7 @@ function Alerts({ alerts }: { alerts: AlertDTO[] }) {
                   {a.sevLabel}
                 </span>
                 <span className={s.alertBucket}>{a.bucket}</span>
-                <time
-                  className={cx('mono', s.alertWhen)}
-                  dateTime={a.at}
-                  title={new Date(a.at).toLocaleString('en-GB')}
-                >
+                <time className={cx('mono', s.alertWhen)} dateTime={a.at} title={fullDateTime(a.at)}>
                   {sinceShort(a.at)}
                 </time>
               </div>

@@ -4,7 +4,7 @@
  */
 import type { PoliciesDTO } from '@ci/contracts';
 import { api } from '../../lib/api';
-import { ago } from '../../lib/format';
+import { ago, fullDateTime } from '../../lib/format';
 import { keys, useAction, useMe, usePolicies } from '../../lib/queries';
 import { Button, cx, EmptyState, Loadable, Page, PageHeader, Pill, Skeleton } from '../../ui';
 import { Chain } from './actions/Chain';
@@ -220,7 +220,7 @@ function Policies({ data }: { data: PoliciesDTO }) {
                       </>
                     )}
                     <span aria-hidden>·</span>
-                    <time dateTime={p.at} title={new Date(p.at).toLocaleString('en-GB')}>
+                    <time dateTime={p.at} title={fullDateTime(p.at)}>
                       {ago(p.at)}
                     </time>
                   </div>

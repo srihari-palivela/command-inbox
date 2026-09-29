@@ -105,7 +105,7 @@ export function CommandPalette({ open, onClose, me }: { open: boolean; onClose: 
           tag: 'Customer',
           ...neutral,
           label: c.name,
-          meta: `${c.cif} · ${c.tickets} ticket${c.tickets === 1 ? '' : 's'}`,
+          meta: `${c.cif ?? 'Unmatched sender'} · ${c.tickets} ticket${c.tickets === 1 ? '' : 's'}`,
           run: () => go(`/tickets${filtersToSearch({ q: c.name }, 'list')}`),
         }),
       );

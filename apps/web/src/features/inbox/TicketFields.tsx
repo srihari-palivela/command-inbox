@@ -106,14 +106,19 @@ export function TicketFields({
     { label: 'Channel', value: 'Email' },
     { label: 'Mailbox', value: t.mailbox, mono: true },
     { label: 'Account', value: t.customer?.account ?? '—', mono: true },
-    { label: 'Customer ID', value: t.customer?.cif ?? '—', mono: true },
+    {
+      label: 'Customer ID',
+      value: !t.customer ? '—' : (t.customer.cif ?? 'Unmatched sender'),
+      mono: !!t.customer?.cif,
+    },
     {
       label: 'Customer since',
-      value: t.customer
-        ? `${t.customer.sinceYear} · ${new Date().getFullYear() - t.customer.sinceYear} years`
-        : '—',
+      value:
+        t.customer?.sinceYear != null
+          ? `${t.customer.sinceYear} · ${new Date().getFullYear() - t.customer.sinceYear} years`
+          : '—',
     },
-    { label: 'Segment', value: t.segment },
+    { label: 'Segment', value: t.segment || '—' },
     { label: 'Reopen count', value: String(t.reopenCount), mono: true },
     { label: 'Resolution', value: t.resolvedAt ? `Resolved ${clockTime(t.resolvedAt)}` : 'Unresolved' },
     { label: 'Regulatory flag', value: t.regulatoryFlag ?? 'None' },
@@ -254,7 +259,9 @@ export function TicketFields({
               {[
                 [String(t.customer.history.length + 1), 'tickets ever'],
                 [String(repeat), 'on this topic'],
-                [String(t.customer.sinceYear), 'customer since'],
+                t.customer.sinceYear != null
+                  ? [String(t.customer.sinceYear), 'customer since']
+                  : ['—', 'unmatched sender'],
               ].map(([n, l]) => (
                 <div key={l}>
                   <div className="mono" style={{ fontSize: 16, fontWeight: 600 }}>

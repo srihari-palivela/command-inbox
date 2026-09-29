@@ -53,6 +53,10 @@ export interface OrgDTO {
   bg: string;
   plan: string;
   confidenceBar: number;
+  /** BCP 47 locale, ISO 4217 currency and IANA time zone the tenant's people read figures in. */
+  locale: string;
+  currency: string;
+  timeZone: string;
 }
 
 export interface MembershipDTO {
@@ -91,6 +95,8 @@ export interface MeDTO {
   settings: SettingsDTO;
   nav: NavCounts;
   worker: { state: 'live' | 'degraded' | 'paused'; provider: 'claude' | 'heuristic' };
+  /** Optional product areas switched on for this installation. */
+  features: { telephony: boolean };
 }
 
 export interface DemoUserDTO {
@@ -309,10 +315,11 @@ export interface PastTicketDTO {
 
 export interface CustomerDTO {
   id: string;
-  cif: string;
+  /** null: an unmatched sender, not yet linked to a customer record. */
+  cif: string | null;
   name: string;
   email: string;
-  sinceYear: number;
+  sinceYear: number | null;
   segment: string;
   account: string;
   history: PastTicketDTO[];
@@ -582,7 +589,6 @@ export interface ResultsDTO {
   capacityMultiple: number;
   days: { label: string; baseline: number; actual: number }[];
   coverage: { lane: Lane; pct: number; volume: number }[];
-  phases: { n: number; label: string; scope: string; state: string; current: boolean }[];
   pools: { label: string; metric: string; note: string }[];
 }
 
@@ -753,7 +759,13 @@ export interface CopilotAnswerDTO {
 
 export interface SearchResultDTO {
   tickets: { id: string; number: string; subject: string; lane: Lane }[];
-  customers: { id: string; cif: string; name: string; tickets: number; latestTicketId: string | null }[];
+  customers: {
+    id: string;
+    cif: string | null;
+    name: string;
+    tickets: number;
+    latestTicketId: string | null;
+  }[];
   knowledge: { id: string; title: string; section: string; status: string }[];
   policies: { id: string; text: string; kind: string }[];
 }

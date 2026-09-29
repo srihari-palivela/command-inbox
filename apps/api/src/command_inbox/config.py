@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Demo mode: passwordless sign-in as a seeded person and the "view as" switch. Never in production.
     demo_mode: bool = False
 
+    # Scripted telephony (calls from a ticket) is a prototype, not in v1: off unless explicitly switched on.
+    feature_telephony: bool = False
+
     # Identity: Keycloak (OIDC). The app keeps its own server-side session after the code exchange.
     oidc_issuer: str | None = None  # e.g. http://localhost:8081/realms/command-inbox
     oidc_client_id: str = "command-inbox"

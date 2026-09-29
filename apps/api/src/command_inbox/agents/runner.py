@@ -272,7 +272,11 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         messages=[(m.from_name, m.body) for m in msgs],
         sender_email=t.from_email,
         customer_name=t.from_name,
-        customer_facts=f"{customer.name} · {customer.cif}" if customer else None,
+        customer_facts=(
+            f"{customer.name} · {customer.cif or 'unmatched sender, no customer record'}"
+            if customer
+            else None
+        ),
         segment=t.segment,
         ticket_priority=t.priority,
         received_at=t.received_at,

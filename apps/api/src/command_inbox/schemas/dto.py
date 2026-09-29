@@ -70,6 +70,9 @@ class OrgDTO(CamelModel):
     bg: str
     plan: str
     confidence_bar: int | float
+    locale: str
+    currency: str
+    time_zone: str
 
 
 class MembershipDTO(CamelModel):
@@ -108,6 +111,10 @@ class MeDTOWorker(CamelModel):
     provider: Literal["claude", "heuristic"]
 
 
+class MeDTOFeatures(CamelModel):
+    telephony: bool
+
+
 class MeDTO(CamelModel):
     user: MeDTOUser
     org: OrgDTO
@@ -119,6 +126,7 @@ class MeDTO(CamelModel):
     settings: SettingsDTO
     nav: NavCounts
     worker: MeDTOWorker
+    features: MeDTOFeatures
 
 
 class DemoUserDTO(CamelModel):
@@ -346,10 +354,10 @@ class PastTicketDTO(CamelModel):
 
 class CustomerDTO(CamelModel):
     id: str
-    cif: str
+    cif: str | None
     name: str
     email: str
-    since_year: int | float
+    since_year: int | float | None
     segment: str
     account: str
     history: list[PastTicketDTO]
@@ -702,14 +710,6 @@ class ResultsDTOCoverage(CamelModel):
     volume: int | float
 
 
-class ResultsDTOPhases(CamelModel):
-    n: int | float
-    label: str
-    scope: str
-    state: str
-    current: bool
-
-
 class ResultsDTOPools(CamelModel):
     label: str
     metric: str
@@ -723,7 +723,6 @@ class ResultsDTO(CamelModel):
     capacity_multiple: int | float
     days: list[ResultsDTODays]
     coverage: list[ResultsDTOCoverage]
-    phases: list[ResultsDTOPhases]
     pools: list[ResultsDTOPools]
 
 
@@ -968,7 +967,7 @@ class SearchResultDTOTickets(CamelModel):
 
 class SearchResultDTOCustomers(CamelModel):
     id: str
-    cif: str
+    cif: str | None
     name: str
     tickets: int | float
     latest_ticket_id: str | None

@@ -26,6 +26,9 @@ def org_dto(o: Org) -> dto.OrgDTO:
         bg=o.bg,
         plan=o.plan,
         confidence_bar=o.confidence_bar,
+        locale=o.locale,
+        currency=o.currency,
+        time_zone=o.time_zone,
     )
 
 
@@ -120,6 +123,7 @@ async def build_me(ctx: Ctx, csrf_token: str) -> dto.MeDTO:
         settings=dto.SettingsDTO(prefs=(us.prefs if us else {}) or {}, signature=us.signature if us else ""),
         nav=nav,
         worker=dto.MeDTOWorker(state="degraded" if degraded else "live", provider=provider),
+        features=dto.MeDTOFeatures(telephony=settings.feature_telephony),
     )
 
 

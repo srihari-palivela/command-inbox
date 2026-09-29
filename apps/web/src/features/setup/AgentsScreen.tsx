@@ -5,7 +5,6 @@
 import type { AgentsOverviewDTO } from '@ci/contracts';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { inr, lakhs } from '../../lib/format';
 import { useAgents, useMe } from '../../lib/queries';
 import { Button, cx, EmptyState, Loadable, Meter, Page, PageHeader, Skeleton } from '../../ui';
 import { AgentDrawer } from './agents/AgentDrawer';
@@ -14,6 +13,7 @@ import { boardList, evalColor, isGuard, stateLine } from './agents/model';
 import { NewAgentWizard } from './agents/NewAgentWizard';
 import { isForbidden, NoAccess } from './agents/NoAccess';
 import s from './agents/agents.module.css';
+import { money, moneyCompact } from '../../lib/format';
 
 export default function AgentsScreen() {
   const q = useAgents();
@@ -80,7 +80,7 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
           actions={
             <>
               <div className={s.spend}>
-                <div className={s.spendVal}>{lakhs(data.spendMonthMinor)}</div>
+                <div className={s.spendVal}>{moneyCompact(data.spendMonthMinor)}</div>
                 <div className={s.spendLbl}>spend this month</div>
               </div>
               <Button
@@ -150,7 +150,7 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
               <span className={cx(s.boards, s.ellipsis)} title={a.boards.map((b) => b.name).join(', ')}>
                 {boardList(a.boards)}
               </span>
-              <span className={s.cost}>{inr(a.costPer1kMinor)}</span>
+              <span className={s.cost}>{money(a.costPer1kMinor)}</span>
               <span className={s.evalCell}>
                 <Meter
                   pct={a.evalScore ?? 0}

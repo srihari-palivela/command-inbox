@@ -21,10 +21,11 @@ from command_inbox.db.models import (
     Department,
     Kpi,
     Notification,
+    Org,
     QueryType,
     Ticket,
 )
-from command_inbox.modules.insights.jsfmt import en_in, js_fixed, js_round, js_str, num
+from command_inbox.modules.insights.jsfmt import grouped, js_fixed, js_round, js_str, num
 from command_inbox.modules.people.service import list_staff
 from command_inbox.rbac.policy import require
 from command_inbox.schemas import dto
@@ -37,7 +38,7 @@ METRIC_LABEL: dict[str, str] = {
     "reopen": "Reopen rate (%)",
     "auto": "Handled end-to-end by AI (%)",
     "csat": "CSAT after close (of 5)",
-    "cost": "Model spend per query (₹)",
+    "cost": "Model spend per query",
     "awo": "Approved without opening the evidence (%)",
 }
 LOWER_IS_BETTER = {"fr", "tat", "reopen", "cost", "awo"}
@@ -120,6 +121,7 @@ def _tile(
 async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
     require(ctx, "insights.view", "view performance")
     org = ctx.org_id
+    locale = (await tx.execute(select(Org.locale).where(Org.id == org))).scalar_one()
     [vol] = await rows(
         tx, "select coalesce(sum(volume_24h), 0)::int as n from mailboxes where org_id = :org", {"org": org}
     )
@@ -145,7 +147,7 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
             "missed",
             "Missed deadlines",
             await series(tx, org, "weekly.missed"),
-            f"of {en_in(vol['n'])}",
+            f"of {grouped(vol['n'], locale)}",
             "All misses this week are disputes tickets past the provisional-credit window.",
             bad=True,
             lower_better=True,
@@ -262,20 +264,6 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
     )
 
 
-_PHASES = [
-    (1, "Drafts only", "The AI writes, a human sends every reply", "Complete", False),
-    (2, "Actions that can be undone", "Statements, certificates, cheque books", "Live now", True),
-    (
-        3,
-        "Actions where money moves",
-        "Fee reversals and provisional credit, with approval",
-        "Next · gated on Risk",
-        False,
-    ),
-    (4, "Wider autonomy", "One risk group at a time, approval everywhere else", "Gated on Risk", False),
-]
-
-
 async def results(tx: AsyncSession, ctx: Ctx) -> dto.ResultsDTO:
     require(ctx, "insights.view", "view results")
     baseline = await series(tx, ctx.org_id, "exec.baseline")
@@ -309,27 +297,11 @@ async def results(tx: AsyncSession, ctx: Ctx) -> dto.ResultsDTO:
             )
             for lane in ("auto", "draft", "manual")
         ],
-        phases=[
-            dto.ResultsDTOPhases(n=n, label=label, scope=scope, state=state, current=cur)
-            for n, label, scope, state, cur in _PHASES
-        ],
         pools=[
             dto.ResultsDTOPools(
                 label="Capacity released",
                 metric=f"{js_fixed(baseline_hours / now_hours, 1) if now_hours else '—'}× per FTE",
                 note="Same headcount, more queries closed per person per day at the current coverage mix.",
-            ),
-            dto.ResultsDTOPools(
-                label="Complaint deflection",
-                metric="−38% repeat contacts",
-                note="Second and third emails on the same thread fall sharply once first response drops "
-                "under 15 minutes.",
-            ),
-            dto.ResultsDTOPools(
-                label="Audit position",
-                metric="100% traced",
-                note="Every suggestion, approval, edit and execution carries an actor, a timestamp and a "
-                "source. No silent automation.",
             ),
         ],
     )

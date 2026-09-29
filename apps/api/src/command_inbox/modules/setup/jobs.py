@@ -24,7 +24,7 @@ async def run_knowledge_sync(job: JobRow) -> None:
         ).scalar_one_or_none()
         if src is None or src.health == "bad":
             return
-        docs = src.doc_count or 12 + len(src.name) % 20
+        docs = src.doc_count  # what the source reported; never an estimate
         await tx.execute(
             update(KnowledgeSource)
             .where(KnowledgeSource.org_id == job.org_id, KnowledgeSource.id == src.id)

@@ -5,7 +5,7 @@
 import type { FeedbackDTO, FeedbackKind } from '@ci/contracts';
 import { useState } from 'react';
 import { api } from '../../../lib/api';
-import { ago } from '../../../lib/format';
+import { ago, fullDateTime } from '../../../lib/format';
 import { keys, useAction } from '../../../lib/queries';
 import { Button, Card, Chip, EmptyState, Pill } from '../../../ui';
 import s from './agents.module.css';
@@ -81,7 +81,7 @@ export function FeedbackStore({ feedback, canQueue }: { feedback: FeedbackDTO[];
                   <div className={s.fbFix}>{fix.label}</div>
                   <div className={s.fbFixNote}>{fix.note}</div>
                 </div>
-                <time className={s.fbWhen} dateTime={f.at} title={new Date(f.at).toLocaleString('en-GB')}>
+                <time className={s.fbWhen} dateTime={f.at} title={fullDateTime(f.at)}>
                   {ago(f.at)}
                 </time>
                 {f.status === 'queued' ? (

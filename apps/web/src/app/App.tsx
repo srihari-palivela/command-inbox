@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, Navigate, RouterProvider, useRouteError } from 'react-router-dom';
+import { setTenantLocale } from '../lib/format';
 import { queryClient, useMe } from '../lib/queries';
 import { ErrorState, Skeleton, Toaster } from '../ui';
 import { DETAIL_ROUTES, SCREENS } from './routes';
@@ -23,6 +24,8 @@ function Gate() {
       </div>
     );
   if (!me.data) return <SignIn />;
+  // Every formatter reads the workspace's locale, currency and time zone (re-set on a workspace switch).
+  setTenantLocale(me.data.org);
   return <Shell me={me.data} />;
 }
 

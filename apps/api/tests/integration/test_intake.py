@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from command_inbox.core.clock import clock
 from command_inbox.db.engine import tenant_tx
-from command_inbox.db.models import AuditEvent, Job, Mailbox, Ticket
+from command_inbox.db.models import AuditEvent, Customer, Job, Mailbox, Ticket
 from command_inbox.domain.lane import LaneInputs, decide_lane
 from command_inbox.modules.intake.security import parse_authentication_results, sign
 from tests.integration.conftest import sign_in
@@ -77,7 +77,10 @@ async def test_signed_webhook_opens_a_ticket_and_queues_triage(anon, staff):
                 select(AuditEvent).where(AuditEvent.ticket_id == t.id, AuditEvent.action == "mail.received")
             )
         ).scalar_one()
+        sender = (await tx.execute(select(Customer).where(Customer.id == t.customer_id))).scalar_one()
     assert t.status == "triaging" and t.lane == "manual" and t.mailbox_id
+    # An unknown sender is unmatched: no invented customer number or tenure.
+    assert sender.cif is None and sender.since_year is None and sender.email == "ramesh@iyerexports.in"
     assert ev.summary == f"Mail from Ramesh Iyer to tradeops@bank.example opened QRY-{out['number']}"
     assert ev.data["senderAuth"]["verified"] is True
 

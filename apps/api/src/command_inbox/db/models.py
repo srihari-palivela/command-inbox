@@ -449,12 +449,12 @@ class Customer(Base):
         Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
-    cif: Mapped[str] = mapped_column(Text, nullable=False)
+    cif: Mapped[str | None] = mapped_column(Text)  # None: an unmatched sender, not linked to a customer yet
     name: Mapped[str] = mapped_column(Text, nullable=False)
     email: Mapped[str] = mapped_column(Text, nullable=False)
     phone: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
     segment: Mapped[str] = mapped_column(Text, nullable=False)
-    since_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    since_year: Mapped[int | None] = mapped_column(Integer)
     account: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
 
 
@@ -788,6 +788,7 @@ class Org(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="orgs_pkey"),
         UniqueConstraint("slug", name="orgs_slug_unique"),
+        CheckConstraint("currency ~ '^[A-Z]{3}$'", name="orgs_currency_iso4217"),
     )
 
     id: Mapped[str] = mapped_column(
@@ -809,6 +810,10 @@ class Org(Base):
     sessions: Mapped[list["Session"]] = relationship("Session", back_populates="org")
     sso_idp_alias: Mapped[str | None] = mapped_column(Text)
     sso_email_domains: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    # How this tenant's people read numbers, money and times: BCP 47 locale, ISO 4217, IANA zone.
+    locale: Mapped[str] = mapped_column(Text, nullable=False)
+    currency: Mapped[str] = mapped_column(Text, nullable=False)
+    time_zone: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class OutboxEvent(Base):

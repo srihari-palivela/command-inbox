@@ -2,7 +2,7 @@ import type { MeDTO, SessionDTO } from '@ci/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
-import { ago, clockTime } from '../../lib/format';
+import { ago, clockTime, monthYear } from '../../lib/format';
 import { pref, type PrefKey } from '../../lib/prefs';
 import { TEAM_ROLE_LABEL } from '../../lib/presentation';
 import { invalidate, keys, useAction, useMe, useSessions } from '../../lib/queries';
@@ -116,7 +116,7 @@ export default function SettingsScreen() {
 function SettingsBody({ me }: { me: MeDTO }) {
   const flip = usePrefToggle();
   const sessions = useSessions();
-  const joined = new Date(me.user.joinedAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const joined = monthYear(me.user.joinedAt);
 
   return (
     <>

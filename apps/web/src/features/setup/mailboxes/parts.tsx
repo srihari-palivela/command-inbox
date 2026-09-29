@@ -1,6 +1,6 @@
 import type { AdminDTO } from '@ci/contracts';
 import { useState } from 'react';
-import { clockTime } from '../../../lib/format';
+import { clockTime, num } from '../../../lib/format';
 import { useAuditVerify } from '../../../lib/queries';
 import { Button, Card, cx, EmptyState, ErrorState } from '../../../ui';
 import s from './Mailboxes.module.css';
@@ -33,7 +33,7 @@ export function MailboxesCard({ mailboxes }: { mailboxes: AdminDTO['mailboxes'] 
               </div>
             </div>
             <div className={s.vol}>
-              <div className={s.volN}>{m.volume24h.toLocaleString('en-IN')}</div>
+              <div className={s.volN}>{num(m.volume24h)}</div>
               <div className={s.volL}>last 24h</div>
             </div>
             <span className={s.state} style={{ color: t.fg, background: t.bg, borderColor: t.line }}>
@@ -136,12 +136,12 @@ export function AuditCard() {
         >
           {r.ok ? (
             <span>
-              ✓ <span className="mono">{r.events.toLocaleString('en-IN')}</span> events · chain intact
+              ✓ <span className="mono">{num(r.events)}</span> events · chain intact
             </span>
           ) : (
             <span>
               × Broken at event <span className="mono">#{r.brokenAt}</span> of{' '}
-              <span className="mono">{r.events.toLocaleString('en-IN')}</span> — raise it with Risk now
+              <span className="mono">{num(r.events)}</span> — raise it with Risk now
             </span>
           )}
           <span className={s.resultMeta}>checked {clockTime(new Date(q.dataUpdatedAt).toISOString())}</span>

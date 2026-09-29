@@ -46,3 +46,8 @@ def en_in(n: int) -> str:
 def num(x: float) -> int | float:
     """Integral floats become ints so JSON matches (12 rather than 12.0)."""
     return int(x) if isinstance(x, float) and x.is_integer() else x
+
+
+def grouped(n: int, locale: str) -> str:
+    """An integer in the tenant's digit grouping: Indian lakh grouping for *-IN locales, thousands otherwise."""
+    return en_in(n) if locale.endswith("-IN") else f"{n:,}"
