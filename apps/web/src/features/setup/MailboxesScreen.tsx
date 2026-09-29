@@ -4,7 +4,8 @@ import { keys, useAction, useAdmin, useMe } from '../../lib/queries';
 import { toast } from '../../lib/toast';
 import { Button, Loadable, Page, PageHeader, Skeleton } from '../../ui';
 import s from './mailboxes/Mailboxes.module.css';
-import { AuditCard, ConnectorsCard, GuardrailsCard, MailboxesCard } from './mailboxes/parts';
+import { MailboxConnectionsCard } from './mailboxes/Connections';
+import { AuditCard, ConnectorsCard, GuardrailsCard } from './mailboxes/parts';
 
 export default function MailboxesScreen() {
   const q = useAdmin();
@@ -55,7 +56,7 @@ export default function MailboxesScreen() {
       >
         {(a) => (
           <div className={s.grid}>
-            <MailboxesCard mailboxes={a.mailboxes} />
+            <MailboxConnectionsCard canEdit={!!me?.capabilities.includes('setup.edit')} />
             <div className={s.stack}>
               <ConnectorsCard connectors={a.connectors} />
               <GuardrailsCard guardrails={a.guardrails} />

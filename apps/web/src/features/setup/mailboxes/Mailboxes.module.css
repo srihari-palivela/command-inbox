@@ -154,3 +154,99 @@
   font-weight: 400;
   color: var(--muted);
 }
+
+/* ── Live connections ─────────────────────────────────────────────────── */
+.conn {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 13px 0 12px;
+}
+.connHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 15px;
+}
+.connError {
+  margin: 10px 15px 0;
+  font-size: 12px;
+  color: var(--bad-text);
+  background: var(--bad-bg-2);
+  border: 1px solid var(--bad-line);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.signals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 12px 15px 0;
+}
+.signal dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.signal dd {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+}
+.connActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 15px 0;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+}
+.connNote {
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 8px 15px 0;
+}
+.events {
+  padding: 8px 15px 0;
+  font-size: 12px;
+}
+.events summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.events ol {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+.events time {
+  color: var(--muted);
+  display: inline-block;
+  min-width: 78px;
+}
+.eventBad {
+  color: var(--bad-text);
+}
+.addForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 13px 15px;
+}
+.full {
+  grid-column: 1 / -1;
+}
+@media (max-width: 760px) {
+  .signals,
+  .addForm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

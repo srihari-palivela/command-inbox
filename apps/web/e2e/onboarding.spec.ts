@@ -63,6 +63,16 @@ test('an operator creates a bank and its first admin accepts the emailed invitat
   await expect(page.getByRole('heading', { name: 'Getting started' })).toBeVisible();
   await expect(page.getByRole('listitem', { name: /People: In progress|People: Not started/ })).toBeVisible();
 
+  // The bank's mailbox: added here, then connected by signing in as it (not followed in the test).
+  await page.goto('/setup/mailboxes');
+  await expect(page.getByText('No mailbox yet')).toBeVisible();
+  await page.getByLabel('Mailbox address').fill(`care@${slug}.test`);
+  await page.getByRole('button', { name: 'Add mailbox' }).click();
+  const box = page.getByRole('region', { name: `Mailbox care@${slug}.test` });
+  await expect(box).toContainText('Microsoft 365 · Not connected');
+  await expect(box.getByRole('button', { name: 'Sign in as the mailbox' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add mailbox' })).toHaveCount(0); // plan limit: one mailbox
+
   // The link works once.
   const again = await (await browser.newContext()).newPage();
   await again.goto(new URL(link).pathname + new URL(link).search);

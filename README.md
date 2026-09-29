@@ -85,6 +85,16 @@ rules, evals, shadow mode, go-live).
   offers a development sign-in, and emails without `SMTP_HOST` are kept in memory and listed at
   `GET /v1/dev/mailbox`. The compose stack sends them to Mailpit (<http://localhost:8025>).
 
+### Connecting the bank's mailbox
+
+Under **Where mail arrives**, an admin adds the shared mailbox and signs in as it once (Microsoft 365 or
+Google Workspace). New mail then becomes tickets; approved replies go out in the customer's thread once a
+test mail has made the round trip and an admin turns sending on. Configure the bank's app registration with
+`MS_CLIENT_ID`, `MS_CLIENT_SECRET` and `MS_TENANT` (Microsoft) or `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`GOOGLE_PUBSUB_TOPIC`, `GOOGLE_PUSH_AUDIENCE` and `GOOGLE_PUSH_SERVICE_ACCOUNT` (Google). With
+`MAIL_WEBHOOK_BASE_URL` (public HTTPS) providers notify us within seconds; without it mailboxes are polled every
+minute.
+
 ### Demo users
 
 | Sign in as | Role | Try this |

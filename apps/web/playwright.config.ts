@@ -8,6 +8,9 @@ const apiEnv = {
   LLM_PROVIDER: 'heuristic',
   DECISION_ENGINE: 'heuristic',
   EMBEDDED_WORKER: 'true',
+  // A placeholder app registration, so the mailbox screen offers Microsoft 365 (no real sign-in happens).
+  MS_CLIENT_ID: 'e2e-client',
+  MS_CLIENT_SECRET: 'e2e-secret',
 };
 
 /**

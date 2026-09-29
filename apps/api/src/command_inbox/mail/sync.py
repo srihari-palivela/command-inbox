@@ -98,7 +98,8 @@ async def _failed(org_id: str, mailbox_id: str, kind: str, err: Exception) -> No
         mailbox_id,
         last_error=message,
         last_error_at=clock.now(),
-        **({"connection": "degraded"} if not isinstance(err, ReauthRequired) else {}),
+        # A missing or revoked sign-in needs a person; anything else is a degraded, retried connection.
+        connection="reauth_required" if isinstance(err, ReauthRequired) else "degraded",
     )
     await _event(org_id, mailbox_id, kind, ok=False, error=message, type=type(err).__name__)
 
