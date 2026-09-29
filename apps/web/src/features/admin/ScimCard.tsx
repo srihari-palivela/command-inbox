@@ -94,8 +94,9 @@ function GroupRoles({ d }: { d: ScimSettingsDTO }) {
     <div className={s.stack}>
       <span className={s.fieldLabel}>Roles from directory groups</span>
       <p className={s.muted} style={{ margin: 0, fontSize: 12 }}>
-        A person gets the highest role among their mapped groups (Staff if none). Leave empty to manage roles
-        here instead. The last admin is never demoted by the directory.
+        People provisioned by the directory get the highest role among their mapped groups (Staff if none);
+        people invited here keep the role set here. Leave empty to manage roles here instead. The last admin
+        is never demoted by the directory.
       </p>
       {rows.map((r, i) => (
         <div key={i} className={s.row}>

@@ -44,8 +44,12 @@ async def app() -> AsyncIterator[Any]:
 
     await _recreate_test_db()
     await asyncio.to_thread(_migrate_test_db)  # env.py runs its own event loop
+    from command_inbox.config import settings
     from command_inbox.main import create_app
 
+    # The suite makes thousands of requests a minute as a few people; the limiter has its own tests.
+    settings.api_rate_per_minute = 0
+    settings.api_rate_per_user_per_minute = 0
     application = create_app()
     yield application
     from command_inbox.db.engine import dispose

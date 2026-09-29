@@ -78,7 +78,7 @@ async def test_entra_provisions_a_person_and_offboards_them(app, scim):
 
 
 async def test_groups_set_roles_but_never_remove_the_last_admin(app, scim):
-    admin, s, oid = scim
+    admin, s, _oid = scim
     r = await admin.send("PUT", "/v1/workspace/scim/roles", {"groupRoles": {"CI-Leads": "lead"}})
     assert r.status_code == 200, r.text
     email = f"lead.{uuid.uuid4().hex[:6]}@meridian.example"
@@ -114,3 +114,12 @@ async def test_tokens_are_checked_and_can_be_revoked(app, scim):
     assert (await s.req("GET", "/Users")).status_code == 401
     staff = await add_member(app, "meridian", "staff")
     assert (await staff.send("POST", "/v1/workspace/scim/token", {})).status_code == 403
+
+
+async def test_a_mapping_never_changes_invited_members(app, scim):
+    admin, _s, _ = scim
+    r = await admin.send("PUT", "/v1/workspace/scim/roles", {"groupRoles": {"CI-Nobody": "lead"}})
+    assert r.status_code == 200
+    me = next(m for m in (await admin.get("/v1/members")).json() if m["isMe"])
+    assert me["role"] == "admin"
+    await admin.send("PUT", "/v1/workspace/scim/roles", {"groupRoles": {}})

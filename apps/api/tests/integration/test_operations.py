@@ -168,6 +168,9 @@ def test_the_sliding_window_limits_and_recovers():
 async def test_a_workspace_over_its_limit_gets_429(app, monkeypatch):
     staff = await add_member(app, "meridian", "staff")
     oid = await org_id("meridian")
+    from command_inbox.config import settings
+
+    monkeypatch.setattr(settings, "api_rate_per_minute", 3000)
     limiter.reset()
     limiter.limits[oid] = (1e18, 3)  # cached limit of 3 a minute, never expires in this test
     try:

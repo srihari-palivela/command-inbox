@@ -4,8 +4,8 @@ workspace, and leave it, as the bank's directory says.
 - Users: `userName` is the work email. Creating one adds a membership (and default clearances); `active: false`
   or DELETE removes the membership and revokes the person's sessions. The global user record stays.
 - Groups: stored with their members. When the workspace maps group names to roles (`scim_group_roles`), a
-  person's role is the highest role among their mapped groups (staff if none); without a mapping, roles stay
-  managed in the app. The last admin is never demoted or removed by provisioning.
+  provisioned person's role is the highest role among their mapped groups (staff if none); people who joined
+  by invitation keep the role set in the app, and without a mapping all roles stay managed in the app. The last admin is never demoted or removed by provisioning.
 - Everything is audited with the actor "Identity provider (SCIM)".
 
 The subset implemented is what Microsoft Entra ID and Okta provisioning use: filters `userName eq`,
@@ -422,8 +422,11 @@ async def _role_from_groups(tx: AsyncSession, org_id: str, user_id: str) -> str 
 async def _recompute(tx: AsyncSession, org_id: str, user_ids: set[str]) -> None:
     for user_id in user_ids:
         m = await _membership(tx, org_id, user_id)
+        # Only people the directory provisioned take their role from it; invited members keep theirs.
+        if m is None or m.provisioned_by != "scim":
+            continue
         role = await _role_from_groups(tx, org_id, user_id)
-        if m is None or role is None or role == m.role:
+        if role is None or role == m.role:
             continue
         if m.role == "admin" and await _admins(tx, org_id) <= 1:
             continue  # never leave the workspace without an admin
