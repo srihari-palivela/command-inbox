@@ -20,6 +20,8 @@ fixed label set from its logits, calibrated, with conformal prediction sets); **
 adjudicates uncertain cases and writes extractions, drafts and briefs. The lane is always decided by
 policy code, never by a model.
 
+- **Production plan** (platform console, tenant onboarding, Microsoft 365 / Gmail connectors, knowledge, agents,
+  monitoring, security, delivery phases): [`docs/architecture/production-plan.md`](docs/architecture/production-plan.md)
 - Platform plan (Python API, identity, RBAC, deployments, System 1/2, evals, observability):
   [`docs/architecture/python-platform.md`](docs/architecture/python-platform.md)
 - Original product plan: [`docs/architecture/implementation-plan.md`](docs/architecture/implementation-plan.md)
@@ -75,7 +77,7 @@ Every user holds exactly one role per workspace. The admin controls the workspac
 members and invitations, which delegable permissions staff and team leads get (separation-of-duties
 rules stay locked), deployments and their rollout.
 
-In demo mode the header has a role switch, and as the admin **Where mail arrives → Simulate an email**
+In demo mode (development only), as the admin **Where mail arrives → Simulate an email**
 sends a sample customer email through the real intake and triage pipeline.
 
 ### Models
