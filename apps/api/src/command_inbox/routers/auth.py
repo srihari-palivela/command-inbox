@@ -87,9 +87,11 @@ async def demo_login(body: LoginBody, request: Request, response: Response) -> d
 
 @router.get("/auth/oidc/login")
 async def oidc_login(
-    next: str = Query("/inbox", max_length=300), org: str | None = Query(None, max_length=80)
+    next: str = Query("/inbox", max_length=300),
+    org: str | None = Query(None, max_length=80),
+    login_hint: str | None = Query(None, max_length=254, pattern=r"^[^@\s]+@[^@\s]+$"),
 ) -> Response:
-    url, txn = await oidc.authorization_url(next, org)
+    url, txn = await oidc.authorization_url(next, org, login_hint)
     txn["iat"] = str(int(time.time()))
     resp = RedirectResponse(url, status_code=302)
     resp.set_cookie(

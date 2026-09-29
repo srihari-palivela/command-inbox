@@ -60,8 +60,26 @@ def redirect_uri() -> str:
     return settings.public_api_url.rstrip("/") + "/v1/auth/oidc/callback"
 
 
-async def authorization_url(next_path: str, org_hint: str | None) -> tuple[str, dict[str, str]]:
-    """Returns the IdP URL and the transaction values to keep in a short-lived signed cookie."""
+async def idp_for_email(email: str) -> str | None:
+    """Home-realm discovery: the brokered IdP alias of the tenant that owns this email's domain, if exactly one."""
+    domain = email.strip().lower().rsplit("@", 1)[-1]
+    if not domain:
+        return None
+    async with global_tx() as g:
+        orgs = (await g.execute(select(Org).where(Org.sso_idp_alias.is_not(None)))).scalars().all()
+    aliases = {o.sso_idp_alias for o in orgs if domain in [d.lower() for d in (o.sso_email_domains or [])]}
+    return aliases.pop() if len(aliases) == 1 else None
+
+
+async def authorization_url(
+    next_path: str, org_hint: str | None, login_hint: str | None = None
+) -> tuple[str, dict[str, str]]:
+    """Returns the IdP URL and the transaction values to keep in a short-lived signed cookie.
+
+    With a `login_hint` (the email typed on the sign-in page) Keycloak skips its own login form and goes
+    straight to the tenant's identity provider when the domain is known; otherwise it shows its form with the
+    email prefilled. Either way the answer looks the same to the caller, so it reveals no tenant.
+    """
     meta = await metadata()
     state, nonce, verifier = generate_token(32), generate_token(32), generate_token(64)
     params = {
@@ -76,6 +94,10 @@ async def authorization_url(next_path: str, org_hint: str | None) -> tuple[str, 
     }
     if org_hint:
         params["organization"] = org_hint
+    if login_hint:
+        params["login_hint"] = login_hint
+        if idp := await idp_for_email(login_hint):
+            params["kc_idp_hint"] = idp
     safe_next = next_path if next_path.startswith("/") and not next_path.startswith("//") else "/inbox"
     return meta["authorization_endpoint"] + "?" + urlencode(params), {
         "state": state,

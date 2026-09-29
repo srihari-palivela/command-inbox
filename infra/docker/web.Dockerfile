@@ -9,6 +9,9 @@ COPY apps/web/package.json apps/web/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @ci/web...
 COPY packages/contracts packages/contracts
 COPY apps/web apps/web
+# "true" only for the local compose stack: compiles in the development sign-in picker.
+ARG VITE_DEMO_SIGNIN=false
+ENV VITE_DEMO_SIGNIN=$VITE_DEMO_SIGNIN
 RUN pnpm --filter @ci/web build
 
 FROM nginx:1.29-alpine AS runtime

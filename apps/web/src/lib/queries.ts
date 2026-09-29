@@ -121,7 +121,9 @@ export function useDemo() {
   return useQuery({
     queryKey: keys.demo,
     queryFn: () =>
-      api.get<{ demoMode: boolean; users: DemoUserDTO[]; orgs: OrgChoiceDTO[] }>('/v1/auth/demo'),
+      api.get<{ demoMode: boolean; sso: boolean; users: DemoUserDTO[]; orgs: OrgChoiceDTO[] }>(
+        '/v1/auth/demo',
+      ),
     staleTime: Infinity,
   });
 }

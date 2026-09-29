@@ -75,7 +75,10 @@ services:
     restart: unless-stopped
 
   web:
-    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+      args: { VITE_DEMO_SIGNIN: 'true' } # local stack only; production images leave it off
     ports:
       - '8080:8080'
     depends_on:
