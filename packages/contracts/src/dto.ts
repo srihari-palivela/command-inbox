@@ -1093,13 +1093,7 @@ export interface ProblemDTO {
 
 // ── Mailbox connections (Microsoft 365 / Google Workspace) ─────────────────────
 export type MailConnection =
-  | 'not_connected'
-  | 'connecting'
-  | 'syncing'
-  | 'live'
-  | 'degraded'
-  | 'reauth_required'
-  | 'disconnected';
+  'not_connected' | 'connecting' | 'syncing' | 'live' | 'degraded' | 'reauth_required' | 'disconnected';
 
 export type HealthLevel = 'healthy' | 'degraded' | 'down' | 'unknown';
 
@@ -1148,7 +1142,8 @@ export interface MailConnectorsDTO {
 
 // ── Knowledge documents (upload, approval, retrieval) ─────────────────────────
 export type KnowledgeDocStatus = 'pending' | 'approved' | 'rejected' | 'retired' | 'stale';
-export type KnowledgeParseStatus = 'none' | 'queued' | 'scanning' | 'parsing' | 'ready' | 'failed' | 'infected';
+export type KnowledgeParseStatus =
+  'none' | 'queued' | 'scanning' | 'parsing' | 'ready' | 'failed' | 'infected';
 
 export interface KnowledgeDocumentDTO {
   id: string;

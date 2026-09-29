@@ -7,6 +7,8 @@
 #                            password "operator-local")
 #   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local)
 #   --profile local-llm      llama.cpp server for the System 1 decision engine on :8090 (put a GGUF in ./models)
+#   --profile av             ClamAV for scanning knowledge uploads (set CLAMAV_HOST=clamav); first start downloads
+#                            signatures and needs ~1.5 GB of memory. Without it uploads are marked "not virus-scanned".
 #
 # The secrets below are for local use only. In a real deployment they come from your secret manager.
 x-api-env: &api-env
@@ -42,10 +44,17 @@ x-api-env: &api-env
   PLATFORM_OIDC_CLIENT_SECRET: ${PLATFORM_OIDC_CLIENT_SECRET:-}
   KEYCLOAK_ADMIN_URL: ${KEYCLOAK_ADMIN_URL:-}
   KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-}
+  # Knowledge: the hash embedder is for development only; point these at an OpenAI-compatible endpoint.
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-hash}
+  EMBEDDING_URL: ${EMBEDDING_URL:-}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+  EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+  RERANK_URL: ${RERANK_URL:-}
+  CLAMAV_HOST: ${CLAMAV_HOST:-}
 
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16 # Postgres 16 with the vector extension (knowledge retrieval)
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -84,6 +93,15 @@ services:
     healthcheck: { disable: true }
     depends_on:
       migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: [av]
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdcheck.sh']
+      interval: 30s
+      start_period: 180s
     restart: unless-stopped
 
   web:

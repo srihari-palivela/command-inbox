@@ -31,7 +31,8 @@ async function request<T>(
   opts: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
-  if (body !== undefined) headers['content-type'] = 'application/json';
+  const form = body instanceof FormData;
+  if (body !== undefined && !form) headers['content-type'] = 'application/json';
   if (method !== 'GET' && csrfToken) headers['x-csrf-token'] = csrfToken;
   if (opts.idempotencyKey) headers['idempotency-key'] = opts.idempotencyKey;
   if (opts.ifMatch !== undefined) headers['if-match'] = String(opts.ifMatch);
@@ -39,7 +40,7 @@ async function request<T>(
     method,
     headers,
     credentials: 'same-origin',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     signal: opts.signal,
   });
   if (!res.ok) {
@@ -67,6 +68,8 @@ export const api = {
   patch: <T>(path: string, body: unknown = {}, opts?: RequestOptions) =>
     request<T>('PATCH', path, body, opts),
   del: <T>(path: string, opts?: RequestOptions) => request<T>('DELETE', path, undefined, opts),
+  /** multipart/form-data; the browser sets the boundary. */
+  upload: <T>(path: string, form: FormData, opts?: RequestOptions) => request<T>('POST', path, form, opts),
 };
 
 export const newIdempotencyKey = () =>

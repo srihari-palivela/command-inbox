@@ -46,13 +46,15 @@ Optional profiles add the rest of the production shape (combine freely):
 | `sso` | Keycloak on :8081 with a ready realm (users `p.sharma`, `r.menon`, `a.kapoor` / password `demo`). Set `OIDC_ISSUER=http://localhost:8081/realms/command-inbox` and `OIDC_CLIENT_SECRET=local-dev-client-secret` |
 | `observability` | OpenTelemetry Collector + self-hosted Langfuse on :3000 (`admin@local.test` / `langfuse-local`). Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` |
 | `local-llm` | llama.cpp server for the System 1 decision engine on :8090 (put a GGUF model in `./models`). Set `DECISION_ENGINE=llamacpp`, `DECISION_ENGINE_URL=http://llamacpp:8090` |
+| `av` | ClamAV for scanning knowledge uploads (needs ~1.5 GB of memory; first start downloads signatures). Set `CLAMAV_HOST=clamav` |
 
 e.g. `docker compose --profile sso --profile observability up --build`.
 
 ## Run it for development
 
-Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22, pnpm 10, Postgres 16 running
-locally (user `postgres` / password `postgres`).
+Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22, pnpm 10, Postgres 16 with the
+[pgvector](https://github.com/pgvector/pgvector) extension running locally (user `postgres` / password `postgres`;
+e.g. the `pgvector/pgvector:pg16` image, or `apt install postgresql-16-pgvector`).
 
 ```sh
 pnpm install && (cd apps/api && uv sync)
@@ -94,6 +96,22 @@ test mail has made the round trip and an admin turns sending on. Configure the b
 `GOOGLE_PUBSUB_TOPIC`, `GOOGLE_PUSH_AUDIENCE` and `GOOGLE_PUSH_SERVICE_ACCOUNT` (Google). With
 `MAIL_WEBHOOK_BASE_URL` (public HTTPS) providers notify us within seconds; without it mailboxes are polled every
 minute.
+
+### Knowledge the AI may quote
+
+Under **Setup → Knowledge**, upload policies, product sheets and procedures (PDF, DOCX, XLSX, HTML, Markdown,
+text). Each file is virus-scanned (`CLAMAV_HOST`), read in a sandboxed process, split into passages and
+indexed for hybrid (full-text + vector) search. Nothing is citable until someone with approve clearance for
+its department approves it; expired documents stop being cited on their own. Drafts cite the passages they
+used, and when nothing approved answers a mail the draft says so and raises a knowledge gap. The retrieval
+playground on the same screen shows what a question would be grounded on.
+
+- **Embeddings:** `EMBEDDING_PROVIDER=openai_compatible` with `EMBEDDING_URL` (serving `/v1/embeddings`, e.g.
+  bge-m3 on Text Embeddings Inference or vLLM), `EMBEDDING_MODEL` and optionally `EMBEDDING_API_KEY`. The default
+  `hash` embedder is lexical and for development only; production refuses it.
+- **Reranking (optional):** `RERANK_URL` pointing at a TEI `/rerank` cross-encoder.
+- **Retrieval eval:** `uv run command-inbox-evals retrieval --org SLUG --file cases.jsonl` with lines like
+  `{"question": "…", "expected": ["Document title"]}` reports recall@k and MRR (exit 1 below `--min-recall`).
 
 ### Demo users
 

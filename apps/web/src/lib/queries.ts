@@ -14,6 +14,8 @@ import type {
   DemoUserDTO,
   InboxDTO,
   KnowledgeDTO,
+  KnowledgeDocumentDetailDTO,
+  KnowledgeDocumentDTO,
   LearningDTO,
   MeDTO,
   NlFilterDTO,
@@ -83,6 +85,8 @@ export const keys = {
   actions: ['actions'] as const,
   policies: ['policies'] as const,
   knowledge: ['knowledge'] as const,
+  knowledgeDocs: ['knowledge', 'documents'] as const,
+  knowledgeDoc: (id: string) => ['knowledge', 'documents', id] as const,
   taxonomy: ['taxonomy'] as const,
   admin: ['admin'] as const,
   sessions: ['sessions'] as const,
@@ -233,6 +237,20 @@ export const usePolicies = () =>
   useQuery({ queryKey: keys.policies, queryFn: () => api.get<PoliciesDTO>('/v1/policies') });
 export const useKnowledge = () =>
   useQuery({ queryKey: keys.knowledge, queryFn: () => api.get<KnowledgeDTO>('/v1/knowledge') });
+/** Documents still being scanned or parsed are polled until they settle. */
+const IN_FLIGHT = new Set(['queued', 'scanning', 'parsing']);
+export const useKnowledgeDocuments = () =>
+  useQuery({
+    queryKey: keys.knowledgeDocs,
+    queryFn: () => api.get<KnowledgeDocumentDTO[]>('/v1/knowledge/documents'),
+    refetchInterval: (q) => (q.state.data?.some((d) => IN_FLIGHT.has(d.parseStatus)) ? 2500 : false),
+  });
+export const useKnowledgeDocument = (id: string | null) =>
+  useQuery({
+    queryKey: keys.knowledgeDoc(id ?? ''),
+    queryFn: () => api.get<KnowledgeDocumentDetailDTO>(`/v1/knowledge/documents/${id}`),
+    enabled: !!id,
+  });
 export const useTaxonomy = () =>
   useQuery({ queryKey: keys.taxonomy, queryFn: () => api.get<TaxonomyDTO>('/v1/taxonomy') });
 export const useAdmin = () =>
