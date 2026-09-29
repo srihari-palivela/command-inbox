@@ -290,6 +290,7 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         agents=agents,
         sender_verified=sender_verified,
         force_lane=payload.get("forceLane") if payload.get("forceLane") in LANE_NAME else None,
+        retrieve=_retriever(org_id),
     )
     bucketer = agents.get("bucketer")
     return Loaded(
@@ -397,6 +398,29 @@ def _reasoning(
     return " ".join(parts)
 
 
+def _retriever(org_id: str) -> Any:
+    async def retrieve_rows(query: str, department_id: str | None) -> list[DocRow]:
+        from command_inbox.knowledge.retrieve import retrieve
+
+        async with tenant_tx(org_id) as tx:
+            hits = await retrieve(tx, org_id, query, department_id=department_id, k=6)
+        return [
+            DocRow(
+                h.doc_id,
+                h.title,
+                h.section,
+                h.text,
+                h.owner,
+                h.department_id,
+                h.verified_at,
+                chunk_id=h.chunk_id,
+            )
+            for h in hits
+        ]
+
+    return retrieve_rows
+
+
 async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: int) -> str | None:
     deps = loaded.deps
     org_id = job.org_id
@@ -425,7 +449,8 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
     escalation = bool(guard.get("regulator_named") or guard.get("repeat_contact"))
     bucket = meta.bucket if meta else FALLBACK_NAME
     spans = list(state.get("spans") or [])
-    grounding = [d for d in deps.docs if not department_id or d.department_id == department_id][:6]
+    # Exactly the passages the draft was written from (citation numbers index into this list).
+    grounding = list(state.get("grounding") or [])
 
     async with tenant_tx(org_id) as tx:
         locked = await lock_ticket(tx, org_id, ticket_id)
@@ -573,6 +598,7 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
                     {
                         "n": i + 1,
                         "docId": g.id,
+                        "chunkId": g.chunk_id,
                         "doc": g.title,
                         "section": g.section,
                         "verifiedAt": iso_ms(g.verified_at or clock.now()),

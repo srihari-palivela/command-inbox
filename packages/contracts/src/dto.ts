@@ -1145,3 +1145,62 @@ export interface MailConnectorsDTO {
   mailboxLimit: number;
   mailboxes: MailboxConnectionDTO[];
 }
+
+// ── Knowledge documents (upload, approval, retrieval) ─────────────────────────
+export type KnowledgeDocStatus = 'pending' | 'approved' | 'rejected' | 'retired' | 'stale';
+export type KnowledgeParseStatus = 'none' | 'queued' | 'scanning' | 'parsing' | 'ready' | 'failed' | 'infected';
+
+export interface KnowledgeDocumentDTO {
+  id: string;
+  title: string;
+  filename: string;
+  version: number;
+  replacesId: string | null;
+  status: KnowledgeDocStatus;
+  parseStatus: KnowledgeParseStatus;
+  parseError: string;
+  avStatus: 'not_scanned' | 'clean' | 'infected' | 'error';
+  departmentId: string | null;
+  department: string | null;
+  size: number;
+  chunkCount: number;
+  effectiveFrom: string | null;
+  expiresAt: string | null;
+  uploadedBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  /** Whether the signed-in person may approve it (approve clearance for its department). */
+  canApprove: boolean;
+}
+
+export interface KnowledgeChunkDTO {
+  id: string;
+  ordinal: number;
+  section: string;
+  page: number | null;
+  text: string;
+  tokens: number;
+}
+
+export interface KnowledgeDocumentDetailDTO extends KnowledgeDocumentDTO {
+  chunks: KnowledgeChunkDTO[];
+}
+
+export interface KnowledgeHitDTO {
+  chunkId: string;
+  docId: string;
+  title: string;
+  section: string;
+  page: number | null;
+  text: string;
+  score: number;
+  similarity: number;
+  textMatch: boolean;
+}
+
+export interface KnowledgeSearchDTO {
+  query: string;
+  /** Empty: no approved source answers this; a draft would say so and raise a gap. */
+  hits: KnowledgeHitDTO[];
+}

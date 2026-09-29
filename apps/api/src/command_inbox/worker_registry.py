@@ -21,6 +21,7 @@ HANDLERS: list[tuple[str, str, str]] = [
     ("mail_renew", "command_inbox.mail.sync", "run_mail_renew"),
     ("mail_send", "command_inbox.mail.sync", "run_mail_send"),
     ("mail_test", "command_inbox.mail.sync", "run_mail_test"),
+    ("knowledge_ingest", "command_inbox.knowledge.service", "run_knowledge_ingest"),
 ]
 
 

@@ -18,6 +18,7 @@ ROUTERS: list[tuple[str, str]] = [
     ("command_inbox.modules.calls.router", "router"),
     ("command_inbox.modules.intake.router", "router"),
     ("command_inbox.modules.mailboxes.router", "router"),
+    ("command_inbox.knowledge.router", "router"),
     ("command_inbox.mail.hooks", "router"),
     # workspace: settings, people, insights, learning; AI setup and the admin overview
     ("command_inbox.modules.workspace.router", "router"),

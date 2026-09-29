@@ -543,8 +543,14 @@ async def lane_policy_node(state: FlowState, config: RunnableConfig, params: dic
 
 
 # ── draft_reply ──────────────────────────────────────────────────────────────────────────────────────────
-def _grounding(deps: RunDeps, department_id: str | None) -> list[tuple[GroundingDoc, Any]]:
-    docs = [d for d in deps.docs if not department_id or d.department_id == department_id][:6]
+async def _grounding(
+    deps: RunDeps, state: FlowState, department_id: str | None
+) -> list[tuple[GroundingDoc, Any]]:
+    """The sources the drafter may cite: passages retrieved for this very message (approved, in effect)."""
+    if deps.retrieve is not None:
+        docs = await deps.retrieve(state["thread"].text(), department_id)
+    else:  # evaluation runs without a knowledge base: the deployment's documents as given
+        docs = [d for d in deps.docs if not department_id or d.department_id == department_id][:6]
     return [(GroundingDoc(i + 1, d.title, d.section, d.body), d) for i, d in enumerate(docs)]
 
 
@@ -552,7 +558,7 @@ async def draft_reply_node(state: FlowState, config: RunnableConfig, params: dic
     deps = deps_of(config)
     th = deps.config.thresholds
     meta = deps.meta(state.get("category"))
-    grounding = _grounding(deps, meta.department_id if meta else None)
+    grounding = await _grounding(deps, state, meta.department_id if meta else None)
     agent = deps.agent("drafter")
     staged = await deps.providers.call(
         "draft_reply",
@@ -560,6 +566,15 @@ async def draft_reply_node(state: FlowState, config: RunnableConfig, params: dic
         lambda p: p.draft_reply(state["thread"], [g for g, _ in grounding], agent, deps.customer_name),
     )
     draft = staged.result
+    # Grounding post-check: sentences the cited passages do not support are flagged for the approver.
+    from command_inbox.knowledge.grounding import unsupported_sentences
+
+    cited = [d.body for g, d in grounding if g.n in draft.citations]
+    unsupported = unsupported_sentences(draft.body, cited) if cited else []
+    draft.flagged = [
+        *draft.flagged,
+        *(f"Not found in the cited sources: \u201c{s[:160]}\u201d" for s in unsupported),
+    ]
     n = len(draft.citations)
     span = deps.span(
         agent.name,
@@ -590,11 +605,18 @@ async def draft_reply_node(state: FlowState, config: RunnableConfig, params: dic
     if deps.force_lane == "draft" or d2.lane == "draft":
         lane = "draft"
         note = note if deps.force_lane == "draft" else d2.note
-    out = {"coverage": draft.coverage, "citations": draft.citations, "lane": lane}
+    out = {
+        "coverage": draft.coverage,
+        "citations": draft.citations,
+        "lane": lane,
+        "sources": [d.chunk_id or d.id for _g, d in grounding],
+        "unsupported": len(unsupported),
+    }
     return {
         "lane": lane,
         "lane_note": note,
         "draft": draft if lane == "draft" else None,
+        "grounding": [d for _g, d in grounding],
         "spans": [span],
         "outputs": {"draft_reply": out},
     }

@@ -340,3 +340,13 @@ export type CreateMailboxBody = z.infer<typeof CreateMailboxBody>;
 
 export const MailboxSendingBody = z.object({ enabled: z.boolean() });
 export type MailboxSendingBody = z.infer<typeof MailboxSendingBody>;
+
+// ── Knowledge documents ─────────────────────────────────────────────────────────
+export const KnowledgeReviewBody = z.object({ reason: z.string().trim().max(500).default('') });
+export type KnowledgeReviewBody = z.infer<typeof KnowledgeReviewBody>;
+
+export const KnowledgeSearchBody = z.object({
+  query: z.string().trim().min(2).max(2000),
+  departmentId: z.string().uuid().nullable().optional(),
+});
+export type KnowledgeSearchBody = z.infer<typeof KnowledgeSearchBody>;

@@ -39,6 +39,10 @@ async def start_scheduler() -> None:
             from command_inbox.mail.sync import schedule_mail
 
             await schedule_mail()
+            if clock.now().minute == 0:  # hourly
+                from command_inbox.knowledge.service import expire_sweep
+
+                await expire_sweep()
         except Exception as err:
             log.warning("scheduler tick failed", err=str(err))
         await asyncio.sleep(60)

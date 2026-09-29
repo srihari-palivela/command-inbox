@@ -7,10 +7,12 @@ Alembic owns the schema; change a table with a migration, then update the model 
 import datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     Double,
@@ -23,7 +25,7 @@ from sqlalchemy import (
     Uuid,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -631,7 +633,18 @@ class Job(Base):
 
 class KnowledgeDoc(Base):
     __tablename__ = "knowledge_docs"
-    __table_args__ = (PrimaryKeyConstraint("id", name="knowledge_docs_pkey"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="knowledge_docs_pkey"),
+        UniqueConstraint("org_id", "id", name="knowledge_docs_org_id_id_uq"),
+        Index("knowledge_docs_checksum_idx", "org_id", "checksum"),
+        CheckConstraint(
+            "parse_status in ('none', 'queued', 'scanning', 'parsing', 'ready', 'failed', 'infected')",
+            name="knowledge_docs_parse_ck",
+        ),
+        CheckConstraint(
+            "av_status in ('not_scanned', 'clean', 'infected', 'error')", name="knowledge_docs_av_ck"
+        ),
+    )
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
@@ -645,6 +658,71 @@ class KnowledgeDoc(Base):
     source_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     department_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     verified_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    # Uploaded documents (migration 0009): version chain, the sealed original, parsing and approval.
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    replaces_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    checksum: Mapped[str | None] = mapped_column(Text)
+    filename: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    content_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    blob_sealed: Mapped[str | None] = mapped_column(Text)
+    parse_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'none'::text"))
+    parse_error: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    av_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'not_scanned'::text"))
+    effective_from: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    uploaded_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    approved_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    approved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+
+
+EMBEDDING_DIM = 1024
+
+
+class KnowledgeChunk(Base):
+    """A retrievable piece of a document: full text (generated tsvector) and an embedding (pgvector)."""
+
+    __tablename__ = "knowledge_chunks"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="knowledge_chunks_pkey"),
+        Index("knowledge_chunks_doc_idx", "org_id", "doc_id", "ordinal"),
+        Index("knowledge_chunks_tsv_idx", "tsv", postgresql_using="gin"),
+        Index(
+            "knowledge_chunks_embedding_idx",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        ForeignKeyConstraint(
+            ["org_id", "doc_id"],
+            ["knowledge_docs.org_id", "knowledge_docs.id"],
+            name="knowledge_chunks_doc_fk",
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    doc_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    section_path: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
+    page: Mapped[int | None] = mapped_column(Integer)
+    text_: Mapped[str] = mapped_column("text", Text, nullable=False)
+    tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    tsv: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english'::regconfig, ((section_path || ' '::text) || text))", persisted=True),
+    )
+    embedding: Mapped[Any] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
 
 
 class KnowledgeSource(Base):

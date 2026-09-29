@@ -266,3 +266,12 @@ class CreateMailboxBody(CamelModel):
 
 class MailboxSendingBody(CamelModel):
     enabled: bool
+
+
+class KnowledgeReviewBody(CamelModel):
+    reason: Annotated[str, Field(max_length=500)] = ""
+
+
+class KnowledgeSearchBody(CamelModel):
+    query: Annotated[str, Field(min_length=2, max_length=2000)]
+    department_id: Annotated[str, Field(pattern=UUID_RE)] | None = None

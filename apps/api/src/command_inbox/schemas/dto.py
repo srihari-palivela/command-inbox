@@ -67,6 +67,8 @@ MailConnection = Literal[
     "not_connected", "connecting", "syncing", "live", "degraded", "reauth_required", "disconnected"
 ]
 HealthLevel = Literal["healthy", "degraded", "down", "unknown"]
+KnowledgeDocStatus = Literal["pending", "approved", "rejected", "retired", "stale"]
+KnowledgeParseStatus = Literal["none", "queued", "scanning", "parsing", "ready", "failed", "infected"]
 FacetCounts = dict[str, dict[str, int | float]]
 
 
@@ -1382,3 +1384,56 @@ class MailConnectorsDTO(CamelModel):
     webhooks: bool
     mailbox_limit: int | float
     mailboxes: list[MailboxConnectionDTO]
+
+
+class KnowledgeDocumentDTO(CamelModel):
+    id: str
+    title: str
+    filename: str
+    version: int | float
+    replaces_id: str | None
+    status: KnowledgeDocStatus
+    parse_status: KnowledgeParseStatus
+    parse_error: str
+    av_status: Literal["not_scanned", "clean", "infected", "error"]
+    department_id: str | None
+    department: str | None
+    size: int | float
+    chunk_count: int | float
+    effective_from: str | None
+    expires_at: str | None
+    uploaded_by: str | None
+    approved_by: str | None
+    approved_at: str | None
+    created_at: str
+    can_approve: bool
+
+
+class KnowledgeChunkDTO(CamelModel):
+    id: str
+    ordinal: int | float
+    section: str
+    page: int | float | None
+    text: str
+    tokens: int | float
+
+
+class KnowledgeDocumentDetailDTO(KnowledgeDocumentDTO):
+    chunks: list[KnowledgeChunkDTO]
+
+
+class KnowledgeHitDTO(CamelModel):
+    chunk_id: str
+    doc_id: str
+    title: str
+    section: str
+    page: int | float | None
+    text: str
+    score: int | float
+    similarity: int | float
+    text_match: bool
+
+
+class KnowledgeSearchDTO(CamelModel):
+    query: str
+    hits: list[KnowledgeHitDTO]

@@ -32,6 +32,11 @@ dependencies = [
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
     "joserfc>=1.7.5",
+    "pypdf>=6.19.0",
+    "python-docx>=1.2.0",
+    "openpyxl>=3.1.5",
+    "pgvector>=0.5.0",
+    "python-multipart>=0.0.32",
 ]
 
 [project.scripts]

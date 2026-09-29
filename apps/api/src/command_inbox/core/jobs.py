@@ -50,6 +50,7 @@ JobKind = Literal[
     "mail_renew",
     "mail_send",
     "mail_test",
+    "knowledge_ingest",
 ]
 
 

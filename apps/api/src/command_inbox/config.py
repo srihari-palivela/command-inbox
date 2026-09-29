@@ -89,6 +89,22 @@ class Settings(BaseSettings):
     mail_webhook_base_url: str | None = None
     mail_poll_seconds: int = 60
     mail_sweep_minutes: int = 10
+
+    # Knowledge. Embeddings from a self-hosted model (bge-m3 / e5-large behind an OpenAI-compatible
+    # /v1/embeddings endpoint) or a provider's; "hash" is lexical and for development only.
+    embedding_provider: Literal["hash", "openai_compatible"] = "hash"
+    embedding_url: str | None = None
+    embedding_model: str = "bge-m3"
+    embedding_api_key: str | None = None
+    embedding_send_dimensions: bool = False  # OpenAI v3 models: ask for 1024 dimensions
+    # Optional cross-encoder reranker (Text Embeddings Inference `/rerank`); unset: fused ranking only.
+    rerank_url: str | None = None
+    # Below this cosine similarity (and with no full-text match) there is no source: raise a gap instead.
+    retrieval_min_similarity: float = 0.2
+    # ClamAV (clamd). Required in production: uploads and attachments are scanned before parsing.
+    clamav_host: str | None = None
+    clamav_port: int = 3310
+    knowledge_max_upload_mb: int = 20
     invitation_ttl_hours: int = 72
 
     encryption_key: str = "dev-only-key-change-me-dev-only-key-change-me"
@@ -144,6 +160,10 @@ class Settings(BaseSettings):
                 problems.append("OIDC_CLIENT_SECRET must be set")
             if not self.smtp_host:
                 problems.append("SMTP_HOST must be set (invitations are emailed)")
+            if not self.clamav_host:
+                problems.append("CLAMAV_HOST must be set (uploads are scanned before parsing)")
+            if self.embedding_provider == "hash":
+                problems.append("EMBEDDING_PROVIDER must be a real embedding model, not the lexical hash")
             if self.decision_engine in ("auto", "heuristic"):
                 problems.append("DECISION_ENGINE must be llamacpp or vllm (no silent keyword fallback)")
             if self.llm_provider == "auto":
