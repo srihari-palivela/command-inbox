@@ -319,3 +319,7 @@ class OperationsBody(CamelModel):
     retention_trace_days: Annotated[int, Field(ge=7, le=3650)] | None
     siem_url: Annotated[str, Field(pattern=r"^https://[^\s]+$", max_length=500)] | None
     siem_secret: Annotated[str, Field(min_length=16, max_length=200)] | None = None
+
+
+class ScimGroupRolesBody(CamelModel):
+    group_roles: Annotated[dict[str, Literal["staff", "lead", "admin"]], Field(max_length=50)]

@@ -1734,3 +1734,24 @@ class AuditManifestDTO(CamelModel):
     last_hash: str | None
     files: list[AuditManifestDTOFiles]
     signature: str
+
+
+class ScimSettingsDTOGroups(CamelModel):
+    name: str
+    members: int | float
+
+
+class ScimSettingsDTO(CamelModel):
+    base_url: str
+    enabled: bool
+    token_created_at: str | None
+    last_used_at: str | None
+    group_roles: dict[str, Role]
+    groups: list[ScimSettingsDTOGroups]
+    provisioned_members: int | float
+    can_edit: bool
+
+
+class ScimTokenDTO(CamelModel):
+    token: str
+    settings: ScimSettingsDTO

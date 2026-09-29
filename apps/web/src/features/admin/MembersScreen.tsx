@@ -12,6 +12,7 @@ import { keys, useInvitations, useMembers } from '../../lib/queries';
 import { Avatar, Button, Card, EmptyState, Input, Loadable, Page, PageHeader, Skeleton } from '../../ui';
 import { Confirm, isForbidden, NoAccess, ProblemAlert, Select, Tone, useInlineAction } from './bits';
 import { INVITATION_STATE, ROLES } from './model';
+import { ScimCard } from './ScimCard';
 import s from './admin.module.css';
 
 const TITLE = 'Members';
@@ -46,6 +47,7 @@ export default function MembersScreen() {
             {(list) => <MemberTable list={list} />}
           </Loadable>
           <Invitations />
+          <ScimCard />
         </>
       )}
     </Page>

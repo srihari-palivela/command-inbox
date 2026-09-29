@@ -1467,3 +1467,23 @@ export interface AuditManifestDTO {
   /** HMAC-SHA256 over the canonical manifest without this field, with the workspace's export key. */
   signature: string;
 }
+
+// ── SCIM provisioning ───────────────────────────────────────────────────────────
+export interface ScimSettingsDTO {
+  /** The SCIM base URL to give the identity provider. */
+  baseUrl: string;
+  enabled: boolean;
+  tokenCreatedAt: string | null;
+  lastUsedAt: string | null;
+  /** Identity-provider group name → role; empty keeps roles managed in the app. */
+  groupRoles: Record<string, Role>;
+  groups: { name: string; members: number }[];
+  provisionedMembers: number;
+  canEdit: boolean;
+}
+
+export interface ScimTokenDTO {
+  /** Shown once; only its hash is stored. */
+  token: string;
+  settings: ScimSettingsDTO;
+}

@@ -422,3 +422,9 @@ export const OperationsBody = z.object({
   siemSecret: z.string().min(16).max(200).optional(),
 });
 export type OperationsBody = z.infer<typeof OperationsBody>;
+
+// ── SCIM provisioning ───────────────────────────────────────────────────────────
+export const ScimGroupRolesBody = z.object({
+  groupRoles: z.record(z.string().trim().min(1).max(200), Role),
+});
+export type ScimGroupRolesBody = z.infer<typeof ScimGroupRolesBody>;

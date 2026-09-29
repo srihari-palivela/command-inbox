@@ -978,6 +978,8 @@ class Org(Base):
     siem_cursor: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
     siem_last_ok_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     siem_last_error: Mapped[str | None] = mapped_column(Text)
+    # SCIM: IdP group name → workspace role.
+    scim_group_roles: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
 
 class ModelSpend(Base):
@@ -1394,6 +1396,11 @@ class Membership(Base):
     base_load: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     joined_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
+    )
+    # How they joined ('invitation' or 'scim') and the identity provider's id for them (SCIM externalId).
+    external_id: Mapped[str | None] = mapped_column(Text)
+    provisioned_by: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'invitation'::text")
     )
 
     org: Mapped["Org"] = relationship("Org", back_populates="memberships")
@@ -2025,3 +2032,48 @@ class MailSendIntent(Base):
         DateTime(True), nullable=False, server_default=text("now()")
     )
     sent_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+class ScimToken(Base):
+    __tablename__ = "scim_tokens"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="scim_tokens_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="scim_tokens_org_id_fkey"),
+        Index("scim_tokens_hash_uq", "token_hash", unique=True),
+        Index("scim_tokens_active_uq", "org_id", unique=True, postgresql_where=text("revoked_at IS NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    last_used_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+
+class ScimGroup(Base):
+    __tablename__ = "scim_groups"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="scim_groups_pkey"),
+        ForeignKeyConstraint(["org_id"], ["orgs.id"], name="scim_groups_org_id_fkey"),
+        Index("scim_groups_name_uq", "org_id", text("lower(display_name)"), unique=True),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    org_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), nullable=False)
+    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    external_id: Mapped[str | None] = mapped_column(Text)
+    members: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )

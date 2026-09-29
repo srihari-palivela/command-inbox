@@ -9,13 +9,14 @@ from fastapi import APIRouter, Body, Depends, Query, Response
 
 from command_inbox.core.context import Ctx
 from command_inbox.core.http import current_ctx, in_tenant
-from command_inbox.modules.workspace import models, onboarding, operations, profile, service
+from command_inbox.modules.workspace import models, onboarding, operations, profile, scim_settings, service
 from command_inbox.modules.workspace.schemas import AdminOut
 from command_inbox.schemas import dto
 from command_inbox.schemas.base import Ok
 from command_inbox.schemas.requests import (
     ModelPolicyBody,
     OperationsBody,
+    ScimGroupRolesBody,
     SettingsBody,
     WorkspaceProfileBody,
     WorkspaceSsoBody,
@@ -110,3 +111,23 @@ async def verify_export(
     require(ctx, "audit.verify", "verify an audit export")
     ok = operations.verify_manifest(ctx.org_id, manifest)
     return dto.AuditVerifyDTO(ok=ok, events=int(manifest.get("events") or 0), broken_at=None)
+
+
+@router.get("/workspace/scim", response_model=dto.ScimSettingsDTO)
+async def get_scim(ctx: Ctx = Depends(current_ctx)) -> dto.ScimSettingsDTO:
+    return await in_tenant(ctx, lambda tx: scim_settings.get_settings(tx, ctx))
+
+
+@router.post("/workspace/scim/token", response_model=dto.ScimTokenDTO)
+async def issue_scim_token(ctx: Ctx = Depends(current_ctx)) -> dto.ScimTokenDTO:
+    return await in_tenant(ctx, lambda tx: scim_settings.issue_token(tx, ctx))
+
+
+@router.delete("/workspace/scim/token", response_model=dto.ScimSettingsDTO)
+async def revoke_scim_token(ctx: Ctx = Depends(current_ctx)) -> dto.ScimSettingsDTO:
+    return await in_tenant(ctx, lambda tx: scim_settings.revoke_token(tx, ctx))
+
+
+@router.put("/workspace/scim/roles", response_model=dto.ScimSettingsDTO)
+async def set_scim_roles(body: ScimGroupRolesBody, ctx: Ctx = Depends(current_ctx)) -> dto.ScimSettingsDTO:
+    return await in_tenant(ctx, lambda tx: scim_settings.set_group_roles(tx, ctx, body))
