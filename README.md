@@ -132,11 +132,19 @@ sends a sample customer email through the real intake and triage pipeline.
 
 Without configuration the deterministic heuristic engine and provider run, so everything works offline.
 - **System 1:** `DECISION_ENGINE=llamacpp|vllm` with `DECISION_ENGINE_URL` (and `DECISION_MODEL`).
-- **System 2:** `ANTHROPIC_API_KEY` and `LLM_PROVIDER=claude` for adjudication, extraction, drafts, briefs
-  and the copilot. PII is masked before any model call.
+- **System 2:** `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` (optionally `OPENAI_BASE_URL` for a regional
+  endpoint); `LLM_PROVIDER=anthropic|openai` picks the platform default. Each deployment's model nodes can name
+  their own provider and model (**Deployments → a version → Agents**), within the workspace's model policy
+  (**Organisation → AI model providers**: allowed providers and a monthly budget). `MODEL_PRICES` (JSON, minor
+  units per 1,000 tokens) prices models for budgets. PII is masked before any model call.
 
 Model calls go through circuit breakers: if a model is unavailable, the heuristic takes over and new mail
-defaults to a person. Offline evals: `cd apps/api && uv run command-inbox-evals run --deployment KEY`.
+defaults to a person. The **test bench** on a deployment version runs a pasted mail through it and the live
+version side by side without saving anything. Under **Evals**, a dataset can be filled by **labelling real mail**,
+and a run can pin one provider to compare providers on the same cases.
+Offline evals: `cd apps/api && uv run command-inbox-evals run --deployment KEY`.
+
+Teams, query types and reply-time targets are edited under **Who owns what**.
 
 ## Tests
 
