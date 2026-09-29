@@ -157,14 +157,11 @@ function dropAllButMe(qc: QueryClient) {
   qc.removeQueries({ predicate: (q) => q.queryKey[0] !== keys.me[0] });
 }
 
-/** Switching workspace or demo role changes everything: drop the whole cache. */
+/** Switching workspace changes everything: drop the whole cache. */
 export function useSessionSwitch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { orgId?: string; role?: 'staff' | 'lead' | 'admin' }) =>
-      v.orgId
-        ? api.post('/v1/session/org', { orgId: v.orgId })
-        : api.post('/v1/session/demo-role', { role: v.role }),
+    mutationFn: (v: { orgId: string }) => api.post('/v1/session/org', { orgId: v.orgId }),
     onSuccess: async () => {
       dropAllButMe(qc);
       const me = await api.get<MeDTO>('/v1/me');

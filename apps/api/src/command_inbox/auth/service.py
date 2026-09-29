@@ -183,27 +183,6 @@ async def switch_org(ctx: Ctx, org_id: str) -> None:
     await _audit_session(ctx, org_id, "session.org_switched", f"{ctx.user.name} switched into this workspace")
 
 
-async def demo_switch_role(ctx: Ctx, role: str) -> None:
-    """Demo only. Each person holds one role, so "view as" signs this session in as the seeded holder of it."""
-    if not settings.demo_mode:
-        raise forbidden("Role switching is only available in demo mode.")
-    async with global_tx() as g:
-        target = (
-            await g.execute(
-                select(Membership.user_id)
-                .where(Membership.org_id == ctx.org_id, Membership.role == role)
-                .order_by(Membership.joined_at)
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        if target is None:
-            raise not_found(f"A {role} in this workspace")
-        await g.execute(update(Session).where(Session.id == ctx.session_id).values(user_id=target))
-    await _audit_session(
-        ctx, ctx.org_id, "session.demo_view_as", f"Demo: session switched to view as {role}", {"role": role}
-    )
-
-
 async def logout(ctx: Ctx) -> None:
     async with global_tx() as g:
         await g.execute(update(Session).where(Session.id == ctx.session_id).values(revoked_at=clock.now()))

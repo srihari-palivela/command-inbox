@@ -32,9 +32,6 @@ export type LoginBody = z.infer<typeof LoginBody>;
 export const SwitchOrgBody = z.object({ orgId: z.string().uuid() });
 export type SwitchOrgBody = z.infer<typeof SwitchOrgBody>;
 
-export const DemoRoleBody = z.object({ role: z.enum(['staff', 'lead', 'admin']) });
-export type DemoRoleBody = z.infer<typeof DemoRoleBody>;
-
 export const SettingsBody = z.object({
   prefs: z.record(z.string(), z.boolean()).optional(),
   signature: z.string().max(2000).optional(),

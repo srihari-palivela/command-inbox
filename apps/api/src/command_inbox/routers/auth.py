@@ -14,7 +14,7 @@ from command_inbox.auth import service as auth
 from command_inbox.auth.device import device_label
 from command_inbox.auth.sessions import SESSION_COOKIE, create_session, resolve_session, rotate
 from command_inbox.config import settings
-from command_inbox.core.context import Ctx, Role
+from command_inbox.core.context import Ctx
 from command_inbox.core.crypto import decrypt, encrypt
 from command_inbox.core.errors import AppError
 from command_inbox.core.http import current_ctx
@@ -48,10 +48,6 @@ class LoginBody(CamelModel):
 
 class SwitchOrgBody(CamelModel):
     org_id: str = Field(pattern=r"^[0-9a-f-]{36}$")
-
-
-class DemoRoleBody(CamelModel):
-    role: Role
 
 
 class DemoInfo(CamelModel):
@@ -156,14 +152,6 @@ async def me(request: Request, ctx: Ctx = Depends(current_ctx)) -> dto.MeDTO:
 async def switch_org(body: SwitchOrgBody, response: Response, ctx: Ctx = Depends(current_ctx)) -> Ok:
     await auth.switch_org(ctx, body.org_id)
     token, _csrf = await rotate(ctx.session_id)  # a new identity context gets new credentials
-    _set_session_cookie(response, token)
-    return Ok()
-
-
-@router.post("/session/demo-role", response_model=Ok)
-async def demo_role(body: DemoRoleBody, response: Response, ctx: Ctx = Depends(current_ctx)) -> Ok:
-    await auth.demo_switch_role(ctx, body.role)
-    token, _csrf = await rotate(ctx.session_id)
     _set_session_cookie(response, token)
     return Ok()
 
