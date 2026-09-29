@@ -832,6 +832,8 @@ class Org(Base):
     support_email: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''::text"))
     limits: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     created_by_operator: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
+    # The admin's SSO connection: provider, directoryId, clientId, secretSealed, state, detail.
+    sso_config: Mapped[Any] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
 
 class OutboxEvent(Base):

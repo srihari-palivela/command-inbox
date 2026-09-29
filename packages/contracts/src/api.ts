@@ -304,3 +304,28 @@ export const PermissionOverridesBody = z.object({
     .max(100),
 });
 export type PermissionOverridesBody = z.infer<typeof PermissionOverridesBody>;
+
+// ── Workspace (organisation profile and single sign-on) ──────────────────────
+export const WorkspaceProfileBody = z.object({
+  legalName: trimmed(200),
+  supportEmail: z.string().trim().toLowerCase().email().or(z.literal('')),
+  locale: z
+    .string()
+    .trim()
+    .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/),
+  currency: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]{3}$/),
+  timeZone: trimmed(64),
+});
+export type WorkspaceProfileBody = z.infer<typeof WorkspaceProfileBody>;
+
+export const WorkspaceSsoBody = z.object({
+  provider: z.enum(['entra', 'google']),
+  directoryId: trimmed(120),
+  clientId: trimmed(200),
+  /** Omit to keep the stored secret. */
+  clientSecret: z.string().min(8).max(500).optional(),
+});
+export type WorkspaceSsoBody = z.infer<typeof WorkspaceSsoBody>;

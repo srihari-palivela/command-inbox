@@ -141,6 +141,7 @@ export const Capability = z.enum([
   'evals.run',
   'members.manage',
   'rbac.manage',
+  'workspace.manage',
 ]);
 export type Capability = z.infer<typeof Capability>;
 

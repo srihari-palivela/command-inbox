@@ -185,6 +185,26 @@ export const SCREENS = {
     },
     () => import('../features/admin/EvalsScreen'),
   ),
+  onboarding: screen(
+    {
+      key: 'onboarding',
+      path: '/onboarding',
+      label: 'Getting started',
+      meta: 'steps to go live',
+      cap: 'workspace.manage',
+    },
+    () => import('../features/admin/OnboardingScreen'),
+  ),
+  organisation: screen(
+    {
+      key: 'organisation',
+      path: '/admin/organisation',
+      label: 'Organisation',
+      meta: 'profile and single sign-on',
+      cap: 'workspace.manage',
+    },
+    () => import('../features/admin/OrganisationScreen'),
+  ),
   members: screen(
     {
       key: 'members',
@@ -241,6 +261,13 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Administration',
-    items: [SCREENS.deployments, SCREENS.evals, SCREENS.members, SCREENS.permissions],
+    items: [
+      SCREENS.onboarding,
+      SCREENS.organisation,
+      SCREENS.deployments,
+      SCREENS.evals,
+      SCREENS.members,
+      SCREENS.permissions,
+    ],
   },
 ];

@@ -146,4 +146,6 @@ export interface InvitationPreviewDTO {
   state: 'pending' | 'accepted' | 'expired' | 'revoked';
   /** How the invitee signs in: through SSO, or (development) directly. */
   signIn: 'sso' | 'direct';
+  /** Before the bank's SSO is connected, a first-time sign-in (password + authenticator) can be created. */
+  canBootstrap: boolean;
 }

@@ -29,6 +29,7 @@ def org_dto(o: Org) -> dto.OrgDTO:
         locale=o.locale,
         currency=o.currency,
         time_zone=o.time_zone,
+        status=o.status,  # type: ignore[arg-type]
     )
 
 

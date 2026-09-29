@@ -2,7 +2,9 @@
 # behind nginx. Open http://localhost:8080 and sign in with a demo user.
 #
 # Optional profiles (combine freely):
-#   --profile sso            Keycloak on :8081 (realm "command-inbox"; users p.sharma / r.menon / a.kapoor, password "demo")
+#   --profile sso            Keycloak on :8081: realm "command-inbox" (users p.sharma / r.menon / a.kapoor, password "demo")
+#                            and realm "operators" for the console (owner@ / ops@ / support@platform.example,
+#                            password "operator-local")
 #   --profile observability  OpenTelemetry Collector + self-hosted Langfuse on :3000 (admin@local.test / password: langfuse-local)
 #   --profile local-llm      llama.cpp server for the System 1 decision engine on :8090 (put a GGUF in ./models)
 #
@@ -30,6 +32,16 @@ x-api-env: &api-env
   LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
   LANGFUSE_HOST: ${LANGFUSE_HOST:-}
   LOG_JSON: 'true'
+  CONSOLE_ORIGIN: http://localhost:8082
+  # Transactional email goes to Mailpit (web UI on :8025); nothing leaves your machine.
+  SMTP_HOST: mailpit
+  SMTP_PORT: '1025'
+  SMTP_STARTTLS: 'false'
+  MAIL_FROM: Command Inbox <no-reply@command-inbox.local>
+  PLATFORM_OIDC_ISSUER: ${PLATFORM_OIDC_ISSUER:-}
+  PLATFORM_OIDC_CLIENT_SECRET: ${PLATFORM_OIDC_CLIENT_SECRET:-}
+  KEYCLOAK_ADMIN_URL: ${KEYCLOAK_ADMIN_URL:-}
+  KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-}
 
 services:
   db:
@@ -85,6 +97,11 @@ services:
       api: { condition: service_healthy }
     restart: unless-stopped
 
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ['8025:8025']
+    restart: unless-stopped
+
   # ── Identity (profile: sso) ─────────────────────────────────────────────────────────────────────
   # Point the API at it with OIDC_ISSUER=http://localhost:8081/realms/command-inbox and
   # OIDC_CLIENT_SECRET=local-dev-client-secret. Federate a bank's Entra ID / Google as identity providers.
@@ -98,6 +115,7 @@ services:
       KC_HEALTH_ENABLED: 'true'
     volumes:
       - ./infra/keycloak/realm-command-inbox.json:/opt/keycloak/data/import/realm-command-inbox.json:ro
+      - ./infra/keycloak/realm-operators.json:/opt/keycloak/data/import/realm-operators.json:ro
     ports: ['8081:8081']
 
   # ── Observability (profile: observability) ─────────────────────────────────────────────────────

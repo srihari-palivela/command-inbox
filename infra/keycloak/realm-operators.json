@@ -1,0 +1,93 @@
+{
+  "realm": "operators",
+  "enabled": true,
+  "displayName": "Command Inbox operators",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1200,
+  "ssoSessionMaxLifespan": 28800,
+  "passwordPolicy": "length(12) and notUsername",
+  "clients": [
+    {
+      "clientId": "command-inbox-console",
+      "name": "Command Inbox platform console",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-dev-console-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8082/v1/platform/auth/oidc/callback",
+        "http://localhost:5174/v1/platform/auth/oidc/callback",
+        "http://localhost:4000/v1/platform/auth/oidc/callback"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "email",
+        "basic"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "owner@platform.example",
+      "email": "owner@platform.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Platform",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "operator-local",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "ops@platform.example",
+      "email": "ops@platform.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Ops",
+      "lastName": "Engineer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "operator-local",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "support@platform.example",
+      "email": "support@platform.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Support",
+      "lastName": "Analyst",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "operator-local",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

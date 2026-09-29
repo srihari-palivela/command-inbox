@@ -92,7 +92,9 @@ async def _dek(tx: AsyncSession, tenant_id: str, version: int | None) -> tuple[i
 
 
 async def tenant_encrypt(tx: AsyncSession, tenant_id: str, plaintext: str, *, aad: str) -> str:
-    """Seal with the tenant's active DEK. Output: t1.<version>.b64(iv).b64(ciphertext+tag)."""
+    """Seal with the tenant's active DEK (created on first use for tenants that predate provisioning).
+    Output: t1.<version>.b64(iv).b64(ciphertext+tag)."""
+    await ensure_tenant_key(tx, tenant_id)
     version, dek = await _dek(tx, tenant_id, None)
     iv = os.urandom(12)
     sealed = AESGCM(dek).encrypt(iv, plaintext.encode(), f"{tenant_id}|{aad}".encode())

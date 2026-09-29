@@ -61,6 +61,8 @@ export const queryClient = new QueryClient({
 
 export const keys = {
   me: ['me'] as const,
+  onboarding: ['onboarding'] as const,
+  workspaceProfile: ['workspace', 'profile'] as const,
   demo: ['auth', 'demo'] as const,
   inbox: (filter: string) => ['inbox', filter] as const,
   inboxAll: ['inbox'] as const,

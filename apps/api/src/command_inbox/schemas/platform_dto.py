@@ -186,3 +186,4 @@ class InvitationPreviewDTO(CamelModel):
     expires_at: str
     state: Literal["pending", "accepted", "expired", "revoked"]
     sign_in: Literal["sso", "direct"]
+    can_bootstrap: bool

@@ -241,3 +241,18 @@ class IntakeMessageBody(CamelModel):
     body: trimmed(50000)  # type: ignore[valid-type]
     message_id: Annotated[str, Field(max_length=300)] | None = None
     in_reply_to: Annotated[str, Field(max_length=300)] | None = None
+
+
+class WorkspaceProfileBody(CamelModel):
+    legal_name: Annotated[str, Field(min_length=1, max_length=200)]
+    support_email: Email | Literal[""]
+    locale: Annotated[str, Field(pattern=r"^[a-z]{2,3}(-[A-Z]{2})?$")]
+    currency: Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
+    time_zone: Annotated[str, Field(min_length=1, max_length=64)]
+
+
+class WorkspaceSsoBody(CamelModel):
+    provider: Literal["entra", "google"]
+    directory_id: Annotated[str, Field(min_length=1, max_length=120)]
+    client_id: Annotated[str, Field(min_length=1, max_length=200)]
+    client_secret: Annotated[str, Field(min_length=8, max_length=500)] | None = None

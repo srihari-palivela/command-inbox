@@ -57,6 +57,65 @@ export interface OrgDTO {
   locale: string;
   currency: string;
   timeZone: string;
+  status: WorkspaceStatus;
+}
+
+/** The tenant's lifecycle (the platform console moves it up to onboarding; the bank's go-live steps after). */
+export type WorkspaceStatus =
+  | 'draft'
+  | 'provisioning'
+  | 'provisioned'
+  | 'onboarding'
+  | 'shadow'
+  | 'assisted'
+  | 'live'
+  | 'suspended'
+  | 'archived';
+
+export interface WorkspaceProfileDTO {
+  name: string;
+  legalName: string;
+  supportEmail: string;
+  locale: string;
+  currency: string;
+  timeZone: string;
+  emailDomains: string[];
+  region: string;
+  dataResidency: string;
+  status: WorkspaceStatus;
+  sso: WorkspaceSsoDTO;
+}
+
+export interface WorkspaceSsoDTO {
+  provider: 'entra' | 'google' | null;
+  /** Entra: the directory (tenant) ID. Google: the Workspace primary domain. */
+  directoryId: string;
+  clientId: string;
+  hasSecret: boolean;
+  state: 'not_connected' | 'saved' | 'connected' | 'failed';
+  detail: string;
+  idpAlias: string | null;
+  /** The redirect URI to register in the bank's Entra app or Google OAuth client. */
+  redirectUri: string | null;
+  /** People of this workspace who have signed in through single sign-on. */
+  ssoMembers: number;
+}
+
+export interface OnboardingStepDTO {
+  key: string;
+  title: string;
+  description: string;
+  state: 'not_started' | 'in_progress' | 'done' | 'later';
+  detail: string;
+  /** Where in the app the admin does this step. */
+  to: string | null;
+}
+
+export interface OnboardingDTO {
+  status: WorkspaceStatus;
+  steps: OnboardingStepDTO[];
+  done: number;
+  total: number;
 }
 
 export interface MembershipDTO {

@@ -169,6 +169,18 @@ async def invitation_accept(body: AcceptInvitationBody, request: Request, respon
     return await auth.build_me(resolved.ctx, csrf)
 
 
+class BootstrapResult(CamelModel):
+    message: str
+
+
+@router.post("/auth/invitation/setup", response_model=BootstrapResult)
+async def invitation_setup(body: AcceptInvitationBody) -> BootstrapResult:
+    """Public: a first admin without an account yet gets a Keycloak sign-in (password + authenticator)."""
+    from command_inbox.auth import invitations
+
+    return BootstrapResult(message=await invitations.bootstrap_account(body.token))
+
+
 @router.get("/dev/mailbox", include_in_schema=False)
 async def dev_mailbox() -> list[dict[str, str]]:
     """Development only: the transactional emails "sent" without SMTP (newest first), for local testing."""

@@ -25,6 +25,8 @@ const SCREENS = [
   '/admin/members',
   '/admin/permissions',
   '/settings',
+  '/onboarding',
+  '/admin/organisation',
 ];
 
 let adminEmail = '';

@@ -232,6 +232,19 @@ the console shows the progress.
 - **Releases:** the current version per stack, migrations applied, feature flags per tenant.
 - **Platform audit log:** every operator action, exportable.
 
+### 5.4 Status after Phase 1 (delivered)
+
+| Area | Delivered | Still open |
+|---|---|---|
+| Operators | Own table, sessions (`ci_platform` cookie, 20 min idle / 8 h absolute, CSRF), roles platform_owner / operator / support, SSO against the `operators` realm, development sign-in, `command-inbox-operator` bootstrap CLI. | Operator management screen (owners use the CLI today); WebAuthn enforced in the operators realm (a Keycloak policy, set per stack). |
+| Platform audit | Append-only hash chain (`platform_audit_events`, trigger + revoked grants), verify endpoint; tenant-affecting actions also in the tenant's chain. | Export and SIEM forwarding (Phase 5). |
+| Lifecycle | draft → provisioning → provisioned → onboarding, suspend / resume / archive, re-invite; suspending revokes sessions and closed tenants' sessions stop resolving. | onboarding → shadow → assisted → live transitions (Phase 4–7); offboarding export and purge. |
+| Provisioning | Resumable job with recorded steps: data key, Keycloak organization, starter deployment, first-admin invitation. Failed steps retry without redoing finished ones. | Plan limits are recorded but not yet enforced (Phase 5 quotas). |
+| Keys | Per-tenant DEK wrapped by a KEK behind a `Kms` interface (`LocalKms` today), tenant-bound AAD, crypto-shred. | AWS KMS / Azure Key Vault / Google Cloud KMS adapters and BYOK, chosen with bank #1's cloud. |
+| Invitations and email | Hashed single-use tokens (72 h), sealed email outbox + SMTP job, accept page, SSO acceptance bound to the invited email, first admin moves the tenant to onboarding, bootstrap sign-in (password + TOTP via Keycloak) before the bank's SSO exists; tenant admins' invitations are emailed too. | Retiring bootstrap accounts automatically once bank SSO is live and a second admin exists. |
+| Bank admin | Organisation profile, SSO connection (Entra ID or Google; secret sealed with the tenant key; Keycloak IdP created and linked), onboarding checklist computed from real data and used as the admin's landing page. | DNS TXT domain verification; SCIM (after Keycloak SCIM leaves preview). |
+| Console UI | `apps/console`: tenants list, create, detail (steps, invitations, keys, audit, actions), audit log with chain verification. | Fleet health, releases and feature flags, break-glass (Phase 5). |
+
 ---
 
 ## 6. Tenant onboarding (bank admin)
@@ -834,7 +847,7 @@ PM/implementation lead. Estimates are elapsed weeks with workstreams in parallel
 | Phase | Weeks | Scope | Exit criteria |
 |---|---|---|---|
 | **0. Clean-up** | 1 | §4. Migrate-only command, real SSO sign-in page, demo removal, empty-tenant tests, locale. | Fresh deploy has no demo data; a user signs in via Keycloak/Entra; every screen works on an empty tenant. |
-| **1. Platform and identity** | 3 | §5 console, tenant lifecycle and provisioning job, tokenised invites and transactional email, Keycloak org/IdP adapter, operator realm, platform RBAC, break-glass, tenant settings UI, per-tenant config model, KMS envelope encryption. | Operator creates a tenant, the admin accepts, connects Entra SSO, and invites 2 users; all audited. The pen-test scope for identity is ready. |
+| **1. Platform and identity** ✅ (see §5.4) | 3 | §5 console, tenant lifecycle and provisioning job, tokenised invites and transactional email, Keycloak org/IdP adapter, operator realm, platform RBAC, break-glass, tenant settings UI, per-tenant config model, KMS envelope encryption. | Operator creates a tenant, the admin accepts, connects Entra SSO, and invites 2 users; all audited. The pen-test scope for identity is ready. |
 | **2. Mailbox (M365 first, then Gmail)** | 5 | §7: connector interface, delegated-OAuth credential provider (§7.0: connect wizard, refresh, re-connect), Graph connector (subscription, lifecycle, delta, renewal, fetch, MIME store, send-in-thread, categories), Gmail connector (OAuth, watch/PubSub, history, send), common pipeline (sanitise, AV, parse, threading, loop guard, sender trust), health model and UI, test-mail tool, contract, e2e and chaos tests. | On the M365 dev tenant and the Workspace test domain: 1,000 test mails ingested with no loss or duplicates across forced failures; approved replies land in-thread; health shows real lag; nightly real-provider CI is green. |
 | **3. Knowledge** | 3 (overlaps 2) | §8 upload, parsing, chunking, embeddings, pgvector hybrid + rerank, approval, expiry, citations, gaps; SharePoint sync (v1.1). | Retrieval eval: recall@5 ≥ 0.85 on a labelled Q/A set; drafts cite only approved chunks. |
 | **4. Agents and studio** | 3 | §9 studio (unify agents into deployments, node editor, test bench, labelling queue), `LLMProvider` with Anthropic and OpenAI per tenant and node, budgets; CRUD for departments, query types, SLA policies; starter pack. No connectors (D5). | A bank admin configures a deployment from the starter pack, labels 300 real mails, and publishes via evals and four-eyes; the same eval set runs on both providers and the comparison is recorded. |

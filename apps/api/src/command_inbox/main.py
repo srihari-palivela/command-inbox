@@ -39,11 +39,17 @@ PUBLIC_PATHS = {
     "/v1/intake/messages",
     "/v1/auth/invitation",
     "/v1/auth/invitation/accept",
+    "/v1/auth/invitation/setup",
     "/v1/dev/mailbox",
 }
 PUBLIC_PREFIXES = ("/v1/oauth/",)
 # State-changing but authenticated another way (no session yet, or a signed webhook). Exact paths only.
-CSRF_EXEMPT = {"/v1/auth/login", "/v1/intake/messages", "/v1/auth/invitation/accept"}
+CSRF_EXEMPT = {
+    "/v1/auth/login",
+    "/v1/intake/messages",
+    "/v1/auth/invitation/accept",
+    "/v1/auth/invitation/setup",
+}
 
 
 def is_public(path: str) -> bool:

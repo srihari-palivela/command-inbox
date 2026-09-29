@@ -69,6 +69,21 @@ A real deployment prepares its database with `command-inbox-migrate` (schema onl
 `--demo` and refuses to run in production. Scripted telephony is a prototype and stays off unless
 `FEATURE_TELEPHONY=true`.
 
+### Onboarding a bank (platform console)
+
+The vendor's operators run a separate console (`apps/console`, `pnpm dev:console` on :5174) against
+`/v1/platform/*`, with their own sign-in (the Keycloak realm `operators`), sessions and roles
+(platform owner, operator, support). An operator creates a tenant; provisioning then creates its data key,
+its Keycloak organization, a starter deployment and the first-admin invitation, and emails the invitation.
+The admin opens the link (`/accept?token=…`), signs in and lands on **Getting started**, a checklist
+computed from the workspace's real state (profile, single sign-on, people, mailbox, categories, knowledge,
+rules, evals, shadow mode, go-live).
+
+- The first platform owner of a new stack: `uv run command-inbox-operator add owner@vendor.example --name "…" --role platform_owner`.
+- In development, the demo seed adds operators `owner@`, `ops@` and `support@platform.example`, the console
+  offers a development sign-in, and emails without `SMTP_HOST` are kept in memory and listed at
+  `GET /v1/dev/mailbox`. The compose stack sends them to Mailpit (<http://localhost:8025>).
+
 ### Demo users
 
 | Sign in as | Role | Try this |

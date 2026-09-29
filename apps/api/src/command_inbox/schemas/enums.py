@@ -59,6 +59,7 @@ Capability = Literal[
     "evals.run",
     "members.manage",
     "rbac.manage",
+    "workspace.manage",
 ]
 DeploymentVersionState = Literal["draft", "shadow", "canary", "published", "retired"]
 EvalRunState = Literal["queued", "running", "passed", "failed", "error"]

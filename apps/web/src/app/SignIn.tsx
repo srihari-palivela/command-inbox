@@ -18,6 +18,12 @@ const SSO_ERRORS: Record<string, string> = {
   identity_conflict: 'This email is linked to a different sign-in identity. Contact your administrator.',
   idp_untrusted: "Your organisation's sign-in is not trusted for this account. Contact your administrator.",
   no_membership: "You don't have access to any workspace yet. Ask your administrator for an invitation.",
+  invite_email_mismatch:
+    'That invitation was sent to a different email address. Sign in with the account it was sent to.',
+  invitation_accepted: 'That invitation was already used. Sign in to continue.',
+  invitation_expired: 'That invitation has expired. Ask your administrator for a new one.',
+  invitation_revoked: 'That invitation was withdrawn. Ask your administrator for a new one.',
+  tenant_unavailable: 'This workspace is not open for sign-in at the moment.',
 };
 
 /** Read `?error=` once and drop it from the address bar so a reload starts clean. */

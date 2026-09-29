@@ -40,3 +40,4 @@ p, admin, *, deployment, publish, allow
 p, admin, *, evals, run, allow
 p, admin, *, members, manage, allow
 p, admin, *, rbac, manage, allow
+p, admin, *, workspace, manage, allow

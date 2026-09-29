@@ -238,7 +238,9 @@ async def create_invitation(tx: AsyncSession, ctx: Ctx, body: InvitationBody) ->
     from command_inbox.auth.invitations import issue
 
     org = (await tx.execute(select(Org).where(Org.id == ctx.org_id))).scalar_one()
-    inv = await issue(tx, org=org, email=email, role=body.role, inviter_name=ctx.user.name, invited_by=ctx.user.id)
+    inv = await issue(
+        tx, org=org, email=email, role=body.role, inviter_name=ctx.user.name, invited_by=ctx.user.id
+    )
     inv.expires_at = now + timedelta(days=body.expires_in_days)
     await tx.flush()
     await audit(

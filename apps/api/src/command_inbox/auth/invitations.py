@@ -145,7 +145,55 @@ async def preview(token: str) -> pdto.InvitationPreviewDTO:
         expires_at=iso_ms(inv.expires_at),
         state=state_of(inv),  # type: ignore[arg-type]
         sign_in="sso" if settings.oidc_enabled else "direct",
+        can_bootstrap=can_bootstrap(org),
     )
+
+
+def can_bootstrap(org: Org) -> bool:
+    """A first-time account can be created only while the bank's own SSO is not connected yet."""
+    from command_inbox.platform import keycloak
+
+    return settings.oidc_enabled and keycloak.configured() and not org.sso_idp_alias
+
+
+async def bootstrap_account(token: str) -> str:
+    """Create the invitee's local sign-in (first admin, before bank SSO) and email its set-up link."""
+    from command_inbox.platform import keycloak
+
+    found = usable(await lookup(token))
+    inv, org = found.invitation, found.org
+    if not can_bootstrap(org):
+        raise forbidden("Sign in with your organisation's account.", "bootstrap_unavailable")
+    async with tenant_tx(org.id) as tx:
+        tries = (
+            await tx.execute(
+                text(
+                    "select count(*) from audit_events where org_id = :o and action = 'invitation.bootstrap_account' "
+                    "and data->>'invitationId' = :i"
+                ),
+                {"o": org.id, "i": inv.id},
+            )
+        ).scalar_one()
+        if tries >= 3:
+            raise conflict(
+                "bootstrap_limit", "The set-up email was already sent three times. Check your inbox."
+            )
+        result = await keycloak.ensure_bootstrap_user(
+            email=inv.email, name=inv.name or inv.email, redirect_uri=accept_url(token)
+        )
+        await audit(
+            tx,
+            org.id,
+            actor=Actor("system", None, "Command Inbox", "SY"),
+            action="invitation.bootstrap_account",
+            entity="invitation",
+            entity_id=inv.id,
+            summary=f"A first-time sign-in was set up for {inv.email} ({result.state})",
+            data={"invitationId": inv.id, "state": result.state},
+        )
+    if result.state == "exists":
+        raise conflict("account_exists", result.detail)
+    return result.detail
 
 
 def usable(found: Found | None) -> Found:

@@ -49,6 +49,17 @@ from command_inbox.schemas.requests import FilterKey, TicketFilters
 
 # ruff: noqa: F401
 
+WorkspaceStatus = Literal[
+    "draft",
+    "provisioning",
+    "provisioned",
+    "onboarding",
+    "shadow",
+    "assisted",
+    "live",
+    "suspended",
+    "archived",
+]
 GateMode = Literal["action", "draft", "manual"]
 GateState = Literal["open", "awaiting_checker", "scheduled", "executing", "done", "rejected", "taken"]
 ApproveOutcome = Literal["awaiting_checker", "scheduled", "sending", "taken"]
@@ -73,6 +84,49 @@ class OrgDTO(CamelModel):
     locale: str
     currency: str
     time_zone: str
+    status: WorkspaceStatus
+
+
+class WorkspaceProfileDTO(CamelModel):
+    name: str
+    legal_name: str
+    support_email: str
+    locale: str
+    currency: str
+    time_zone: str
+    email_domains: list[str]
+    region: str
+    data_residency: str
+    status: WorkspaceStatus
+    sso: WorkspaceSsoDTO
+
+
+class WorkspaceSsoDTO(CamelModel):
+    provider: Literal["entra", "google"] | None
+    directory_id: str
+    client_id: str
+    has_secret: bool
+    state: Literal["not_connected", "saved", "connected", "failed"]
+    detail: str
+    idp_alias: str | None
+    redirect_uri: str | None
+    sso_members: int | float
+
+
+class OnboardingStepDTO(CamelModel):
+    key: str
+    title: str
+    description: str
+    state: Literal["not_started", "in_progress", "done", "later"]
+    detail: str
+    to: str | None
+
+
+class OnboardingDTO(CamelModel):
+    status: WorkspaceStatus
+    steps: list[OnboardingStepDTO]
+    done: int | float
+    total: int | float
 
 
 class MembershipDTO(CamelModel):

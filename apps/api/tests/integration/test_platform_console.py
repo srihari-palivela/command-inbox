@@ -166,6 +166,15 @@ async def test_operator_onboards_a_bank_end_to_end(app, ops):
     t = (await op.get(f"/v1/platform/tenants/{tid}")).json()
     assert t["members"] == 3 and t["status"] == "onboarding"
 
+    # The admin's checklist reflects the real state of the new workspace.
+    ob = (await admin.get("/v1/onboarding")).json()
+    steps = {x["key"]: x["state"] for x in ob["steps"]}
+    assert ob["status"] == "onboarding"
+    assert steps["people"] == "done" and steps["mailbox"] == "not_started" and steps["sso"] == "not_started"
+    assert (
+        steps["rules"] == "in_progress" and steps["categories"] == "in_progress"
+    )  # starter pack, not yet tuned
+
     # The bank's audit chain shows what the vendor did, and verifies.
     r = await admin.get("/v1/audit/verify")
     assert r.status_code == 200 and r.json()["ok"] is True
@@ -329,3 +338,38 @@ async def test_platform_audit_is_append_only(app):
             await conn.execute("update platform_audit_events set summary = 'edited'")
     finally:
         await conn.close()
+
+
+async def test_first_admin_gets_a_bootstrap_sign_in_until_bank_sso_is_live(app, ops, monkeypatch, anon):
+    from command_inbox.config import settings
+    from command_inbox.platform import keycloak
+
+    op = ops["operator"]
+    slug = f"boot-{uuid.uuid4().hex[:6]}"
+    invited = f"first.{slug}@boot.test"
+    await op.send("POST", "/v1/platform/tenants", _tenant_body(slug, invited, emailDomains=["boot.test"]))
+    await drain()
+    token = _token_for(invited)
+
+    # Without SSO (development) there is nothing to bootstrap.
+    assert (await anon.get("/v1/auth/invitation", params={"token": token})).json()["canBootstrap"] is False
+    r = await anon.post("/v1/auth/invitation/setup", json={"token": token})
+    assert r.status_code == 403 and r.json()["code"] == "bootstrap_unavailable"
+
+    calls: list[dict[str, str]] = []
+
+    async def fake_bootstrap(**kw: str) -> keycloak.OrgResult:
+        calls.append(kw)
+        return keycloak.OrgResult("done", "We emailed you a link to set your password and authenticator.")
+
+    monkeypatch.setattr(settings, "oidc_issuer", "https://idp.test/realms/ci")
+    monkeypatch.setattr(keycloak, "configured", lambda: True)
+    monkeypatch.setattr(keycloak, "ensure_bootstrap_user", fake_bootstrap)
+    preview = (await anon.get("/v1/auth/invitation", params={"token": token})).json()
+    assert preview["signIn"] == "sso" and preview["canBootstrap"] is True
+    for _ in range(3):
+        r = await anon.post("/v1/auth/invitation/setup", json={"token": token})
+        assert r.status_code == 200 and "emailed you a link" in r.json()["message"]
+    assert calls[0]["email"] == invited and calls[0]["redirect_uri"].endswith(f"/accept?token={token}")
+    r = await anon.post("/v1/auth/invitation/setup", json={"token": token})
+    assert r.status_code == 409 and r.json()["code"] == "bootstrap_limit"

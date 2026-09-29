@@ -66,6 +66,19 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "command-inbox-provisioner",
+      "name": "Command Inbox provisioning (Keycloak admin API)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-dev-provisioner-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
     }
   ],
   "users": [
@@ -113,6 +126,24 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "service-account-command-inbox-provisioner",
+      "enabled": true,
+      "serviceAccountClientId": "command-inbox-provisioner",
+      "clientRoles": {
+        "realm-management": [
+          "manage-realm",
+          "manage-identity-providers",
+          "view-realm"
+        ]
+      }
     }
-  ]
+  ],
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@command-inbox.local",
+    "fromDisplayName": "Command Inbox"
+  }
 }
