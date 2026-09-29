@@ -48,6 +48,11 @@ command-inbox-migrate = "command_inbox.migrate:main"
 command-inbox-seed = "command_inbox.seed.cli:main"
 command-inbox-operator = "command_inbox.platform.cli:main"
 
+[project.optional-dependencies]
+aws = [
+    "boto3>=1.40",
+]
+
 [build-system]
 requires = ["uv_build>=0.8.17,<0.9.0"]
 build-backend = "uv_build"

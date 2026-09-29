@@ -212,3 +212,11 @@ def test_agent_settings_only_on_model_nodes_and_unset_settings_keep_the_hash():
         DeploymentConfig.model_validate(raw)
     raw["flow"]["nodes"][0]["agent"] = None
     assert DeploymentConfig.model_validate(raw).config_hash() == before
+
+
+def test_operator_second_factor_claims():
+    from command_inbox.platform.oidc import has_second_factor
+
+    assert has_second_factor({"acr": "mfa"}) and has_second_factor({"acr": "2"})
+    assert has_second_factor({"amr": ["pwd", "otp"]}) and has_second_factor({"amr": "hwk"})
+    assert not has_second_factor({"acr": "1", "amr": ["pwd"]}) and not has_second_factor({})

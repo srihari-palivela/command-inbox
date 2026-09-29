@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     platform_oidc_issuer: str | None = None  # e.g. http://localhost:8081/realms/operators
     platform_oidc_client_id: str = "command-inbox-console"
     platform_oidc_client_secret: str | None = None
+    # Operators must sign in with a second factor: the ID token's `acr` must be one of these levels (Keycloak
+    # "acr.loa.map" of the operators realm) or its `amr` must name a second factor. On by default in production.
+    platform_require_mfa: bool | None = None
+    platform_mfa_acr: list[str] = ["mfa", "2", "3", "phr", "phrh"]
     platform_session_idle_minutes: int = 20
     platform_session_ttl_hours: int = 8
 
@@ -69,9 +73,17 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     mail_from: str = "Command Inbox <no-reply@localhost>"
 
-    # Key management: tenant data keys are wrapped by a key-encryption key. "local" derives the KEK from
-    # ENCRYPTION_KEY (development and single-host installs); cloud KMS adapters plug in behind the same interface.
-    kms_provider: Literal["local"] = "local"
+    # Key management: tenant data keys are wrapped by a key-encryption key (KEK). "local" derives the KEK from
+    # ENCRYPTION_KEY (development and single-host installs); "vault" uses HashiCorp Vault Transit; "aws" uses
+    # AWS KMS (a customer-managed key, which may be the bank's own: BYOK). Keys wrapped by an earlier provider
+    # stay readable (each records its KEK) until `command-inbox-operator keys rewrap` moves them.
+    kms_provider: Literal["local", "vault", "aws"] = "local"
+    vault_addr: str | None = None  # e.g. https://vault.bank.internal:8200
+    vault_token: str | None = None  # or VAULT_TOKEN from the Kubernetes auth sidecar
+    vault_transit_key: str = "command-inbox"
+    vault_namespace: str | None = None
+    aws_kms_key_id: str | None = None  # key ARN or alias ARN
+    aws_region: str | None = None
 
     # Mailbox connectors (decision D3: delegated OAuth for one account; the app registrations belong to the bank).
     # Microsoft: a single-tenant app in the bank's Entra (MS_TENANT = its directory ID; "organizations" for dev).
@@ -108,6 +120,11 @@ class Settings(BaseSettings):
     # Per-workspace API requests per minute per API process (a tenant's limits.apiPerMinute overrides it);
     # 0 disables the limit.
     api_rate_per_minute: int = 3000
+    api_rate_per_user_per_minute: int = (
+        600  # one person (or a stolen session) cannot use the whole tenant limit
+    )
+    # Private ranges workspace-configured endpoints (SIEM) may reach, e.g. ["10.20.0.0/16"].
+    outbound_allow_cidrs: list[str] = []
     invitation_ttl_hours: int = 72
 
     encryption_key: str = "dev-only-key-change-me-dev-only-key-change-me"
@@ -146,6 +163,10 @@ class Settings(BaseSettings):
         return self.env == "production"
 
     @property
+    def operator_mfa_required(self) -> bool:
+        return self.is_prod if self.platform_require_mfa is None else self.platform_require_mfa
+
+    @property
     def configured_providers(self) -> list[str]:
         """System 2 providers this installation can call (a key is set)."""
         return [
@@ -174,6 +195,12 @@ class Settings(BaseSettings):
             problems = []
             if self.encryption_key.startswith("dev-only"):
                 problems.append("ENCRYPTION_KEY must be set")
+            if self.kms_provider == "vault" and not (
+                self.vault_addr and self.vault_addr.startswith("https://")
+            ):
+                problems.append("VAULT_ADDR must be an https:// address")
+            if self.kms_provider == "aws" and not self.aws_kms_key_id:
+                problems.append("AWS_KMS_KEY_ID must be set")
             if self.intake_webhook_secret == "dev-intake-secret":  # noqa: S105
                 problems.append("INTAKE_WEBHOOK_SECRET must be set")
             if not self.cookie_secure:

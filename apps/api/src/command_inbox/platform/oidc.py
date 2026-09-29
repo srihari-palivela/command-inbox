@@ -69,6 +69,8 @@ async def authorization_url(next_path: str) -> tuple[str, dict[str, str]]:
         "code_challenge": create_s256_code_challenge(verifier),
         "code_challenge_method": "S256",
     }
+    if settings.operator_mfa_required:
+        params["acr_values"] = settings.platform_mfa_acr[0]  # ask for the second-factor level up front
     safe_next = next_path if next_path.startswith("/") and not next_path.startswith("//") else "/"
     return meta["authorization_endpoint"] + "?" + urlencode(params), {
         "state": state,
@@ -107,7 +109,24 @@ async def exchange(code: str, txn: dict[str, str]) -> dict[str, Any]:
     claims = dict(token.claims)
     if not claims.get("email") or claims.get("email_verified") is not True:
         raise forbidden("Your account has no verified email address.", "email_unverified")
+    if settings.operator_mfa_required and not has_second_factor(claims):
+        raise forbidden(
+            "The console needs a second sign-in factor. Set one up and sign in again.", "mfa_required"
+        )
     return claims
+
+
+SECOND_FACTORS = frozenset({"otp", "mfa", "hwk", "swk", "pop", "fido", "webauthn", "sms"})
+
+
+def has_second_factor(claims: dict[str, Any]) -> bool:
+    """Whether the ID token says the operator used a second factor (`acr` level or `amr` method)."""
+    if str(claims.get("acr", "")) in settings.platform_mfa_acr:
+        return True
+    amr = claims.get("amr") or []
+    return bool(
+        SECOND_FACTORS.intersection(str(m).lower() for m in (amr if isinstance(amr, list) else [amr]))
+    )
 
 
 async def admit(claims: dict[str, Any]) -> PlatformOperator:

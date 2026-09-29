@@ -91,6 +91,44 @@ async def _disable(email: str) -> int:
         await dispose()
 
 
+async def _keys(action: str, slug: str | None) -> int:
+    """Rotate tenant data keys (new version for new data) or re-wrap them under the configured KEK."""
+    from command_inbox.db.engine import dispose, global_tx
+    from command_inbox.db.models import Org
+    from command_inbox.platform.audit import platform_audit
+    from command_inbox.platform.keys import rewrap_tenant_keys, rotate_tenant_key
+
+    try:
+        async with global_tx() as g:
+            q = select(Org).where(Org.status != "archived")
+            if slug:
+                q = q.where(Org.slug == slug)
+            orgs = list((await g.execute(q.order_by(Org.slug))).scalars())
+            if not orgs:
+                print(f"no tenant {slug!r}" if slug else "no tenants")
+                return 2
+            for o in orgs:
+                if action == "rotate":
+                    version = await rotate_tenant_key(g, o.id)
+                    detail, data = f"new data key v{version}", {"version": version}
+                else:
+                    moved = await rewrap_tenant_keys(g, o.id)
+                    detail, data = f"{moved} data keys re-wrapped", {"rewrapped": moved}
+                await platform_audit(
+                    g,
+                    operator_id=None,
+                    operator_email="cli",
+                    action=f"tenant.keys_{action}",
+                    summary=f"{o.name}: {detail}",
+                    tenant_id=o.id,
+                    data=data,
+                )
+                print(f"{o.slug}: {detail}")
+        return 0
+    finally:
+        await dispose()
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="command-inbox-operator", description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -101,7 +139,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("list")
     d = sub.add_parser("disable")
     d.add_argument("email")
+    k = sub.add_parser("keys", help="rotate tenant data keys, or re-wrap them under the configured KEK")
+    k.add_argument("action", choices=["rotate", "rewrap"])
+    k.add_argument("--tenant", help="tenant slug (default: every tenant)")
     args = p.parse_args(argv)
+    if args.cmd == "keys":
+        return asyncio.run(_keys(args.action, args.tenant))
     if args.cmd == "add":
         return asyncio.run(_add(args.email.strip().lower(), args.name.strip(), args.role))
     if args.cmd == "list":

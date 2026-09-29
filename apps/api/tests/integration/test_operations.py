@@ -79,7 +79,18 @@ async def test_audit_export_is_a_signed_zip_whose_manifest_verifies(admin):
     assert (await admin.send("POST", "/v1/audit/export/verify", tampered)).json()["ok"] is False
 
 
-async def test_siem_streams_signed_batches_and_retries_from_where_it_stopped(app):
+@pytest.fixture
+def any_host(monkeypatch):
+    """Test hosts do not resolve: let the outbound guard through (it has its own tests)."""
+    from command_inbox.modules.workspace import operations
+
+    async def ok(url: str) -> None:
+        return None
+
+    monkeypatch.setattr(operations, "check_outbound", ok)
+
+
+async def test_siem_streams_signed_batches_and_retries_from_where_it_stopped(app, any_host):
     a = await add_member(app, "meridian", "admin")
     oid = await org_id("meridian")
     secret = "a-shared-secret-of-enough-length"
@@ -133,7 +144,7 @@ async def test_siem_streams_signed_batches_and_retries_from_where_it_stopped(app
     assert r.status_code == 200
 
 
-async def test_siem_needs_https_and_a_secret(app):
+async def test_siem_needs_https_and_a_secret(app, any_host):
     a = await add_member(app, "apex", "admin")
     body = {"retentionMailDays": 730, "retentionTraceDays": 180, "siemUrl": "http://siem.example"}
     assert (await a.send("PUT", "/v1/workspace/operations", body)).status_code == 400
@@ -164,3 +175,21 @@ async def test_a_workspace_over_its_limit_gets_429(app, monkeypatch):
     finally:
         limiter.reset()
     assert codes[:3] == [200, 200, 200] and 429 in codes[3:]
+
+
+async def test_the_outbound_guard_refuses_internal_addresses(monkeypatch):
+    from command_inbox.config import settings
+    from command_inbox.core.errors import AppError
+    from command_inbox.core.netguard import check_outbound
+
+    for url in (
+        "http://example.com/x",
+        "https://127.0.0.1/x",
+        "https://169.254.169.254/latest",
+        "https://10.1.2.3/in",
+    ):
+        with pytest.raises(AppError):
+            await check_outbound(url)
+    monkeypatch.setattr(settings, "outbound_allow_cidrs", ["10.1.0.0/16"])
+    await check_outbound("https://10.1.2.3/in")  # an allowlisted internal SIEM
+    await check_outbound("https://93.184.215.14/in")  # a public address

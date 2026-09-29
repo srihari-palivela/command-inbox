@@ -178,6 +178,10 @@ def create_app() -> FastAPI:
                 from command_inbox.core.ratelimit import limiter
 
                 allowed, wait = await limiter.allow(ctx.org_id)
+                if allowed and settings.api_rate_per_user_per_minute > 0:
+                    allowed, wait = limiter.hit(
+                        f"user:{ctx.org_id}:{ctx.user.id}", settings.api_rate_per_user_per_minute
+                    )
                 if not allowed:
                     limited = problem(429, "rate_limited", "Too many requests. Try again shortly.", request)
                     limited.headers["retry-after"] = str(wait)
@@ -205,6 +209,8 @@ def create_app() -> FastAPI:
         response.headers.setdefault("x-content-type-options", "nosniff")
         response.headers.setdefault("referrer-policy", "same-origin")
         response.headers.setdefault("x-frame-options", "DENY")
+        # The API serves JSON and files, never documents: nothing may load or frame it.
+        response.headers.setdefault("content-security-policy", "default-src 'none'; frame-ancestors 'none'")
         response.headers.setdefault("cache-control", "no-store")
         return response
 

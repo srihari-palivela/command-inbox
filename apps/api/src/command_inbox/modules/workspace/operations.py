@@ -34,8 +34,9 @@ from command_inbox.core.audit import audit
 from command_inbox.core.clock import clock, iso_ms
 from command_inbox.core.context import SYSTEM_ACTOR, Ctx, actor_of
 from command_inbox.core.crypto import _key, canonical_json, hmac_hex, safe_equal
-from command_inbox.core.errors import unprocessable
+from command_inbox.core.errors import AppError, unprocessable
 from command_inbox.core.jobs import JobRow
+from command_inbox.core.netguard import check_outbound
 from command_inbox.db.engine import tenant_tx
 from command_inbox.db.models import AuditEvent, Org
 from command_inbox.platform.keys import tenant_decrypt, tenant_encrypt
@@ -85,6 +86,8 @@ async def get_operations(tx: AsyncSession, ctx: Ctx) -> dto.OperationsDTO:
 async def update_operations(tx: AsyncSession, ctx: Ctx, body: OperationsBody) -> dto.OperationsDTO:
     require(ctx, "workspace.manage", "change retention and SIEM settings")
     o = (await tx.execute(select(Org).where(Org.id == ctx.org_id).with_for_update())).scalar_one()
+    if body.siem_url:
+        await check_outbound(body.siem_url)
     if body.siem_url and not (body.siem_secret or o.siem_secret_sealed):
         raise unprocessable("siem_secret_required", "Set a signing secret for the SIEM endpoint.")
     before = {
@@ -320,6 +323,7 @@ async def push_siem(org_id: str, client: httpx.AsyncClient | None = None) -> int
     }
     error: str | None = None
     try:
+        await check_outbound(url)
         own = client is None
         http = client or httpx.AsyncClient(timeout=10.0)
         try:
@@ -331,6 +335,8 @@ async def push_siem(org_id: str, client: httpx.AsyncClient | None = None) -> int
             error = f"HTTP {r.status_code}"
     except httpx.HTTPError as err:
         error = f"{type(err).__name__}: {err}"[:300]
+    except AppError as err:
+        error = err.title[:300]
     async with tenant_tx(org_id) as tx:
         o = (await tx.execute(select(Org).where(Org.id == org_id).with_for_update())).scalar_one()
         if error is None:
