@@ -51,6 +51,8 @@ JobKind = Literal[
     "mail_send",
     "mail_test",
     "knowledge_ingest",
+    "metrics_rollup",
+    "siem_push",
 ]
 
 

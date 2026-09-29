@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Path, Request, Response
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from command_inbox.core.context import Ctx
 from command_inbox.core.http import current_ctx, idempotent, in_tenant
-from command_inbox.modules.insights import service
+from command_inbox.modules.insights import monitoring, service
 from command_inbox.modules.workspace.schemas import MessageOut
 from command_inbox.schemas import dto
 from command_inbox.schemas.base import Ok
@@ -62,3 +62,10 @@ async def act_on_alert(
 ) -> MessageOut:
     message = await in_tenant(ctx, lambda tx: service.act_on_alert(tx, ctx, alert_id, mode))
     return MessageOut(message=message)
+
+
+@router.get("/insights/monitoring", response_model=dto.MonitoringDTO)
+async def monitoring_view(
+    days: int = Query(7, ge=1, le=90), ctx: Ctx = Depends(current_ctx)
+) -> dto.MonitoringDTO:
+    return await in_tenant(ctx, lambda tx: monitoring.monitoring(tx, ctx, days))

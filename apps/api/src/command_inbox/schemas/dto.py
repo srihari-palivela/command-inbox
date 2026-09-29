@@ -1601,3 +1601,99 @@ class LabellingQueueDTO(CamelModel):
     labelled: int | float
     calibration: int | float
     test: int | float
+
+
+class MonitoringCountDTO(CamelModel):
+    key: str
+    label: str
+    count: int | float
+    href: str | None
+
+
+class NodeQualityDTO(CamelModel):
+    agent: str
+    model: str
+    calls: int | float
+    p50_ms: int | float | None
+    p95_ms: int | float | None
+    cost_minor: int | float
+    flagged: int | float
+
+
+class VersionQualityDTO(CamelModel):
+    deployment: str
+    version: int | float | None
+    mails: int | float
+    degraded_rate: int | float | None
+    escalation_rate: int | float | None
+    cost_per_mail_minor: int | float | None
+
+
+class MonitoringDTOSlaByPriority(CamelModel):
+    priority: Priority
+    total: int | float
+    breached: int | float
+
+
+class MonitoringDTOSla(CamelModel):
+    first_reply_median_min: int | float | None
+    resolve_median_hours: int | float | None
+    breached: MonitoringCountDTO
+    at_risk: MonitoringCountDTO
+    by_priority: list[MonitoringDTOSlaByPriority]
+
+
+class MonitoringDTODraftsRejectReasons(CamelModel):
+    reason: str
+    count: int | float
+
+
+class MonitoringDTODrafts(CamelModel):
+    sent: int | float
+    unedited: int | float
+    edited: int | float
+    discarded: int | float
+    mean_edit_distance: int | float | None
+    reject_reasons: list[MonitoringDTODraftsRejectReasons]
+
+
+class MonitoringDTOSpend(CamelModel):
+    month_minor: int | float
+    cap_minor: int | float | None
+
+
+class MonitoringDTOKnowledgeMostCited(CamelModel):
+    doc_id: str
+    title: str
+    citations: int | float
+
+
+class MonitoringDTOKnowledge(CamelModel):
+    approved: int | float
+    pending: int | float
+    stale: int | float
+    expiring_soon: int | float
+    open_gaps: int | float
+    most_cited: list[MonitoringDTOKnowledgeMostCited]
+
+
+class MonitoringDTOMailboxes(CamelModel):
+    id: str
+    address: str
+    level: str
+    lag_seconds: int | float | None
+    messages24h: int | float = Field(alias="messages24h")
+
+
+class MonitoringDTO(CamelModel):
+    days: int | float
+    since: str
+    funnel: list[MonitoringCountDTO]
+    sla: MonitoringDTOSla
+    drafts: MonitoringDTODrafts
+    versions: list[VersionQualityDTO]
+    nodes: list[NodeQualityDTO]
+    spend: MonitoringDTOSpend
+    knowledge: MonitoringDTOKnowledge
+    mailboxes: list[MonitoringDTOMailboxes]
+    open_alerts: int | float

@@ -82,6 +82,7 @@ export const keys = {
   people: ['people'] as const,
   performance: ['insights', 'performance'] as const,
   results: ['insights', 'results'] as const,
+  monitoring: (days: number) => ['insights', 'monitoring', days] as const,
   learning: ['learning'] as const,
   boards: ['boards'] as const,
   agents: ['agents'] as const,

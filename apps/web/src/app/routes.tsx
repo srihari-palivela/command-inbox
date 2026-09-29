@@ -78,6 +78,16 @@ export const SCREENS = {
     { key: 'results', path: '/results', label: 'Results', meta: 'before and after', cap: 'insights.view' },
     () => import('../features/insights/ResultsScreen'),
   ),
+  monitoring: screen(
+    {
+      key: 'monitoring',
+      path: '/monitoring',
+      label: 'Monitoring',
+      meta: 'pipeline, quality, health',
+      cap: 'insights.view',
+    },
+    () => import('../features/insights/MonitoringScreen'),
+  ),
   people: screen(
     {
       key: 'people',
@@ -246,7 +256,7 @@ export const DETAIL_ROUTES: { path: string; component: LazyExoticComponent<Compo
 
 export const NAV: NavGroup[] = [
   { label: 'My work', items: [SCREENS.inbox, SCREENS.tickets, SCREENS.boards] },
-  { label: 'How we are doing', items: [SCREENS.performance, SCREENS.results] },
+  { label: 'How we are doing', items: [SCREENS.performance, SCREENS.results, SCREENS.monitoring] },
   { label: 'People', items: [SCREENS.people, SCREENS.learning] },
   {
     label: 'Set up the AI',

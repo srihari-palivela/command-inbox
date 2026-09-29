@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from typing import Literal
 
 from sqlalchemy import delete, select, update
@@ -86,6 +87,36 @@ async def _live_metrics(tx: AsyncSession, org_id: str) -> dict[str, float]:
     return out
 
 
+def trend_digest(values: list[float], *, lower_better: bool) -> str:
+    """A factual one-line reading of a weekly series: direction, size and span. Never a narrative."""
+    points = len(values)
+    if points == 0:
+        return "No data yet: this fills in as mail is handled."
+    if points == 1:
+        return "One week of data so far."
+    first, last = values[0], values[-1]
+    if first == last:
+        return f"Unchanged over {points} weeks."
+    rising = sum(1 for a, b in pairwise(values) if b > a)
+    falling = sum(1 for a, b in pairwise(values) if b < a)
+    direction = "Down" if last < first else "Up"
+    good = (last < first) == lower_better
+    size = f"{abs((last - first) / first * 100):.0f}%" if first else f"{abs(last - first):g}"
+    streak = ""
+    run = 0
+    for a, b in zip(reversed(values[:-1]), reversed(values[1:]), strict=False):
+        if (b < a) == (last < first) and a != b:
+            run += 1
+        else:
+            break
+    if run >= 3:
+        streak = f"; {run} weeks in a row"
+    return (
+        f"{direction} {size} over {points} weeks ({falling} weeks down, {rising} up){streak}"
+        f" — {'better' if good else 'worse'}."
+    )
+
+
 def _tile(
     key: str,
     label: str,
@@ -125,39 +156,40 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
     [vol] = await rows(
         tx, "select coalesce(sum(volume_24h), 0)::int as n from mailboxes where org_id = :org", {"org": org}
     )
+    weekly = {k: await series(tx, org, f"weekly.{k}") for k in ("fr", "tat", "missed", "reopen")}
     tiles = [
         _tile(
             "fr",
             "Time to first reply",
-            await series(tx, org, "weekly.fr"),
+            weekly["fr"],
             "min typical",
-            "Fell every week for 12 weeks; the floor is now auto-acknowledgement, not people.",
+            trend_digest(weekly["fr"], lower_better=True),
             lower_better=True,
         ),
         _tile(
             "tat",
             "Time to fully resolve",
-            await series(tx, org, "weekly.tat"),
+            weekly["tat"],
             "hours",
-            "Improvement is flattening — the remaining hours sit in disputes, not in drafting.",
+            trend_digest(weekly["tat"], lower_better=True),
             decimals=1,
             lower_better=True,
         ),
         _tile(
             "missed",
             "Missed deadlines",
-            await series(tx, org, "weekly.missed"),
+            weekly["missed"],
             f"of {grouped(vol['n'], locale)}",
-            "All misses this week are disputes tickets past the provisional-credit window.",
+            trend_digest(weekly["missed"], lower_better=True),
             bad=True,
             lower_better=True,
         ),
         _tile(
             "reopen",
             "Reopen rate",
-            await series(tx, org, "weekly.reopen"),
+            weekly["reopen"],
             "%",
-            "Creeping up 8 weeks straight — reopens cluster on fee answers citing the stale schedule.",
+            trend_digest(weekly["reopen"], lower_better=True),
             decimals=1,
             lower_better=True,
         ),
@@ -174,9 +206,9 @@ async def performance(tx: AsyncSession, ctx: Ctx) -> dto.PerformanceDTO:
     query_types = [
         dto.QueryTypeSpeedDTO(
             id=q.id,
-            name="Lending & foreclosure" if q.name == "Foreclosure quotes" else q.name,
+            name=q.name,
             department=dept or "Unowned",
-            lane="manual" if q.name == "Foreclosure quotes" else q.default_lane,
+            lane=q.default_lane,
             volume=q.monthly_volume,
             baseline_hours=num(q.baseline_hours or 0),
             actual_hours=num(q.actual_hours or 0),

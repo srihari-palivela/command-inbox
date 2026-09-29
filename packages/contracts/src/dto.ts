@@ -1366,3 +1366,68 @@ export interface LabellingQueueDTO {
   calibration: number;
   test: number;
 }
+
+// ── Monitoring: every number from records, each linked to them ───────────────
+export interface MonitoringCountDTO {
+  key: string;
+  label: string;
+  count: number;
+  /** A screen that lists the records behind the number. */
+  href: string | null;
+}
+
+export interface NodeQualityDTO {
+  agent: string;
+  model: string;
+  calls: number;
+  p50Ms: number | null;
+  p95Ms: number | null;
+  costMinor: number;
+  flagged: number;
+}
+
+export interface VersionQualityDTO {
+  deployment: string;
+  version: number | null;
+  mails: number;
+  /** Share of runs that fell back to the deterministic model (outage, policy, budget). */
+  degradedRate: number | null;
+  /** Share of runs where the classifier was unsure and asked System 2. */
+  escalationRate: number | null;
+  costPerMailMinor: number | null;
+}
+
+export interface MonitoringDTO {
+  days: number;
+  since: string;
+  funnel: MonitoringCountDTO[];
+  sla: {
+    firstReplyMedianMin: number | null;
+    resolveMedianHours: number | null;
+    breached: MonitoringCountDTO;
+    atRisk: MonitoringCountDTO;
+    byPriority: { priority: Priority; total: number; breached: number }[];
+  };
+  drafts: {
+    sent: number;
+    unedited: number;
+    edited: number;
+    discarded: number;
+    /** Normalised character edit distance of sent drafts, 0 (untouched) to 1 (rewritten). */
+    meanEditDistance: number | null;
+    rejectReasons: { reason: string; count: number }[];
+  };
+  versions: VersionQualityDTO[];
+  nodes: NodeQualityDTO[];
+  spend: { monthMinor: number; capMinor: number | null };
+  knowledge: {
+    approved: number;
+    pending: number;
+    stale: number;
+    expiringSoon: number;
+    openGaps: number;
+    mostCited: { docId: string; title: string; citations: number }[];
+  };
+  mailboxes: { id: string; address: string; level: string; lagSeconds: number | null; messages24h: number }[];
+  openAlerts: number;
+}
