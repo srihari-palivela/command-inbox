@@ -9,12 +9,13 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from command_inbox.core.context import Ctx
 from command_inbox.core.errors import not_found
 from command_inbox.core.http import current_ctx, idempotent, in_tenant
-from command_inbox.modules.evals import service
+from command_inbox.modules.evals import labelling, service
 from command_inbox.modules.evals.schemas import (
     EvalCaseBody,
     EvalCasesBody,
     EvalDatasetBody,
     EvalDatasetPatchBody,
+    LabelBody,
     StartEvalRunBody,
 )
 from command_inbox.schemas import dto
@@ -117,3 +118,19 @@ async def get_run(run_id: str, ctx: Ctx = Depends(current_ctx)) -> dto.EvalRunDT
 @router.get("/runs/{run_id}/results", response_model=list[dto.EvalResultDTO])
 async def run_results(run_id: str, ctx: Ctx = Depends(current_ctx)) -> list[dto.EvalResultDTO]:
     return await in_tenant(ctx, lambda tx: service.run_results(tx, ctx, _id(run_id, "Eval run")))
+
+
+@router.get("/datasets/{dataset_id}/labelling", response_model=dto.LabellingQueueDTO)
+async def labelling_queue(
+    dataset_id: str, limit: int = Query(10, ge=1, le=50), ctx: Ctx = Depends(current_ctx)
+) -> dto.LabellingQueueDTO:
+    did = _id(dataset_id, "Eval dataset")
+    return await in_tenant(ctx, lambda tx: labelling.queue(tx, ctx, did, limit))
+
+
+@router.post("/datasets/{dataset_id}/labels", response_model=dto.LabellingQueueDTO)
+async def label_mail(
+    dataset_id: str, body: LabelBody, ctx: Ctx = Depends(current_ctx)
+) -> dto.LabellingQueueDTO:
+    did = _id(dataset_id, "Eval dataset")
+    return await in_tenant(ctx, lambda tx: labelling.label(tx, ctx, did, body))

@@ -1193,6 +1193,8 @@ class EvalCaseDTOInput(CamelModel):
 class EvalCaseDTOExpected(CamelModel):
     category: str
     hard_stop: bool
+    lane: Literal["draft", "manual"] | None | None = None
+    draft_acceptable: bool | None | None = None
 
 
 class EvalCaseDTO(CamelModel):
@@ -1203,6 +1205,7 @@ class EvalCaseDTO(CamelModel):
     split: EvalSplit
     tags: list[str]
     source: str
+    ticket_id: str | None
     created_at: str
 
 
@@ -1513,3 +1516,88 @@ class SlaPoliciesDTO(CamelModel):
     using_defaults: bool
     segments: list[str]
     can_edit: bool
+
+
+class BenchSpanDTO(CamelModel):
+    agent: str
+    model: str
+    action: str
+    output: str
+    latency_ms: int | float
+    tokens: int | float | None
+    cost_minor: int | float | None
+    status: SpanStatus
+
+
+class BenchRunDTODraftCitations(CamelModel):
+    n: int | float
+    title: str
+    section: str
+
+
+class BenchRunDTODraft(CamelModel):
+    body: str
+    coverage: Literal["full", "partial", "none"]
+    citations: list[BenchRunDTODraftCitations]
+    flagged: list[str]
+
+
+class BenchRunDTOBrief(CamelModel):
+    summary: str
+
+
+class BenchRunDTOFields(CamelModel):
+    label: str
+    value: str
+    inferred: bool
+
+
+class BenchRunDTO(CamelModel):
+    version_id: str
+    version: int | float
+    state: DeploymentVersionState
+    lane: Lane
+    lane_note: str
+    category: str | None
+    confidence: int | float
+    hard_stop: str | None
+    draft: BenchRunDTODraft | None
+    brief: BenchRunDTOBrief | None
+    fields: list[BenchRunDTOFields]
+    spans: list[BenchSpanDTO]
+    cost_minor: int | float
+    latency_ms: int | float
+    degraded: list[str]
+
+
+class BenchResultDTO(CamelModel):
+    runs: list[BenchRunDTO]
+
+
+class LabelCandidateDTOSuggested(CamelModel):
+    category: str | None
+    hard_stop: bool
+    lane: Lane
+
+
+class LabelCandidateDTO(CamelModel):
+    ticket_id: str
+    number: int | float
+    subject: str
+    body: str
+    received_at: str
+    suggested: LabelCandidateDTOSuggested
+
+
+class LabellingQueueDTOCategories(CamelModel):
+    key: str
+    name: str
+
+
+class LabellingQueueDTO(CamelModel):
+    dataset_id: str
+    categories: list[LabellingQueueDTOCategories]
+    candidates: list[LabelCandidateDTO]
+    labelled: int | float
+    calibration: int | float
+    test: int | float

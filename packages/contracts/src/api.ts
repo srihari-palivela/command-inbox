@@ -270,7 +270,12 @@ export const EvalCaseBody = z.object({
     body: z.string().max(20000),
     fromEmail: z.string().trim().toLowerCase().email().optional(),
   }),
-  expected: z.object({ category: key, hardStop: z.boolean().default(false) }),
+  expected: z.object({
+    category: key,
+    hardStop: z.boolean().default(false),
+    lane: z.enum(['draft', 'manual']).nullable().optional(),
+    draftAcceptable: z.boolean().nullable().optional(),
+  }),
   split: EvalSplit.default('test'),
   tags: z.array(z.string().max(40)).max(20).default([]),
 });
@@ -382,3 +387,28 @@ export const SlaPolicyBody = z.object({
 });
 export const SlaPoliciesBody = z.object({ policies: z.array(SlaPolicyBody).min(1).max(40) });
 export type SlaPoliciesBody = z.infer<typeof SlaPoliciesBody>;
+
+// ── Test bench ─────────────────────────────────────────────────────────────────
+export const BenchBody = z.object({
+  subject: z.string().trim().max(300).default(''),
+  body: z.string().trim().min(1).max(20_000),
+  fromEmail: z.string().trim().toLowerCase().email().optional(),
+  segment: z.string().trim().min(1).max(40).default('Retail'),
+  /** Also run another version on the same mail: "active" (what handles mail now) or a version id. */
+  compareWith: z
+    .union([z.literal('active'), z.string().uuid()])
+    .nullable()
+    .default(null),
+});
+export type BenchBody = z.infer<typeof BenchBody>;
+
+// ── Labelling queue ─────────────────────────────────────────────────────────────
+export const LabelBody = z.object({
+  ticketId: z.string().uuid(),
+  category: z.string().regex(/^[a-z][a-z0-9_]{0,47}$/),
+  hardStop: z.boolean(),
+  lane: z.enum(['draft', 'manual']).nullable().default(null),
+  draftAcceptable: z.boolean().nullable().default(null),
+  split: EvalSplit.default('test'),
+});
+export type LabelBody = z.infer<typeof LabelBody>;

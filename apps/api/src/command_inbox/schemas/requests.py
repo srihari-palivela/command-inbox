@@ -304,3 +304,11 @@ class SlaPolicyBody(CamelModel):
 
 class SlaPoliciesBody(CamelModel):
     policies: Annotated[list[SlaPolicyBody], Field(min_length=1, max_length=40)]
+
+
+class BenchBody(CamelModel):
+    subject: Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)] = ""
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20_000)]
+    from_email: Email | None = None
+    segment: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] = "Retail"
+    compare_with: Literal["active"] | Uuid | None = None

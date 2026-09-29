@@ -137,7 +137,7 @@ class NodeAgent(CamelModel):
     prompt: str = Field(default="", max_length=12_000)
     max_tokens: int | None = Field(default=None, ge=256, le=32_000)
     effort: Literal["low", "medium", "high"] | None = None
-    cost_per_1k_minor: int | None = Field(default=None, ge=0, le=100_000)
+    cost_per_1k_minor: int | None = Field(default=None, ge=0, le=100_000, alias="costPer1kMinor")
     # Drafting only: the house style and sign-off, appended to the prompt.
     style_guide: str = Field(default="", max_length=4000)
     signature: str = Field(default="", max_length=600)

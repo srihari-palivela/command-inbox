@@ -33,6 +33,8 @@ class EvalCaseInput(CamelModel):
 class EvalCaseExpected(CamelModel):
     category: Key
     hard_stop: bool = False
+    lane: Literal["draft", "manual"] | None = None
+    draft_acceptable: bool | None = None
 
 
 class EvalCaseBody(CamelModel):
@@ -50,3 +52,12 @@ class StartEvalRunBody(CamelModel):
     deployment_version_id: Uuid
     dataset_id: Uuid
     provider: Literal["anthropic", "openai"] | None = None
+
+
+class LabelBody(CamelModel):
+    ticket_id: Uuid
+    category: Key
+    hard_stop: bool
+    lane: Literal["draft", "manual"] | None = None
+    draft_acceptable: bool | None = None
+    split: EvalSplit = "test"

@@ -175,11 +175,15 @@ def _case_dto(row: EvalCase) -> dto.EvalCaseDTO:
             subject=str(i.get("subject", "")), body=str(i.get("body", "")), from_email=i.get("fromEmail")
         ),
         expected=dto.EvalCaseDTOExpected(
-            category=str(e.get("category", "")), hard_stop=bool(e.get("hardStop"))
+            category=str(e.get("category", "")),
+            hard_stop=bool(e.get("hardStop")),
+            lane=e.get("lane"),
+            draft_acceptable=e.get("draftAcceptable"),
         ),
         split=row.split,  # type: ignore[arg-type]
         tags=list(row.tags or []),
         source=row.source,
+        ticket_id=row.ticket_id,
         created_at=iso_ms(row.created_at),
     )
 
@@ -187,7 +191,7 @@ def _case_dto(row: EvalCase) -> dto.EvalCaseDTO:
 def _case_fields(body: EvalCaseBody) -> dict[str, Any]:
     return {
         "input": body.input.model_dump(mode="json", by_alias=True),
-        "expected": body.expected.model_dump(mode="json", by_alias=True),
+        "expected": body.expected.model_dump(mode="json", by_alias=True, exclude_none=True),
         "split": body.split,
         "tags": body.tags,
     }

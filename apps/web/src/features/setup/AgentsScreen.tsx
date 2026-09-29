@@ -4,9 +4,10 @@
  */
 import type { AgentsOverviewDTO } from '@ci/contracts';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAgents, useMe } from '../../lib/queries';
 import { Button, cx, EmptyState, Loadable, Meter, Page, PageHeader, Skeleton } from '../../ui';
+import { Notice } from '../admin/bits';
 import { AgentDrawer } from './agents/AgentDrawer';
 import { FeedbackStore } from './agents/FeedbackStore';
 import { boardList, evalColor, isGuard, stateLine } from './agents/model';
@@ -96,6 +97,12 @@ function Agents({ data }: { data: AgentsOverviewDTO }) {
           }
         />
       </div>
+      <Notice>
+        What runs on mail is set per deployment: open a deployment and its <b>Agents</b> tab to choose the
+        provider, model and instructions for each step, and try them on the test bench. The agents below fill
+        in wherever a deployment leaves a step's settings blank.{' '}
+        <Link to="/admin/deployments">Deployments →</Link>
+      </Notice>
 
       <div className={s.chips} aria-label="Agents by template">
         {counts.map((c) => (

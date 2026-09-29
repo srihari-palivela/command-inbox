@@ -6,7 +6,7 @@ import type { EvalResultDTO, EvalRunDTO, EvalSplit } from '@ci/contracts';
 import { LANE_WORD } from '@ci/contracts';
 import { useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { clockTime } from '../../lib/format';
+import { clockTime, money } from '../../lib/format';
 import { useDeployment, useEvalCases, useEvalResults, useEvalRun } from '../../lib/queries';
 import { Card, Chip, cx, EmptyState, Loadable, Page, PageHeader, Skeleton } from '../../ui';
 import { isForbidden, NoAccess, Tone } from './bits';
@@ -177,6 +177,27 @@ function Metrics({ r }: { r: EvalRunDTO }) {
     ['Temperature', m.temperature.toFixed(2)],
     ['Cases (test / calibration)', `${m.cases} / ${m.calibrationCases}`],
   ];
+  const pct = (v: number | null | undefined) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`);
+  const system2: [string, string][] =
+    m.system2Provider === undefined
+      ? []
+      : [
+          [
+            'Language model',
+            `${m.system2Provider}${m.system2Models?.length ? ` · ${m.system2Models.join(', ')}` : ''}`,
+          ],
+          ['End-to-end accuracy', pct(m.endToEndAccuracy)],
+          ['Adjudication accuracy', `${pct(m.adjudicationAccuracy)} of ${m.adjudicatedCases ?? 0}`],
+          ['Adjudicator unsure', pct(m.adjudicationUnsureRate)],
+          ['Grounded drafts', `${pct(m.groundedDraftRate)} of ${m.draftsScored ?? 0}`],
+          ['Drafts with no source', pct(m.noSourceDraftRate)],
+          ['Model cost', money(m.system2CostMinor ?? 0)],
+          [
+            'Model p95 latency',
+            m.system2P95LatencyMs == null ? '—' : `${m.system2P95LatencyMs.toFixed(0)} ms`,
+          ],
+          ['Fallbacks', String(m.system2Fallbacks ?? 0)],
+        ];
   return (
     <Card className={s.card} title="Metrics" meta="scored on the test split">
       <div className={s.metrics}>
@@ -187,6 +208,28 @@ function Metrics({ r }: { r: EvalRunDTO }) {
           </div>
         ))}
       </div>
+      {system2.length > 0 && (
+        <>
+          <h4 className={s.fieldLabel} style={{ margin: '14px 0 6px' }}>
+            System 2 — adjudication and drafting
+            {r.provider ? ' (provider comparison: does not count for publishing)' : ''}
+          </h4>
+          {(m.system2Fallbacks ?? 0) > 0 && (
+            <p className={s.muted} style={{ margin: '0 0 8px' }}>
+              Some calls fell back to the deterministic model (not installed, not allowed, or unavailable), so
+              these numbers are not the provider's alone.
+            </p>
+          )}
+          <div className={s.metrics}>
+            {system2.map(([label, value]) => (
+              <div key={label} className={s.metric}>
+                <div className={s.metricVal}>{value}</div>
+                <div className={s.metricLbl}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </Card>
   );
 }

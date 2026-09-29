@@ -958,10 +958,18 @@ export interface EvalCaseDTO {
   id: string;
   datasetId: string;
   input: { subject: string; body: string; fromEmail: string | null };
-  expected: { category: string; hardStop: boolean };
+  expected: {
+    category: string;
+    hardStop: boolean;
+    /** What a person says should happen; absent on cases labelled before it was asked. */
+    lane?: 'draft' | 'manual' | null;
+    draftAcceptable?: boolean | null;
+  };
   split: EvalSplit;
   tags: string[];
   source: string;
+  /** The real mail a labelled case came from. */
+  ticketId: string | null;
   createdAt: string;
 }
 
@@ -1294,4 +1302,67 @@ export interface SlaPoliciesDTO {
   /** Segments seen on this workspace's tickets, for the picker. */
   segments: string[];
   canEdit: boolean;
+}
+
+// ── Test bench ─────────────────────────────────────────────────────────────────
+export interface BenchSpanDTO {
+  agent: string;
+  model: string;
+  action: string;
+  output: string;
+  latencyMs: number;
+  tokens: number | null;
+  costMinor: number | null;
+  status: SpanStatus;
+}
+
+export interface BenchRunDTO {
+  versionId: string;
+  version: number;
+  state: DeploymentVersionState;
+  lane: Lane;
+  laneNote: string;
+  /** The category's display name; null when nothing was chosen. */
+  category: string | null;
+  confidence: number;
+  hardStop: string | null;
+  /** Text as the models saw and wrote it: personal data stays masked ([PHONE_1] and so on). */
+  draft: {
+    body: string;
+    coverage: 'full' | 'partial' | 'none';
+    citations: { n: number; title: string; section: string }[];
+    flagged: string[];
+  } | null;
+  brief: { summary: string } | null;
+  fields: { label: string; value: string; inferred: boolean }[];
+  spans: BenchSpanDTO[];
+  costMinor: number;
+  latencyMs: number;
+  /** Why a model stage fell back to the deterministic provider (policy, budget, outage). */
+  degraded: string[];
+}
+
+export interface BenchResultDTO {
+  runs: BenchRunDTO[];
+}
+
+// ── Labelling queue (real mail → eval cases) ─────────────────────────────────
+export interface LabelCandidateDTO {
+  ticketId: string;
+  number: number;
+  /** Masked: personal data is replaced before a case is stored or shown here. */
+  subject: string;
+  body: string;
+  receivedAt: string;
+  /** What the AI did with it, as a starting point (never a default answer). */
+  suggested: { category: string | null; hardStop: boolean; lane: Lane };
+}
+
+export interface LabellingQueueDTO {
+  datasetId: string;
+  categories: { key: string; name: string }[];
+  candidates: LabelCandidateDTO[];
+  labelled: number;
+  calibration: number;
+  test: number;
 }
