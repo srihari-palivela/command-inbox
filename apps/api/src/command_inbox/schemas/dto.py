@@ -1471,3 +1471,45 @@ class ModelPolicyDTO(CamelModel):
     month: str
     budget_reached: bool
     can_edit: bool
+
+
+class DepartmentAdminDTO(CamelModel):
+    id: str
+    name: str
+    risk: bool
+    owner: UserRef | None
+    query_types: int | float
+    open_tickets: int | float
+    deletable: bool
+
+
+class QueryTypeAdminDTO(CamelModel):
+    id: str
+    name: str
+    department_id: str | None
+    default_lane: Lane
+    live: bool
+    tickets: int | float
+    deletable: bool
+
+
+class TaxonomyAdminDTO(CamelModel):
+    departments: list[DepartmentAdminDTO]
+    query_types: list[QueryTypeAdminDTO]
+    can_edit: bool
+
+
+class SlaPolicyDTO(CamelModel):
+    id: str
+    name: str
+    priority: Priority | None
+    segment: str | None
+    escalation: bool
+    minutes: int | float
+
+
+class SlaPoliciesDTO(CamelModel):
+    policies: list[SlaPolicyDTO]
+    using_defaults: bool
+    segments: list[str]
+    can_edit: bool

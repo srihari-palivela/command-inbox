@@ -135,6 +135,16 @@ async def test_operator_onboards_a_bank_end_to_end(app, ops):
         ).scalar_one()
     assert v.state == "published" and v.config["thresholds"]["autoMinConfidence"] == 1.0
     assert all(c["defaultLane"] != "auto" for c in v.config["taxonomy"]["categories"])
+    # Its query types, reply-time targets and model-node agents are written out for the admin to edit.
+    from command_inbox.db.models import QueryType, SlaPolicy
+
+    async with tenant_tx(tid) as tx:
+        qts = (await tx.execute(select(QueryType))).scalars().all()
+        slas = (await tx.execute(select(SlaPolicy))).scalars().all()
+    assert len(qts) == len(v.config["taxonomy"]["categories"]) - 1 and all(q.department_id for q in qts)
+    assert any(p.priority is None and p.segment is None and not p.escalation for p in slas)
+    agents = {n["type"]: n.get("agent") for n in v.config["flow"]["nodes"]}
+    assert agents["draft_reply"]["name"] == "Reply Drafter" and agents["mask_pii"] is None
 
     # Nobody from the bank can sign in before accepting.
     token = _token_for(admin_email)

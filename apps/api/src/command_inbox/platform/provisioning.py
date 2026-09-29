@@ -29,6 +29,8 @@ from command_inbox.db.models import (
     DeploymentVersion,
     Invitation,
     Org,
+    QueryType,
+    SlaPolicy,
     TenantProvisioning,
 )
 from command_inbox.platform import keycloak
@@ -72,6 +74,7 @@ async def _identity(org: Org, _payload: dict[str, Any]) -> tuple[str, str]:
 
 
 async def _starter_deployment(org: Org, payload: dict[str, Any]) -> tuple[str, str]:
+    from command_inbox.domain.sla import DEFAULT_SLA_RULES
     from command_inbox.modules.deployments.defaults import DEFAULT_KEY, config_json
     from command_inbox.starter import STARTER_PACK_VERSION, starter_config
 
@@ -90,6 +93,40 @@ async def _starter_deployment(org: Org, payload: dict[str, Any]) -> tuple[str, s
             for i, name in enumerate(names):
                 tx.add(Department(org_id=org.id, name=name, sort=i))
             await tx.flush()
+        # Its query types (one per category but the fallback), editable under Teams and query types.
+        if not (await tx.execute(select(QueryType.id).where(QueryType.org_id == org.id).limit(1))).first():
+            dept_ids = {
+                d.name: d.id
+                for d in (await tx.execute(select(Department).where(Department.org_id == org.id))).scalars()
+            }
+            for i, c in enumerate(config.taxonomy.categories):
+                if c.key != config.taxonomy.fallback:
+                    tx.add(
+                        QueryType(
+                            org_id=org.id,
+                            name=c.name,
+                            department_id=dept_ids.get(c.department),
+                            default_lane=c.default_lane,
+                            sort=i,
+                        )
+                    )
+        # Reply-time targets: the built-in defaults, written out so the admin sees and owns them.
+        if not (await tx.execute(select(SlaPolicy.id).where(SlaPolicy.org_id == org.id).limit(1))).first():
+            tx.add_all(
+                [
+                    SlaPolicy(
+                        org_id=org.id,
+                        name=r.name,
+                        priority=r.priority,
+                        segment=r.segment,
+                        escalation=r.escalation,
+                        minutes=r.minutes,
+                        sort=i,
+                    )
+                    for i, r in enumerate(DEFAULT_SLA_RULES)
+                ]
+            )
+        await tx.flush()
         d = Deployment(
             org_id=org.id,
             key=DEFAULT_KEY,

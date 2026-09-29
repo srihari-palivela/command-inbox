@@ -10,6 +10,7 @@ import { api } from '../../lib/api';
 import { keys } from '../../lib/queries';
 import { Button, Card, Field, Input, Loadable, Page, PageHeader, Skeleton } from '../../ui';
 import { isForbidden, NoAccess, Notice, ProblemAlert, Select, Tone, useInlineAction } from './bits';
+import { ModelPolicyCard } from './ModelPolicyCard';
 import s from './workspace.module.css';
 
 const SSO_TONE: Record<WorkspaceSsoDTO['state'], { label: string; fg: string; bg: string; line: string }> = {
@@ -29,7 +30,7 @@ export default function OrganisationScreen() {
       <div className="rise">
         <PageHeader
           title="Organisation"
-          subtitle="Your organisation's details, how figures are shown, and how your people sign in."
+          subtitle="Your organisation's details, how figures are shown, how your people sign in, and which AI models may be used."
         />
       </div>
       {isForbidden(q.error) ? (
@@ -40,6 +41,7 @@ export default function OrganisationScreen() {
             <div style={{ display: 'grid', gap: 14 }}>
               <ProfileForm profile={p} />
               <SsoForm profile={p} />
+              <ModelPolicyCard />
               <Card title="Set by Command Inbox">
                 <dl className={s.facts}>
                   <dt>Region</dt>

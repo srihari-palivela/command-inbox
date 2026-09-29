@@ -49,11 +49,42 @@ def at_risk(tone: str) -> bool:
     return tone in ("due_soon", "almost_late", "late")
 
 
-def sla_budget(priority: str, segment: str, escalation: bool = False) -> int:
-    if escalation:
-        return 8 * 60
-    if priority == "P1" and segment == "Corporate":
-        return 4 * 60
-    if priority == "P1":
-        return 8 * 60
+@dataclass(frozen=True, slots=True)
+class SlaRule:
+    """A workspace's reply-time target. None matches any priority or segment."""
+
+    minutes: int
+    priority: str | None = None
+    segment: str | None = None
+    escalation: bool = False
+    name: str = ""
+
+
+# What a workspace gets until its admin sets its own (the starter pack writes these as its policies).
+DEFAULT_SLA_RULES: tuple[SlaRule, ...] = (
+    SlaRule(8 * 60, escalation=True, name="Escalations and regulator mentions"),
+    SlaRule(4 * 60, priority="P1", segment="Corporate", name="Urgent corporate"),
+    SlaRule(8 * 60, priority="P1", name="Urgent"),
+    SlaRule(24 * 60, name="Everything else"),
+)
+
+
+def sla_budget(
+    priority: str, segment: str, escalation: bool = False, rules: tuple[SlaRule, ...] | list[SlaRule] = ()
+) -> int:
+    """Minutes to reply: the most specific matching rule (priority and segment, then priority, then segment,
+    then neither); an escalation uses the escalation rules first. Built-in defaults when none match."""
+    for table in (rules, DEFAULT_SLA_RULES) if rules else (DEFAULT_SLA_RULES,):
+        passes = (True, False) if escalation else (False,)
+        for esc in passes:
+            matches = [
+                r
+                for r in table
+                if r.escalation == esc
+                and r.priority in (None, priority)
+                and (r.segment is None or r.segment.lower() == segment.lower())
+            ]
+            if matches:
+                best = max(matches, key=lambda r: (r.priority is not None) * 2 + (r.segment is not None))
+                return best.minutes
     return 24 * 60

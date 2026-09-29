@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field, StringConstraints
 
 from command_inbox.schemas.base import CamelModel
 from command_inbox.schemas.enums import (
@@ -280,3 +280,27 @@ class KnowledgeSearchBody(CamelModel):
 class ModelPolicyBody(CamelModel):
     allowed_providers: Annotated[list[Literal["anthropic", "openai"]], Field(max_length=2)]
     monthly_budget_minor: Annotated[int, Field(ge=0, le=1_000_000_000_000)] | None
+
+
+class DepartmentBody(CamelModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    risk: bool = False
+
+
+class QueryTypeBody(CamelModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    department_id: Uuid | None
+    default_lane: Literal["draft", "manual"]
+    live: bool = True
+
+
+class SlaPolicyBody(CamelModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    priority: Literal["P1", "P2", "P3", "P4"] | None
+    segment: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] | None
+    escalation: bool = False
+    minutes: Annotated[int, Field(ge=5, le=43_200)]
+
+
+class SlaPoliciesBody(CamelModel):
+    policies: Annotated[list[SlaPolicyBody], Field(min_length=1, max_length=40)]

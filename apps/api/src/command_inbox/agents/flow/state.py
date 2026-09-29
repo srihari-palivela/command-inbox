@@ -18,6 +18,7 @@ from langchain_core.runnables import RunnableConfig
 from command_inbox.agents.config import Category, DeploymentConfig
 from command_inbox.agents.decision import ResilientEngine
 from command_inbox.agents.providers import AgentSpec, ProviderRouter, Usage
+from command_inbox.domain.sla import SlaRule
 
 
 def _merge(a: dict[str, Any] | None, b: dict[str, Any] | None) -> dict[str, Any]:
@@ -127,6 +128,7 @@ class RunDeps:
     retrieve: Callable[[str, str | None], Awaitable[list[DocRow]]] | None = None
     sender_verified: bool = True
     force_lane: str | None = None
+    sla_rules: tuple[SlaRule, ...] = ()
     vault: dict[str, str] = field(default_factory=dict)
     started: float = field(default_factory=time.perf_counter)
 

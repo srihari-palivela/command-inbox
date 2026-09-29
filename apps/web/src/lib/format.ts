@@ -32,6 +32,11 @@ function currencyDigits(currency: string): number {
   );
 }
 
+/** Decimal places of the tenant currency's minor unit (2 for INR and GBP, 0 for JPY). */
+export function minorExponent(): number {
+  return currencyDigits(tenant.currency);
+}
+
 /** An amount held in minor units (paise, cents), in the tenant's currency. */
 export function money(minor: number, digits?: number): string {
   const exp = currencyDigits(tenant.currency);

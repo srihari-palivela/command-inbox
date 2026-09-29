@@ -344,7 +344,7 @@ def compute_priority(state: FlowState, deps: RunDeps, model_hint: str | None = N
     guard = state.get("guard") or {}
     extraction = state.get("extraction")
     escalation = bool(guard.get("regulator_named") or guard.get("repeat_contact"))
-    provisional = sla_budget(deps.ticket_priority, deps.segment, escalation)
+    provisional = sla_budget(deps.ticket_priority, deps.segment, escalation, deps.sla_rules)
     due = deps.received_at + timedelta(minutes=provisional)
     minutes_left = math.floor((due - deps.now).total_seconds() / 60 + 0.5)  # Math.round semantics
     contacts = max(3, deps.prior_contacts + 1) if guard.get("repeat_contact") else deps.prior_contacts + 1

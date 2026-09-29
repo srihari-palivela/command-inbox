@@ -359,3 +359,26 @@ export const ModelPolicyBody = z.object({
   monthlyBudgetMinor: z.number().int().min(0).max(1_000_000_000_000).nullable(),
 });
 export type ModelPolicyBody = z.infer<typeof ModelPolicyBody>;
+
+// ── Teams, query types and reply-time targets ───────────────────────────────────
+export const DepartmentBody = z.object({ name: trimmed(80), risk: z.boolean().default(false) });
+export type DepartmentBody = z.infer<typeof DepartmentBody>;
+
+export const QueryTypeBody = z.object({
+  name: trimmed(120),
+  departmentId: z.string().uuid().nullable(),
+  /** No automatic lane in this version: draft for approval, or a person. */
+  defaultLane: z.enum(['draft', 'manual']),
+  live: z.boolean().default(true),
+});
+export type QueryTypeBody = z.infer<typeof QueryTypeBody>;
+
+export const SlaPolicyBody = z.object({
+  name: trimmed(80),
+  priority: Priority.nullable(),
+  segment: z.string().trim().min(1).max(40).nullable(),
+  escalation: z.boolean().default(false),
+  minutes: z.number().int().min(5).max(43_200),
+});
+export const SlaPoliciesBody = z.object({ policies: z.array(SlaPolicyBody).min(1).max(40) });
+export type SlaPoliciesBody = z.infer<typeof SlaPoliciesBody>;

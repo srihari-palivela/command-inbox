@@ -26,6 +26,7 @@ ROUTERS: list[tuple[str, str]] = [
     ("command_inbox.modules.insights.router", "router"),
     ("command_inbox.modules.learning.router", "router"),
     ("command_inbox.modules.setup.router", "router"),
+    ("command_inbox.modules.taxonomy.router", "router"),
     # tenant administration: members, invitations, permissions; deployments and evals
     ("command_inbox.modules.members.router", "router"),
     ("command_inbox.modules.deployments.router", "router"),

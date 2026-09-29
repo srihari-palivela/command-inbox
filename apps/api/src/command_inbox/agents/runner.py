@@ -64,6 +64,7 @@ from command_inbox.db.models import (
 )
 from command_inbox.domain.sla import sla_budget
 from command_inbox.modules.people.routing import pick_assignee
+from command_inbox.modules.taxonomy.sla import load_sla_rules
 from command_inbox.modules.tickets.ops import (
     lock_ticket,
     next_number,
@@ -135,6 +136,7 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         org = (await tx.execute(select(Org).where(Org.id == org_id))).scalar_one()
         allowed_providers = list(org.allowed_providers or [])
         month_left = await monthly_remaining(tx, org)
+        sla_rules = await load_sla_rules(tx, org_id)
         depts = {
             str(d.id): d.name
             for d in (await tx.execute(select(Department).where(Department.org_id == org_id))).scalars()
@@ -285,6 +287,7 @@ async def load(org_id: str, ticket_id: str, payload: dict[str, Any]) -> Loaded |
         sender_verified=sender_verified,
         force_lane=payload.get("forceLane") if payload.get("forceLane") in LANE_NAME else None,
         retrieve=_retriever(org_id),
+        sla_rules=sla_rules,
     )
     bucketer = agents.get("bucketer")
     return Loaded(
@@ -731,7 +734,7 @@ async def commit(job: JobRow, loaded: Loaded, state: dict[str, Any], total_ms: i
                 tx, org_id, ticket_id, f"Assigned to {assignee['name']} — {assignee['reason']}."
             )
 
-        sla_minutes = sla_budget(priority, locked.segment, escalation)
+        sla_minutes = sla_budget(priority, locked.segment, escalation, deps.sla_rules)
         patch: dict[str, Any] = {
             "lane": lane,
             "original_lane": locked.original_lane if deps.force_lane else lane,
@@ -870,7 +873,7 @@ async def handle_final_failure(job: JobRow) -> None:
             return
         t = await lock_ticket(tx, job.org_id, ticket_id)
         note = "AI unavailable — handed to a person with the raw thread"
-        sla_minutes = sla_budget(t.priority, t.segment)
+        sla_minutes = sla_budget(t.priority, t.segment, rules=await load_sla_rules(tx, job.org_id))
         t = await update_ticket(
             tx,
             t,

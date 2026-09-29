@@ -1246,3 +1246,52 @@ export interface ModelPolicyDTO {
   budgetReached: boolean;
   canEdit: boolean;
 }
+
+// ── Teams, query types and reply-time targets (admin) ─────────────────────────
+export interface DepartmentAdminDTO {
+  id: string;
+  name: string;
+  risk: boolean;
+  owner: UserRef | null;
+  queryTypes: number;
+  openTickets: number;
+  /** A team with tickets, query types, mailboxes or documents cannot be deleted (rename it instead). */
+  deletable: boolean;
+}
+
+export interface QueryTypeAdminDTO {
+  id: string;
+  name: string;
+  departmentId: string | null;
+  defaultLane: Lane;
+  live: boolean;
+  tickets: number;
+  deletable: boolean;
+}
+
+export interface TaxonomyAdminDTO {
+  departments: DepartmentAdminDTO[];
+  queryTypes: QueryTypeAdminDTO[];
+  canEdit: boolean;
+}
+
+export interface SlaPolicyDTO {
+  id: string;
+  name: string;
+  /** Null matches any priority. */
+  priority: Priority | null;
+  /** Null matches any customer segment. */
+  segment: string | null;
+  /** Applies to escalations (a regulator named, a repeat contact) before any other rule. */
+  escalation: boolean;
+  minutes: number;
+}
+
+export interface SlaPoliciesDTO {
+  policies: SlaPolicyDTO[];
+  /** No policies of its own: the built-in defaults apply (shown as the policies). */
+  usingDefaults: boolean;
+  /** Segments seen on this workspace's tickets, for the picker. */
+  segments: string[];
+  canEdit: boolean;
+}
